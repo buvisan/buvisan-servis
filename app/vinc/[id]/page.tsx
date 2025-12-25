@@ -1,23 +1,22 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient'; // Bağlantı dosyamızı çağırdık
+import { supabase } from '@/lib/supabaseClient';
 import { useParams } from 'next/navigation';
+import jsPDF from 'jspdf'; // PDF kütüphanemiz
 
 export default function VincDetaySayfasi() {
   const params = useParams();
-  const { id } = params; // URL'den gelen ID'yi aldık
+  const { id } = params;
 
   const [vinc, setVinc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [arizaNotu, setArizaNotu] = useState("");
-  const [bildirimDurumu, setBildirimDurumu] = useState(""); // Gönderildi mesajı için
+  const [bildirimDurumu, setBildirimDurumu] = useState("");
 
-  // Sayfa açılınca çalışacak kısım:
   useEffect(() => {
     async function vinciGetir() {
       if (!id) return;
       
-      // Veritabanından bu ID'ye sahip vinci bul
       const { data, error } = await supabase
         .from('cranes')
         .select('*')
@@ -35,7 +34,6 @@ export default function VincDetaySayfasi() {
     vinciGetir();
   }, [id]);
 
-  // Arıza Bildir butonuna basınca çalışacak kısım
   const arizaBildir = async () => {
     if (!arizaNotu) return alert("Lütfen arıza ile ilgili bir not yazın.");
     
@@ -57,8 +55,42 @@ export default function VincDetaySayfasi() {
       setBildirimDurumu("");
     } else {
       setBildirimDurumu("Başarılı! Teknik ekibimize bildirim düştü. 🚀");
-      setArizaNotu(""); // Kutuyu temizle
+      setArizaNotu("");
     }
+  };
+
+  // --- PDF OLUŞTURMA FONKSİYONU ---
+  const pdfIndir = () => {
+    if (!vinc) return;
+
+    const doc = new jsPDF();
+
+    // Başlık
+    doc.setFontSize(22);
+    doc.text("BUVISAN VINC SISTEMLERI", 20, 20);
+    
+    doc.setFontSize(16);
+    doc.text("Teknik Kimlik Karti", 20, 30);
+    
+    doc.setLineWidth(0.5);
+    doc.line(20, 35, 190, 35); // Çizgi çek
+
+    // Bilgiler
+    doc.setFontSize(12);
+    doc.text(`Model: ${vinc.model_name}`, 20, 50);
+    doc.text(`Seri Numarasi: ${vinc.serial_number}`, 20, 60);
+    doc.text(`Kapasite: ${vinc.capacity}`, 20, 70);
+    doc.text(`Yukseklik: ${vinc.lifting_height}`, 20, 80);
+    doc.text(`Musteri: ${vinc.customer_name}`, 20, 90);
+    doc.text(`Konum: ${vinc.location_address}`, 20, 100);
+
+    // Alt Bilgi
+    doc.setFontSize(10);
+    doc.text("Bu belge Buvisan Dijital Servis sistemi tarafindan olusturulmustur.", 20, 130);
+    doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 20, 135);
+
+    // Kaydet
+    doc.save(`Buvisan-Vinc-${vinc.serial_number}.pdf`);
   };
 
   if (loading) return <div className="p-10 text-center text-xl">Vinç bilgileri yükleniyor...</div>;
@@ -97,6 +129,16 @@ export default function VincDetaySayfasi() {
                 <span className="text-gray-500">Müşteri:</span>
                 <span className="font-semibold text-gray-800">{vinc.customer_name}</span>
             </div>
+        </div>
+
+        {/* --- YENİ EKLENEN PDF BUTONU --- */}
+        <div className="bg-gray-50 p-4 border-t border-gray-100 text-center">
+            <button 
+                onClick={pdfIndir}
+                className="flex items-center justify-center w-full gap-2 bg-gray-800 text-white font-bold py-2 rounded hover:bg-gray-900 transition"
+            >
+                📄 Teknik Kartı İndir (PDF)
+            </button>
         </div>
       </div>
 
