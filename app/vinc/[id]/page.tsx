@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useParams } from 'next/navigation';
-import jsPDF from 'jspdf'; // PDF kütüphanemiz
+import jsPDF from 'jspdf'; // Otomatik PDF için
 
 export default function VincDetaySayfasi() {
   const params = useParams();
@@ -13,6 +13,7 @@ export default function VincDetaySayfasi() {
   const [arizaNotu, setArizaNotu] = useState("");
   const [bildirimDurumu, setBildirimDurumu] = useState("");
 
+  // Sayfa açılınca vinç bilgilerini getir
   useEffect(() => {
     async function vinciGetir() {
       if (!id) return;
@@ -34,6 +35,7 @@ export default function VincDetaySayfasi() {
     vinciGetir();
   }, [id]);
 
+  // Arıza Bildirme Fonksiyonu
   const arizaBildir = async () => {
     if (!arizaNotu) return alert("Lütfen arıza ile ilgili bir not yazın.");
     
@@ -59,21 +61,18 @@ export default function VincDetaySayfasi() {
     }
   };
 
-  // --- PDF OLUŞTURMA FONKSİYONU ---
+  // Otomatik (Sistemin Ürettiği) PDF İndirme
   const pdfIndir = () => {
     if (!vinc) return;
 
     const doc = new jsPDF();
-
     // Başlık
     doc.setFontSize(22);
     doc.text("BUVISAN VINC SISTEMLERI", 20, 20);
-    
     doc.setFontSize(16);
     doc.text("Teknik Kimlik Karti", 20, 30);
-    
     doc.setLineWidth(0.5);
-    doc.line(20, 35, 190, 35); // Çizgi çek
+    doc.line(20, 35, 190, 35);
 
     // Bilgiler
     doc.setFontSize(12);
@@ -89,7 +88,6 @@ export default function VincDetaySayfasi() {
     doc.text("Bu belge Buvisan Dijital Servis sistemi tarafindan olusturulmustur.", 20, 130);
     doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 20, 135);
 
-    // Kaydet
     doc.save(`Buvisan-Vinc-${vinc.serial_number}.pdf`);
   };
 
@@ -131,13 +129,27 @@ export default function VincDetaySayfasi() {
             </div>
         </div>
 
-        {/* --- YENİ EKLENEN PDF BUTONU --- */}
-        <div className="bg-gray-50 p-4 border-t border-gray-100 text-center">
+        {/* --- DOKÜMAN İNDİRME ALANI --- */}
+        <div className="bg-gray-50 p-4 border-t border-gray-100 flex flex-col gap-3">
+            
+            {/* 1. Eğer admin dosya yüklediyse bu KIRMIZI buton çıkacak */}
+            {vinc.pdf_url && (
+                <a 
+                    href={vinc.pdf_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center w-full gap-2 bg-red-600 text-white font-bold py-3 rounded-lg shadow hover:bg-red-700 transition active:scale-95"
+                >
+                    📕 Kullanım Kılavuzunu İndir (Orijinal)
+                </a>
+            )}
+
+            {/* 2. Otomatik oluşturulan kimlik kartı her zaman duracak (GRİ Buton) */}
             <button 
                 onClick={pdfIndir}
-                className="flex items-center justify-center w-full gap-2 bg-gray-800 text-white font-bold py-2 rounded hover:bg-gray-900 transition"
+                className="flex items-center justify-center w-full gap-2 bg-gray-700 text-white font-bold py-3 rounded-lg shadow hover:bg-gray-800 transition active:scale-95 text-sm"
             >
-                📄 Teknik Kartı İndir (PDF)
+                📄 Kimlik Kartı Oluştur (Otomatik)
             </button>
         </div>
       </div>
@@ -169,7 +181,7 @@ export default function VincDetaySayfasi() {
         )}
       </div>
 
-      <div className="mt-8 text-gray-400 text-xs text-center">
+      <div className="mt-8 text-gray-400 text-xs text-center pb-8">
         Powered by ZM Çelik & Buvisan Technology
       </div>
     </div>
