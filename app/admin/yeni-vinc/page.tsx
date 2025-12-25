@@ -1,9 +1,29 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // useEffect ekledik
 import { supabase } from '@/lib/supabaseClient';
-import { QRCodeSVG } from 'qrcode.react'; // QR kod paketimiz
+import { QRCodeSVG } from 'qrcode.react';
+import { useRouter } from 'next/navigation'; // Yönlendirme için ekledik
 
 export default function YeniVincEkle() {
+  const router = useRouter();
+  const [yukleniyor, setYukleniyor] = useState(false); // Başlangıçta false
+  const [izinKontrol, setIzinKontrol] = useState(true); // Sayfa yüklenirken beklemesi için
+
+  // --- GÜVENLİK KONTROLÜ BAŞLANGIÇ ---
+  useEffect(() => {
+    async function kontrolEt() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // Giriş yapmamışsa Login sayfasına at
+        router.push('/login');
+      } else {
+        setIzinKontrol(false); // Giriş yapmış, ekranı aç
+      }
+    }
+    kontrolEt();
+  }, []);
+  // --- GÜVENLİK KONTROLÜ BİTİŞ ---
+
   const [formData, setFormData] = useState({
     serial_number: '',
     model_name: '',
@@ -14,18 +34,13 @@ export default function YeniVincEkle() {
   });
 
   const [olusanId, setOlusanId] = useState<string | null>(null);
-  const [yukleniyor, setYukleniyor] = useState(false);
 
-  // Formdaki değişiklikleri yakala
   const handleChange = (e: any) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Kaydet butonuna basınca
   const kaydet = async () => {
     setYukleniyor(true);
-    
-    // 1. Veritabanına kaydet
     const { data, error } = await supabase
       .from('cranes')
       .insert([formData])
@@ -33,25 +48,25 @@ export default function YeniVincEkle() {
       .single();
 
     if (error) {
-      alert("Hata oluştu: " + error.message);
+      alert("Hata: " + error.message);
     } else {
-      // 2. Başarılıysa ID'yi al ki QR kod oluşturabilelim
       setOlusanId(data.id);
     }
     setYukleniyor(false);
   };
 
-  // Yazdır Butonu
   const yazdir = () => {
     window.print();
   };
+
+  // Eğer güvenlik kontrolü sürüyorsa bekleme ekranı göster
+  if (izinKontrol) return <div className="p-10 text-center">Yetki kontrolü yapılıyor... 🕵️‍♂️</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 flex flex-col items-center">
       <h1 className="text-3xl font-bold text-blue-900 mb-6">🏗️ Yeni Vinç Kaydı Oluştur</h1>
 
       {!olusanId ? (
-        // --- FORM EKRANI ---
         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-lg space-y-4">
           <div>
             <label className="block text-sm font-bold text-gray-700">Seri Numarası</label>
@@ -87,16 +102,18 @@ export default function YeniVincEkle() {
           >
             {yukleniyor ? "Kaydediliyor..." : "KAYDET VE QR OLUŞTUR"}
           </button>
+          
+          {/* Geri Dön Butonu */}
+          <button onClick={() => router.push('/admin')} className="w-full mt-2 text-gray-500 text-sm hover:underline">
+            « Panele Dön
+          </button>
         </div>
       ) : (
-        // --- QR KOD EKRANI (KAYITTAN SONRA ÇIKAR) ---
         <div className="bg-white p-10 rounded-xl shadow-lg text-center border-4 border-blue-900 print:border-0 print:shadow-none">
           <h2 className="text-2xl font-bold mb-2">BUVİSAN SERVİS SİSTEMİ</h2>
           <p className="text-gray-500 mb-6">Aşağıdaki QR kodu vinç üzerine yapıştırınız.</p>
           
           <div className="flex justify-center mb-6 p-4 border-2 border-dashed border-gray-300">
-            {/* QR Kodun oluşturulduğu yer */}
-            {/* Burada localhost yerine gerçek site adresini yazacağız ileride */}
             <QRCodeSVG 
                 value={`https://buvisan-servis.vercel.app/vinc/${olusanId}`} 
                 size={256} 
@@ -119,6 +136,9 @@ export default function YeniVincEkle() {
                 ➕ Yeni Ekle
             </button>
           </div>
+          <button onClick={() => router.push('/admin')} className="mt-4 text-gray-500 text-sm hover:underline print:hidden">
+            « Panele Dön
+          </button>
         </div>
       )}
     </div>
