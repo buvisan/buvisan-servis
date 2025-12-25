@@ -140,7 +140,7 @@ export default function VincDetaySayfasi() {
                     rel="noopener noreferrer"
                     className="flex items-center justify-center w-full gap-2 bg-red-600 text-white font-bold py-3 rounded-lg shadow hover:bg-red-700 transition active:scale-95"
                 >
-                    📕 Kullanım Kılavuzunu İndir (Orijinal)
+                    📕 İş Emri Formunu İndir
                 </a>
             )}
 
