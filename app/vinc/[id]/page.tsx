@@ -53,7 +53,8 @@ export default function VincDetaySayfasi() {
       ]);
 
     if (error) {
-      alert("Hata oluştu!");
+      alert("Hata Detayı: " + error.message); // Bize gerçek sebebi söyleyecek
+      console.log(error);
       setBildirimDurumu("");
     } else {
       setBildirimDurumu("Başarılı! Teknik ekibimize bildirim düştü. 🚀");
