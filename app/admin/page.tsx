@@ -62,6 +62,9 @@ export default function AdminPanel() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">🛠️ Buvisan Teknik Servis Paneli</h1>
           <div className='flex gap-2'>
+            <button onClick={() => router.push('/admin/vincler')} className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800">
+                📋 Tüm Vinçler
+            </button>
             <button onClick={() => router.push('/admin/yeni-vinc')} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
                 ➕ Yeni Vinç
             </button>
