@@ -1,22 +1,33 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation'; // Yönlendirme için
 
 export default function AdminPanel() {
+  const router = useRouter();
   const [bildirimler, setBildirimler] = useState<any[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
 
-  // Sayfa açılınca verileri çek
+  // Sayfa açılınca çalışacak kısım
   useEffect(() => {
-    verileriGetir();
+    oturumKontroluVeVeriler();
   }, []);
 
-  async function verileriGetir() {
-    // service_tickets tablosunu çek ama yanına cranes (vinç) bilgilerini de ekle
+  async function oturumKontroluVeVeriler() {
+    // 1. ÖNCE GÜVENLİK: Kullanıcı giriş yapmış mı?
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      // Giriş yapmamışsa Login sayfasına şutla!
+      router.push('/login');
+      return; 
+    }
+
+    // 2. Giriş yapmışsa verileri getir
     const { data, error } = await supabase
       .from('service_tickets')
       .select('*, cranes(*)') 
-      .order('created_at', { ascending: false }); // En yeniyi en üste koy
+      .order('created_at', { ascending: false });
 
     if (error) console.error("Hata:", error);
     else setBildirimler(data || []);
@@ -32,12 +43,17 @@ export default function AdminPanel() {
       .eq('id', id);
 
     if (!error) {
-      // Listeyi ekranda da güncelle (sayfayı yenilemeden)
-      verileriGetir();
+      oturumKontroluVeVeriler(); // Listeyi yenile
     }
   }
 
-  if (yukleniyor) return <div className="p-10 text-center text-xl">Panel Yükleniyor...</div>;
+  // Çıkış Yap Butonu İçin
+  async function cikisYap() {
+    await supabase.auth.signOut();
+    router.push('/login');
+  }
+
+  if (yukleniyor) return <div className="p-10 text-center text-xl">Güvenlik kontrolü yapılıyor... 🕵️‍♂️</div>;
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -45,9 +61,14 @@ export default function AdminPanel() {
         
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">🛠️ Buvisan Teknik Servis Paneli</h1>
-          <button onClick={verileriGetir} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-            Yenile 🔄
-          </button>
+          <div className='flex gap-2'>
+            <button onClick={() => router.push('/admin/yeni-vinc')} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                ➕ Yeni Vinç
+            </button>
+            <button onClick={cikisYap} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                Çıkış Yap 🚪
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-4">
@@ -58,7 +79,6 @@ export default function AdminPanel() {
               <div key={kayit.id} className={`bg-white p-6 rounded-lg shadow-md border-l-8 ${kayit.status === 'tamamlandi' ? 'border-green-500' : 'border-red-500'}`}>
                 <div className="flex flex-col md:flex-row justify-between">
                   
-                  {/* Sol Taraf: Vinç ve Arıza Bilgisi */}
                   <div className="mb-4 md:mb-0">
                     <div className="flex items-center gap-2 mb-2">
                         <span className={`px-2 py-1 text-xs font-bold rounded text-white ${kayit.status === 'tamamlandi' ? 'bg-green-500' : 'bg-red-500'}`}>
@@ -81,22 +101,13 @@ export default function AdminPanel() {
                     </div>
                   </div>
 
-                  {/* Sağ Taraf: Aksiyon Butonları */}
                   <div className="flex items-center">
                     {kayit.status !== 'tamamlandi' && (
                         <button 
                             onClick={() => durumuGuncelle(kayit.id, 'tamamlandi')}
                             className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow transition-all"
                         >
-                            ✅ Çözüldü İşaretle
-                        </button>
-                    )}
-                    {kayit.status === 'tamamlandi' && (
-                        <button 
-                            onClick={() => durumuGuncelle(kayit.id, 'beklemede')}
-                            className="text-gray-400 hover:text-gray-600 text-sm underline ml-4"
-                        >
-                            Geri Al
+                            ✅ Çözüldü
                         </button>
                     )}
                   </div>
