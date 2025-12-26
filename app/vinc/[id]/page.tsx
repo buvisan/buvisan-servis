@@ -13,7 +13,6 @@ export default function VincDetaySayfasi() {
   const [vinc, setVinc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // ARIZA FORMU STATE'LERİ
   const [arizaNotu, setArizaNotu] = useState("");
   const [bildirimDurumu, setBildirimDurumu] = useState("");
   const [secilenMedya, setSecilenMedya] = useState<File | null>(null);
@@ -28,6 +27,18 @@ export default function VincDetaySayfasi() {
     vinciGetir();
   }, [id]);
 
+  // --- İSMİ TEMİZLEYEN ROBOT FONKSİYON ---
+  const dosyaIsminiTemizle = (isim: string) => {
+    return isim
+      .replace(/ğ/g, 'g').replace(/Ğ/g, 'G').replace(/ü/g, 'u').replace(/Ü/g, 'U')
+      .replace(/ş/g, 's').replace(/Ş/g, 'S').replace(/ı/g, 'i').replace(/İ/g, 'I')
+      .replace(/ö/g, 'o').replace(/Ö/g, 'O').replace(/ç/g, 'c').replace(/Ç/g, 'C')
+      .replace(/ /g, '-')
+      .replace(/[^a-zA-Z0-9.-]/g, '')
+      .toLowerCase(); // Her şeyi küçük harfe çevir
+  };
+  // ---------------------------------------
+
   const arizaBildir = async () => {
     if (!arizaNotu) return alert("Lütfen sorunu açıklayan bir not yazın.");
     setBildirimDurumu("loading");
@@ -35,10 +46,16 @@ export default function VincDetaySayfasi() {
     let medyaLinki = null;
 
     try {
-        // 1. EĞER FOTOĞRAF/VİDEO SEÇİLDİYSE YÜKLE
+        // FOTOĞRAF YÜKLEME İŞLEMİ (GÜNCELLENDİ)
         if (secilenMedya) {
-            const dosyaUzantisi = secilenMedya.name.split('.').pop();
-            const dosyaAdi = `${Date.now()}-ariza.${dosyaUzantisi}`;
+            // 1. Uzantıyı al ve temizle (Örn: JPEG -> jpeg)
+            const orjinalIsim = secilenMedya.name;
+            const uzantisi = orjinalIsim.split('.').pop() || 'jpg';
+            const temizUzanti = dosyaIsminiTemizle(uzantisi);
+
+            // 2. İsmi tamamen baştan yarat (Tarih + Temiz Uzantı)
+            // Örn: 1735987123-ariza-dosyasi.jpg
+            const dosyaAdi = `${Date.now()}-ariza-dosyasi.${temizUzanti}`;
             
             const { error: uploadError } = await supabase.storage
                 .from('ariza-medya')
@@ -53,13 +70,12 @@ export default function VincDetaySayfasi() {
             medyaLinki = urlData.publicUrl;
         }
 
-        // 2. ARIZA KAYDINI OLUŞTUR (Fotoğraf linkiyle beraber)
         const { error } = await supabase.from('service_tickets').insert([{ 
             crane_id: id, 
             issue_type: 'Genel Arıza', 
             description: arizaNotu, 
             status: 'beklemede',
-            media_url: medyaLinki // Yeni alan
+            media_url: medyaLinki
         }]);
 
         if (error) throw error;
@@ -69,21 +85,19 @@ export default function VincDetaySayfasi() {
         setSecilenMedya(null);
 
     } catch (error: any) {
-        alert("Hata: " + error.message);
+        alert("Hata Detayı: " + error.message);
         setBildirimDurumu("");
     }
   };
 
   const medyaSec = (e: any) => {
     if (e.target.files && e.target.files[0]) {
-        // Sadece resim ve video kontrolü (opsiyonel ama iyi olur)
         const file = e.target.files[0];
-        if (file.size > 10 * 1024 * 1024) return alert("Dosya boyutu 10MB'dan büyük olamaz.");
+        if (file.size > 20 * 1024 * 1024) return alert("Dosya boyutu çok büyük (Max 20MB).");
         setSecilenMedya(file);
     }
   };
 
-  // PDF İndirme Fonksiyonu (Aynı)
   const pdfIndir = () => {
     if (!vinc) return;
     const doc = new jsPDF();
@@ -100,14 +114,11 @@ export default function VincDetaySayfasi() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-900 via-blue-800 to-gray-900 p-4 font-sans text-gray-800 pb-20">
-      
-      {/* ÜST BAŞLIK ALANI */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-6 pb-8">
         <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-md">BUVİSAN</h1>
         <p className="text-blue-200 text-sm font-medium tracking-widest uppercase mt-1">Dijital Asistan v1.1</p>
       </motion.div>
 
-      {/* ANA KART (Vinç Bilgileri) */}
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl overflow-hidden max-w-md mx-auto relative z-10">
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white relative overflow-hidden">
           <div className="flex items-center gap-3">
@@ -126,7 +137,6 @@ export default function VincDetaySayfasi() {
         </div>
       </motion.div>
 
-      {/* --- ARIZA BİLDİRİM KARTI (FOTOĞRAFLI) --- */}
       <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5 }} className="max-w-md mx-auto mt-6">
         <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 shadow-xl relative overflow-hidden border border-red-100">
            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 to-red-600"></div>
@@ -134,7 +144,6 @@ export default function VincDetaySayfasi() {
 
            <textarea className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all text-gray-700 min-h-[100px] resize-none mb-3" placeholder="Sorunu kısaca açıklayın (Örn: Halat koptu, yağ kaçağı var...)" value={arizaNotu} onChange={(e) => setArizaNotu(e.target.value)}></textarea>
 
-           {/* FOTOĞRAF YÜKLEME BUTONU */}
            <div className="mb-4">
              <label className={`flex items-center justify-center w-full gap-2 p-3 rounded-xl border-2 border-dashed cursor-pointer transition-all ${secilenMedya ? 'bg-green-50 border-green-400 text-green-700' : 'bg-gray-50 border-gray-300 text-gray-500 hover:bg-gray-100 hover:border-red-300'}`}>
                  <Camera className={`w-5 h-5 ${secilenMedya ? 'text-green-600' : ''}`} />
