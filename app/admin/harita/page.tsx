@@ -16,16 +16,13 @@ export default function HaritaModu() {
   const [secilenVinc, setSecilenVinc] = useState<any>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
 
-  // --- HARİTA BİLEŞENİ (Dynamic Import) ---
+  // Harita Bileşeni
   const Map = useMemo(() => dynamic(
     () => import('react-leaflet').then((mod) => {
         const { MapContainer, TileLayer, Marker, useMap } = mod;
-        
-        // CSS'i manuel yüklüyoruz
         require('leaflet/dist/leaflet.css');
         const L = require('leaflet');
 
-        // Mavi İkon Ayarı
         const customIcon = new L.Icon({
             iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/markers/marker-icon-2x-blue.png',
             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -35,10 +32,9 @@ export default function HaritaModu() {
             shadowSize: [41, 41]
         });
 
-        // Harita İçerik Kontrolcüsü
         const HaritaIcerik = () => {
-             // BURADAKİ 'as any' HATAYI SUSTURUR 👇
-             const map = useMap() as any; 
+             // İŞTE SİHİRLİ DOKUNUŞ BURADA: "as any"
+             const map = useMap() as any;
              
              return (
                 <>
@@ -55,7 +51,7 @@ export default function HaritaModu() {
                                 eventHandlers={{
                                     click: () => {
                                         setSecilenVinc(vinc);
-                                        // Animasyon artık hata vermez
+                                        // Artık burası hata vermeyecek
                                         map.flyTo([vinc.lat, vinc.lng], 14, { duration: 1.5 });
                                     },
                                 }}
@@ -74,10 +70,7 @@ export default function HaritaModu() {
             );
         };
     }),
-    { 
-      ssr: false,
-      loading: () => <div className="h-full flex items-center justify-center text-white"><Loader2 className="animate-spin"/> Harita Yükleniyor...</div>
-    } 
+    { ssr: false } 
   ), [vincler]);
 
   useEffect(() => {
@@ -98,7 +91,6 @@ export default function HaritaModu() {
     <div className="h-screen w-full relative bg-slate-900 overflow-hidden">
       <div className="absolute inset-0 z-0"><Map /></div>
 
-      {/* Panele Dön Butonu */}
       <div className="absolute top-4 left-4 z-[1000]">
          <motion.button 
             initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
@@ -109,7 +101,6 @@ export default function HaritaModu() {
          </motion.button>
       </div>
 
-      {/* God Mode Etiketi */}
       <div className="absolute top-4 right-4 z-[1000]">
          <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-slate-900/80 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-700">
             <Layers className="w-5 h-5 text-blue-400"/>
@@ -117,7 +108,6 @@ export default function HaritaModu() {
          </motion.div>
       </div>
 
-      {/* Popup Kart */}
       <AnimatePresence>
         {secilenVinc && (
             <motion.div 
