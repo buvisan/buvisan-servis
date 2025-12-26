@@ -127,28 +127,28 @@ export default function YeniVincEkle() {
              {/* Dosya 1 (Ana) */}
              <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition ${dosyalar.dosya1 ? 'bg-green-50 border-green-500' : 'bg-slate-50 hover:bg-blue-50 hover:border-blue-400'}`}>
                 <FileText className={`w-6 h-6 mb-2 ${dosyalar.dosya1 ? 'text-green-600' : 'text-slate-400'}`} />
-                <span className="text-xs font-bold text-slate-600">{dosyalar.dosya1 ? dosyalar.dosya1.name : "1. Kullanım Kılavuzu (Ana)"}</span>
+                <span className="text-xs font-bold text-slate-600">{dosyalar.dosya1 ? dosyalar.dosya1.name : "1. İş Emri Formu"}</span>
                 <input type="file" accept=".pdf" onChange={(e) => dosyaSec('dosya1', e)} className="hidden" />
              </label>
 
              {/* Dosya 2 */}
              <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition ${dosyalar.dosya2 ? 'bg-green-50 border-green-500' : 'bg-slate-50 hover:bg-blue-50 hover:border-blue-400'}`}>
                 <UploadCloud className={`w-6 h-6 mb-2 ${dosyalar.dosya2 ? 'text-green-600' : 'text-slate-400'}`} />
-                <span className="text-xs font-bold text-slate-600">{dosyalar.dosya2 ? dosyalar.dosya2.name : "2. Ek Doküman (Proje vs.)"}</span>
+                <span className="text-xs font-bold text-slate-600">{dosyalar.dosya2 ? dosyalar.dosya2.name : "2. Devreye Alma Formu"}</span>
                 <input type="file" accept=".pdf" onChange={(e) => dosyaSec('dosya2', e)} className="hidden" />
              </label>
 
              {/* Dosya 3 */}
              <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition ${dosyalar.dosya3 ? 'bg-green-50 border-green-500' : 'bg-slate-50 hover:bg-blue-50 hover:border-blue-400'}`}>
                 <UploadCloud className={`w-6 h-6 mb-2 ${dosyalar.dosya3 ? 'text-green-600' : 'text-slate-400'}`} />
-                <span className="text-xs font-bold text-slate-600">{dosyalar.dosya3 ? dosyalar.dosya3.name : "3. Ek Doküman"}</span>
+                <span className="text-xs font-bold text-slate-600">{dosyalar.dosya3 ? dosyalar.dosya3.name : "3. Elektrik Şeması"}</span>
                 <input type="file" accept=".pdf" onChange={(e) => dosyaSec('dosya3', e)} className="hidden" />
              </label>
 
              {/* Dosya 4 */}
              <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition ${dosyalar.dosya4 ? 'bg-green-50 border-green-500' : 'bg-slate-50 hover:bg-blue-50 hover:border-blue-400'}`}>
                 <UploadCloud className={`w-6 h-6 mb-2 ${dosyalar.dosya4 ? 'text-green-600' : 'text-slate-400'}`} />
-                <span className="text-xs font-bold text-slate-600">{dosyalar.dosya4 ? dosyalar.dosya4.name : "4. Ek Doküman"}</span>
+                <span className="text-xs font-bold text-slate-600">{dosyalar.dosya4 ? dosyalar.dosya4.name : "4. Genel Montaj"}</span>
                 <input type="file" accept=".pdf" onChange={(e) => dosyaSec('dosya4', e)} className="hidden" />
              </label>
           </div>

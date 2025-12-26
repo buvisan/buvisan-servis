@@ -233,7 +233,7 @@ export default function VincDetaySayfasi() {
            {vinc.pdf_url ? (
              <a href={vinc.pdf_url} target="_blank" className="flex items-center gap-3 bg-red-50 text-red-700 font-bold py-3 px-4 rounded-xl shadow-sm hover:bg-red-100 transition border border-red-100">
                <FileText className="w-5 h-5 text-red-600"/> 
-               <span className="flex-1">Kullanım Kılavuzu</span>
+               <span className="flex-1">İş Emri Formu</span>
                <Download className="w-4 h-4 opacity-50"/>
              </a>
            ) : null}
@@ -242,7 +242,7 @@ export default function VincDetaySayfasi() {
            {vinc.pdf_url_2 ? (
              <a href={vinc.pdf_url_2} target="_blank" className="flex items-center gap-3 bg-blue-50 text-blue-700 font-bold py-3 px-4 rounded-xl shadow-sm hover:bg-blue-100 transition border border-blue-100">
                <FolderOpen className="w-5 h-5 text-blue-600"/> 
-               <span className="flex-1">Mekanik/Elektrik Projesi</span>
+               <span className="flex-1">Devreye Alma Formu </span>
                <Download className="w-4 h-4 opacity-50"/>
              </a>
            ) : null}
@@ -251,7 +251,7 @@ export default function VincDetaySayfasi() {
            {vinc.pdf_url_3 ? (
              <a href={vinc.pdf_url_3} target="_blank" className="flex items-center gap-3 bg-blue-50 text-blue-700 font-bold py-3 px-4 rounded-xl shadow-sm hover:bg-blue-100 transition border border-blue-100">
                <FolderOpen className="w-5 h-5 text-blue-600"/> 
-               <span className="flex-1">Garanti Belgesi</span>
+               <span className="flex-1">Elektrik Şeması</span>
                <Download className="w-4 h-4 opacity-50"/>
              </a>
            ) : null}
@@ -260,7 +260,7 @@ export default function VincDetaySayfasi() {
            {vinc.pdf_url_4 ? (
              <a href={vinc.pdf_url_4} target="_blank" className="flex items-center gap-3 bg-blue-50 text-blue-700 font-bold py-3 px-4 rounded-xl shadow-sm hover:bg-blue-100 transition border border-blue-100">
                <FolderOpen className="w-5 h-5 text-blue-600"/> 
-               <span className="flex-1">Diğer Doküman</span>
+               <span className="flex-1">Genel Montaj</span>
                <Download className="w-4 h-4 opacity-50"/>
              </a>
            ) : null}
@@ -360,7 +360,7 @@ export default function VincDetaySayfasi() {
       </div>
       
       <div className="mt-8 text-center pb-8">
-        <p className="text-blue-200/50 text-xs">Powered by ZM Çelik & Buvisan Technology</p>
+        <p className="text-blue-200/50 text-xs">Powered by Buvisan Crane Systems Technology</p>
       </div>
 
     </div>
