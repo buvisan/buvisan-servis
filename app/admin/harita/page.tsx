@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,75 +8,25 @@ import {
   Layers, Settings, Loader2 
 } from 'lucide-react';
 import Link from 'next/link';
-
-// Leaflet'i dinamik import ediyoruz (SSR Hatasını önlemek için)
 import dynamic from 'next/dynamic';
+
+// --- HARİTAYI DİNAMİK OLARAK ÇAĞIRIYORUZ ---
+// Bu sayede "Window is not defined" hatası kökten çözülüyor.
+const HaritaBileseni = dynamic(() => import('@/components/HaritaBileseni'), { 
+    ssr: false,
+    loading: () => (
+        <div className="h-full w-full flex flex-col items-center justify-center bg-slate-900 text-blue-500 gap-3">
+            <Loader2 className="animate-spin w-10 h-10"/>
+            <span className="font-bold">Harita Yükleniyor...</span>
+        </div>
+    )
+});
 
 export default function HaritaModu() {
   const router = useRouter();
   const [vincler, setVincler] = useState<any[]>([]);
   const [secilenVinc, setSecilenVinc] = useState<any>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
-
-  // Harita Bileşeni (Client Side Only)
-  const Map = useMemo(() => dynamic(
-    () => import('react-leaflet').then((mod) => {
-        const { MapContainer, TileLayer, Marker, useMap } = mod;
-        // Leaflet CSS düzeltmesi
-        require('leaflet/dist/leaflet.css');
-        const L = require('leaflet');
-
-        // Varsayılan İkonu Güzelleştir (Buvisan Mavisi Pin)
-        const customIcon = new L.Icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/markers/marker-icon-2x-blue.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41]
-        });
-
-        // Harita İçi Bileşen
-        const HaritaIcerik = () => {
-             const map = useMap();
-             return (
-                <>
-                    <TileLayer
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                        // CartoDB Voyager teması (Çok daha modern ve temiz görünür)
-                        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                    />
-                    {vincler.map((vinc) => (
-                        // Eğer koordinat girilmemişse haritada gösterme
-                        (vinc.lat && vinc.lng) && (
-                            <Marker 
-                                key={vinc.id} 
-                                position={[vinc.lat, vinc.lng]} 
-                                icon={customIcon}
-                                eventHandlers={{
-                                    click: () => {
-                                        setSecilenVinc(vinc);
-                                        // Tıklayınca hafifçe oraya odaklan
-                                        map.flyTo([vinc.lat, vinc.lng], 14, { duration: 1.5 });
-                                    },
-                                }}
-                            />
-                        )
-                    ))}
-                </>
-             );
-        };
-
-        return function MapComponent() {
-            return (
-                <MapContainer center={[39.9334, 32.8597]} zoom={6} style={{ height: "100%", width: "100%" }} zoomControl={false}>
-                    <HaritaIcerik />
-                </MapContainer>
-            );
-        };
-    }),
-    { ssr: false } // Server side render kapatıldı
-  ), [vincler]);
 
   useEffect(() => {
     async function verileriGetir() {
@@ -97,7 +47,12 @@ export default function HaritaModu() {
       
       {/* --- HARİTA --- */}
       <div className="absolute inset-0 z-0">
-         <Map />
+         {/* Artık hata yok, bileşen olarak çağırıyoruz */}
+         <HaritaBileseni 
+            vincler={vincler} 
+            secilenVinc={secilenVinc} 
+            setSecilenVinc={setSecilenVinc} 
+         />
       </div>
 
       {/* --- ÜST KONTROL BAR --- */}
