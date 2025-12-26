@@ -100,26 +100,40 @@ export default function VinclerListesi() {
                           </div>
                         </div>
                       </td>
-                      <td className="p-5">
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <User className="w-4 h-4 text-slate-400" />
-                          <span className="font-medium">{vinc.customer_name}</span>
-                        </div>
-                      </td>
-                      <td className="p-5">
-                         <div className="flex items-center gap-2 text-slate-500 text-sm max-w-xs truncate">
-                          <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-                          {vinc.location_address}
-                        </div>
-                      </td>
                       <td className="p-5 text-right">
-                        <Link 
-                          href={`/vinc/${vinc.id}`} 
-                          target="_blank"
-                          className="inline-flex items-center gap-2 bg-slate-100 text-slate-600 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg text-sm font-bold transition-all"
-                        >
-                          Görüntüle <ExternalLink className="w-4 h-4" />
-                        </Link>
+                        <div className="flex justify-end gap-2">
+                          {/* YENİ BUTON: GEÇMİŞ EKLE */}
+                          <button
+                            onClick={() => {
+                              // Hızlıca prompt ile veri alalım (İstersen sonra modal yaparız)
+                              const baslik = prompt("İşlem Başlığı (Örn: Periyodik Bakım):");
+                              if (!baslik) return;
+                              const detay = prompt("Detaylar:");
+                              const usta = prompt("Yapan Teknisyen:");
+                              
+                              // Veritabanına Ekle
+                              supabase.from('crane_history').insert([{
+                                crane_id: vinc.id,
+                                event_type: 'bakim', // Varsayılan bakım diyelim
+                                title: baslik,
+                                description: detay,
+                                technician_name: usta
+                              }]).then(() => alert("Geçmişe işlendi! ✅"));
+                            }}
+                            className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 hover:bg-amber-200 px-3 py-2 rounded-lg text-sm font-bold transition-all"
+                          >
+                             📜 İşle
+                          </button>
+
+                          {/* ESKİ BUTON */}
+                          <Link 
+                            href={`/vinc/${vinc.id}`} 
+                            target="_blank"
+                            className="inline-flex items-center gap-2 bg-slate-100 text-slate-600 hover:bg-blue-600 hover:text-white px-3 py-2 rounded-lg text-sm font-bold transition-all"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Link>
+                        </div>
                       </td>
                     </motion.tr>
                   ))
