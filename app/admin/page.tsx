@@ -51,7 +51,7 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* ÜST BAR */}
+      {/* --- ÜST BAR (Header) --- */}
       <div className="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-20">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -68,11 +68,10 @@ export default function AdminPanel() {
 
       <div className="max-w-6xl mx-auto p-6">
         
-        {/* --- HIZLI İŞLEMLER MENÜSÜ --- */}
-        {/* Butonların hepsi burada yan yana duracak */}
+        {/* --- 1. BÖLÜM: HIZLI İŞLEMLER MENÜSÜ (BUTONLAR BURADA) --- */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           
-          {/* 1. Yeni Vinç Ekle */}
+          {/* Buton 1: Yeni Vinç */}
           <motion.button 
             whileHover={{ y: -5 }}
             onClick={() => router.push('/admin/yeni-vinc')}
@@ -84,7 +83,7 @@ export default function AdminPanel() {
             <span className="font-bold text-slate-700">Yeni Vinç Ekle</span>
           </motion.button>
 
-          {/* 2. Vinç Listesi */}
+          {/* Buton 2: Vinç Listesi */}
           <motion.button 
             whileHover={{ y: -5 }}
             onClick={() => router.push('/admin/vincler')}
@@ -96,7 +95,7 @@ export default function AdminPanel() {
             <span className="font-bold text-slate-700">Vinç Listesi</span>
           </motion.button>
 
-          {/* 3. CANLI HARİTA (Artık doğru yerde!) */}
+          {/* Buton 3: CANLI HARİTA (Doğru Yerde!) */}
           <motion.button 
             whileHover={{ y: -5 }}
             onClick={() => router.push('/admin/harita')}
@@ -108,7 +107,7 @@ export default function AdminPanel() {
             <span className="font-bold text-slate-700">Canlı Harita</span>
           </motion.button>
           
-          {/* 4. İstatistik (Bekleyen Arıza) */}
+          {/* Kart 4: İstatistik */}
           <div className="bg-gradient-to-br from-orange-400 to-red-500 p-6 rounded-2xl shadow text-white flex flex-col justify-between">
             <div className="text-orange-100 text-sm font-medium">Bekleyen Arıza</div>
             <div className="text-4xl font-bold">{bildirimler.filter(x => x.status !== 'tamamlandi').length}</div>
@@ -116,12 +115,11 @@ export default function AdminPanel() {
           
         </div>
 
-        {/* ARIZA LİSTESİ BAŞLIK */}
+        {/* --- 2. BÖLÜM: ARIZA LİSTESİ --- */}
         <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
           <AlertCircle className="text-red-500" /> Son Bildirimler
         </h2>
 
-        {/* ARIZA KARTLARI */}
         <div className="grid gap-4">
           {bildirimler.length === 0 ? (
             <div className="bg-white p-12 rounded-2xl text-center text-slate-400 border border-dashed border-slate-300">
@@ -137,6 +135,7 @@ export default function AdminPanel() {
               >
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div className="flex-1">
+                    {/* Tarih ve Durum Etiketi */}
                     <div className="flex items-center gap-2 mb-2">
                         <span className={`px-3 py-1 text-xs font-bold rounded-full flex items-center gap-1 ${kayit.status === 'tamamlandi' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                             {kayit.status === 'tamamlandi' ? <CheckCircle2 className="w-3 h-3"/> : <Clock className="w-3 h-3"/>}
@@ -147,6 +146,7 @@ export default function AdminPanel() {
                         </span>
                     </div>
                     
+                    {/* Müşteri ve Model */}
                     <h3 className="text-lg font-bold text-slate-800">
                         {kayit.cranes?.customer_name || "Bilinmeyen Müşteri"}
                     </h3>
@@ -155,11 +155,12 @@ export default function AdminPanel() {
                         {kayit.cranes?.location_address} - <span className="font-semibold text-slate-600">{kayit.cranes?.model_name}</span>
                     </div>
                     
+                    {/* Arıza Açıklaması */}
                     <div className="bg-slate-50 p-3 rounded-lg text-slate-700 text-sm border border-slate-100">
                         <span className="font-bold text-slate-900">Sorun:</span> {kayit.description}
                     </div>
 
-                    {/* FOTOĞRAF GÖRME BUTONU */}
+                    {/* FOTOĞRAF GÖRME BUTONU (Sadece medya varsa görünür) */}
                     {kayit.media_url && (
                       <div className="mt-3">
                         <a 
@@ -173,7 +174,7 @@ export default function AdminPanel() {
                     )}
                   </div>
 
-                  {/* ÇÖZÜLDÜ BUTONU */}
+                  {/* ÇÖZÜLDÜ BUTONU (Sadece tamamlanmamışsa görünür) */}
                   {kayit.status !== 'tamamlandi' && (
                     <motion.button 
                         whileHover={{ scale: 1.05 }}
