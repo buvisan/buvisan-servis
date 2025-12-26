@@ -11,6 +11,7 @@ import {
   AlertCircle, 
   CheckCircle2, 
   Clock,
+  Camera,
   LayoutDashboard
 } from 'lucide-react';
 
@@ -146,6 +147,18 @@ export default function AdminPanel() {
                         <span className="font-bold text-slate-900">Sorun:</span> {kayit.description}
                     </div>
                   </div>
+                  {/* EĞER MEDYA VARSA GÖSTER */}
+                    {kayit.media_url && (
+                      <div className="mt-3">
+                        <a 
+                          href={kayit.media_url} 
+                          target="_blank" 
+                          className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-200 transition"
+                        >
+                          <Camera className="w-4 h-4" /> 📸 Fotoğrafı/Videoyu Gör
+                        </a>
+                      </div>
+                    )}
 
                   {kayit.status !== 'tamamlandi' && (
                     <motion.button 
