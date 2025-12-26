@@ -13,7 +13,7 @@ import {
   Clock,
   Camera, 
   LayoutDashboard,
-  Globe // Dünya ikonu eklendi
+  Globe // Dünya ikonu
 } from 'lucide-react';
 
 export default function AdminPanel() {
