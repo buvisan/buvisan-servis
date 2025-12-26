@@ -11,7 +11,7 @@ import {
   AlertCircle, 
   CheckCircle2, 
   Clock,
-  Camera, // <-- Camera ikonunu buraya ekledim
+  Camera, 
   LayoutDashboard
 } from 'lucide-react';
 
@@ -68,10 +68,11 @@ export default function AdminPanel() {
 
       <div className="max-w-6xl mx-auto p-6">
         
-        {/* --- HIZLI İŞLEMLER MENÜSÜ (BUTONLAR BURADA OLMALI) --- */}
+        {/* --- HIZLI İŞLEMLER MENÜSÜ --- */}
+        {/* Butonların hepsi burada yan yana duracak */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           
-          {/* 1. Yeni Vinç Butonu */}
+          {/* 1. Yeni Vinç Ekle */}
           <motion.button 
             whileHover={{ y: -5 }}
             onClick={() => router.push('/admin/yeni-vinc')}
@@ -83,7 +84,7 @@ export default function AdminPanel() {
             <span className="font-bold text-slate-700">Yeni Vinç Ekle</span>
           </motion.button>
 
-          {/* 2. Vinç Listesi Butonu */}
+          {/* 2. Vinç Listesi */}
           <motion.button 
             whileHover={{ y: -5 }}
             onClick={() => router.push('/admin/vincler')}
@@ -95,7 +96,7 @@ export default function AdminPanel() {
             <span className="font-bold text-slate-700">Vinç Listesi</span>
           </motion.button>
 
-          {/* 3. CANLI HARİTA BUTONU (BURAYA EKLENDİ ✅) */}
+          {/* 3. CANLI HARİTA (Artık doğru yerde!) */}
           <motion.button 
             whileHover={{ y: -5 }}
             onClick={() => router.push('/admin/harita')}
@@ -107,7 +108,7 @@ export default function AdminPanel() {
             <span className="font-bold text-slate-700">Canlı Harita</span>
           </motion.button>
           
-          {/* 4. İstatistik Kutucuğu (Bekleyen Arıza) */}
+          {/* 4. İstatistik (Bekleyen Arıza) */}
           <div className="bg-gradient-to-br from-orange-400 to-red-500 p-6 rounded-2xl shadow text-white flex flex-col justify-between">
             <div className="text-orange-100 text-sm font-medium">Bekleyen Arıza</div>
             <div className="text-4xl font-bold">{bildirimler.filter(x => x.status !== 'tamamlandi').length}</div>
