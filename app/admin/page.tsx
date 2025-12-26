@@ -12,7 +12,8 @@ import {
   CheckCircle2, 
   Clock,
   Camera, 
-  LayoutDashboard
+  LayoutDashboard,
+  Globe // Dünya ikonu eklendi
 } from 'lucide-react';
 
 export default function AdminPanel() {
@@ -51,27 +52,46 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* --- ÜST BAR (Header) --- */}
-      <div className="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-20">
+      
+      {/* --- ÜST BAR (HEADER) --- */}
+      {/* Butonu buraya, Çıkış Yap'ın yanına aldım. Asla kaybolmaz. */}
+      <div className="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
+          
+          {/* Sol Taraf: Logo */}
           <div className="flex items-center gap-2">
             <div className="bg-blue-600 p-2 rounded-lg">
               <LayoutDashboard className="w-5 h-5" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight">BUVİSAN <span className="text-blue-400 font-light">PANEL</span></h1>
+            <h1 className="text-xl font-bold tracking-tight hidden md:block">BUVİSAN <span className="text-blue-400 font-light">PANEL</span></h1>
           </div>
-          <button onClick={cikisYap} className="text-slate-400 hover:text-white transition flex items-center gap-2 text-sm font-medium">
-            <LogOut className="w-4 h-4" /> Çıkış
-          </button>
+
+          {/* Sağ Taraf: Butonlar */}
+          <div className="flex items-center gap-3">
+            
+            {/* 🔥 CANLI HARİTA BUTONU (BURADA) 🔥 */}
+            <button 
+              onClick={() => router.push('/admin/harita')}
+              className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition shadow-lg shadow-green-900/20"
+            >
+              <Globe className="w-4 h-4 animate-pulse" /> <span className="hidden sm:inline">Canlı Harita</span>
+            </button>
+
+            <div className="h-6 w-px bg-slate-700 mx-1"></div> {/* Ayırıcı Çizgi */}
+
+            <button onClick={cikisYap} className="text-slate-400 hover:text-white transition flex items-center gap-2 text-sm font-medium">
+              <LogOut className="w-4 h-4" /> <span className="hidden sm:inline">Çıkış</span>
+            </button>
+          </div>
+
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto p-6">
         
-        {/* --- 1. BÖLÜM: HIZLI İŞLEMLER MENÜSÜ (BUTONLAR BURADA) --- */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        {/* --- 1. BÖLÜM: HIZLI İŞLEMLER --- */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
           
-          {/* Buton 1: Yeni Vinç */}
           <motion.button 
             whileHover={{ y: -5 }}
             onClick={() => router.push('/admin/yeni-vinc')}
@@ -83,7 +103,6 @@ export default function AdminPanel() {
             <span className="font-bold text-slate-700">Yeni Vinç Ekle</span>
           </motion.button>
 
-          {/* Buton 2: Vinç Listesi */}
           <motion.button 
             whileHover={{ y: -5 }}
             onClick={() => router.push('/admin/vincler')}
@@ -94,20 +113,7 @@ export default function AdminPanel() {
             </div>
             <span className="font-bold text-slate-700">Vinç Listesi</span>
           </motion.button>
-
-          {/* Buton 3: CANLI HARİTA (Doğru Yerde!) */}
-          <motion.button 
-            whileHover={{ y: -5 }}
-            onClick={() => router.push('/admin/harita')}
-            className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all flex flex-col items-center gap-3 group"
-          >
-            <div className="bg-green-50 text-green-600 p-3 rounded-full group-hover:bg-green-600 group-hover:text-white transition-colors">
-              <MapPin className="w-6 h-6" />
-            </div>
-            <span className="font-bold text-slate-700">Canlı Harita</span>
-          </motion.button>
           
-          {/* Kart 4: İstatistik */}
           <div className="bg-gradient-to-br from-orange-400 to-red-500 p-6 rounded-2xl shadow text-white flex flex-col justify-between">
             <div className="text-orange-100 text-sm font-medium">Bekleyen Arıza</div>
             <div className="text-4xl font-bold">{bildirimler.filter(x => x.status !== 'tamamlandi').length}</div>
@@ -135,7 +141,6 @@ export default function AdminPanel() {
               >
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div className="flex-1">
-                    {/* Tarih ve Durum Etiketi */}
                     <div className="flex items-center gap-2 mb-2">
                         <span className={`px-3 py-1 text-xs font-bold rounded-full flex items-center gap-1 ${kayit.status === 'tamamlandi' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                             {kayit.status === 'tamamlandi' ? <CheckCircle2 className="w-3 h-3"/> : <Clock className="w-3 h-3"/>}
@@ -146,7 +151,6 @@ export default function AdminPanel() {
                         </span>
                     </div>
                     
-                    {/* Müşteri ve Model */}
                     <h3 className="text-lg font-bold text-slate-800">
                         {kayit.cranes?.customer_name || "Bilinmeyen Müşteri"}
                     </h3>
@@ -155,26 +159,19 @@ export default function AdminPanel() {
                         {kayit.cranes?.location_address} - <span className="font-semibold text-slate-600">{kayit.cranes?.model_name}</span>
                     </div>
                     
-                    {/* Arıza Açıklaması */}
                     <div className="bg-slate-50 p-3 rounded-lg text-slate-700 text-sm border border-slate-100">
                         <span className="font-bold text-slate-900">Sorun:</span> {kayit.description}
                     </div>
 
-                    {/* FOTOĞRAF GÖRME BUTONU (Sadece medya varsa görünür) */}
                     {kayit.media_url && (
                       <div className="mt-3">
-                        <a 
-                          href={kayit.media_url} 
-                          target="_blank" 
-                          className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-200 transition"
-                        >
+                        <a href={kayit.media_url} target="_blank" className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-200 transition">
                           <Camera className="w-4 h-4" /> 📸 Fotoğrafı/Videoyu Gör
                         </a>
                       </div>
                     )}
                   </div>
 
-                  {/* ÇÖZÜLDÜ BUTONU (Sadece tamamlanmamışsa görünür) */}
                   {kayit.status !== 'tamamlandi' && (
                     <motion.button 
                         whileHover={{ scale: 1.05 }}
