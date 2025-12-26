@@ -11,7 +11,7 @@ import {
   AlertCircle, 
   CheckCircle2, 
   Clock,
-  Camera,
+  Camera, // <-- Camera ikonunu buraya ekledim
   LayoutDashboard
 } from 'lucide-react';
 
@@ -68,8 +68,10 @@ export default function AdminPanel() {
 
       <div className="max-w-6xl mx-auto p-6">
         
-        {/* HIZLI İŞLEMLER MENÜSÜ */}
+        {/* --- HIZLI İŞLEMLER MENÜSÜ (BUTONLAR BURADA OLMALI) --- */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          
+          {/* 1. Yeni Vinç Butonu */}
           <motion.button 
             whileHover={{ y: -5 }}
             onClick={() => router.push('/admin/yeni-vinc')}
@@ -81,6 +83,7 @@ export default function AdminPanel() {
             <span className="font-bold text-slate-700">Yeni Vinç Ekle</span>
           </motion.button>
 
+          {/* 2. Vinç Listesi Butonu */}
           <motion.button 
             whileHover={{ y: -5 }}
             onClick={() => router.push('/admin/vincler')}
@@ -91,17 +94,25 @@ export default function AdminPanel() {
             </div>
             <span className="font-bold text-slate-700">Vinç Listesi</span>
           </motion.button>
+
+          {/* 3. CANLI HARİTA BUTONU (BURAYA EKLENDİ ✅) */}
+          <motion.button 
+            whileHover={{ y: -5 }}
+            onClick={() => router.push('/admin/harita')}
+            className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all flex flex-col items-center gap-3 group"
+          >
+            <div className="bg-green-50 text-green-600 p-3 rounded-full group-hover:bg-green-600 group-hover:text-white transition-colors">
+              <MapPin className="w-6 h-6" />
+            </div>
+            <span className="font-bold text-slate-700">Canlı Harita</span>
+          </motion.button>
           
-          {/* İstatistik Kutucukları (Statik Örnek) */}
+          {/* 4. İstatistik Kutucuğu (Bekleyen Arıza) */}
           <div className="bg-gradient-to-br from-orange-400 to-red-500 p-6 rounded-2xl shadow text-white flex flex-col justify-between">
             <div className="text-orange-100 text-sm font-medium">Bekleyen Arıza</div>
             <div className="text-4xl font-bold">{bildirimler.filter(x => x.status !== 'tamamlandi').length}</div>
           </div>
           
-          <div className="bg-gradient-to-br from-blue-500 to-cyan-400 p-6 rounded-2xl shadow text-white flex flex-col justify-between">
-            <div className="text-blue-100 text-sm font-medium">Toplam Talep</div>
-            <div className="text-4xl font-bold">{bildirimler.length}</div>
-          </div>
         </div>
 
         {/* ARIZA LİSTESİ BAŞLIK */}
@@ -109,7 +120,7 @@ export default function AdminPanel() {
           <AlertCircle className="text-red-500" /> Son Bildirimler
         </h2>
 
-        {/* ARIZA KARTLARI (Responsive Grid) */}
+        {/* ARIZA KARTLARI */}
         <div className="grid gap-4">
           {bildirimler.length === 0 ? (
             <div className="bg-white p-12 rounded-2xl text-center text-slate-400 border border-dashed border-slate-300">
@@ -146,8 +157,8 @@ export default function AdminPanel() {
                     <div className="bg-slate-50 p-3 rounded-lg text-slate-700 text-sm border border-slate-100">
                         <span className="font-bold text-slate-900">Sorun:</span> {kayit.description}
                     </div>
-                  </div>
-                  {/* EĞER MEDYA VARSA GÖSTER */}
+
+                    {/* FOTOĞRAF GÖRME BUTONU */}
                     {kayit.media_url && (
                       <div className="mt-3">
                         <a 
@@ -159,18 +170,18 @@ export default function AdminPanel() {
                         </a>
                       </div>
                     )}
+                  </div>
 
+                  {/* ÇÖZÜLDÜ BUTONU */}
                   {kayit.status !== 'tamamlandi' && (
-                  <motion.button 
-                    whileHover={{ y: -5 }}
-                    onClick={() => router.push('/admin/harita')}
-                    className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all flex flex-col items-center gap-3 group"
-                  >
-                    <div className="bg-green-50 text-green-600 p-3 rounded-full group-hover:bg-green-600 group-hover:text-white transition-colors">
-                      <MapPin className="w-6 h-6" />
-                    </div>
-                    <span className="font-bold text-slate-700">Canlı Harita</span>
-                  </motion.button>
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => durumuGuncelle(kayit.id, 'tamamlandi')}
+                        className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-green-200 transition-all flex items-center gap-2 whitespace-nowrap"
+                    >
+                        <CheckCircle2 className="w-5 h-5" /> Çözüldü
+                    </motion.button>
                   )}
                 </div>
               </motion.div>
