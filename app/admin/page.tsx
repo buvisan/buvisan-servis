@@ -161,14 +161,16 @@ export default function AdminPanel() {
                     )}
 
                   {kayit.status !== 'tamamlandi' && (
-                    <motion.button 
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => durumuGuncelle(kayit.id, 'tamamlandi')}
-                        className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-green-200 transition-all flex items-center gap-2 whitespace-nowrap"
-                    >
-                        <CheckCircle2 className="w-5 h-5" /> Çözüldü
-                    </motion.button>
+                  <motion.button 
+                    whileHover={{ y: -5 }}
+                    onClick={() => router.push('/admin/harita')}
+                    className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all flex flex-col items-center gap-3 group"
+                  >
+                    <div className="bg-green-50 text-green-600 p-3 rounded-full group-hover:bg-green-600 group-hover:text-white transition-colors">
+                      <MapPin className="w-6 h-6" />
+                    </div>
+                    <span className="font-bold text-slate-700">Canlı Harita</span>
+                  </motion.button>
                   )}
                 </div>
               </motion.div>
