@@ -4,34 +4,24 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// --- İKON SORUNU ÇÖZÜMÜ (Kırık resmi düzeltir) ---
-// Leaflet'in varsayılan ikon ayarlarını sıfırlıyoruz.
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+// --- CSS İKON TANIMLARI (Resim Yok, Kod Var) ---
+
+// 1. YEŞİL İKON
+const greenDivIcon = L.divIcon({
+  className: 'custom-pin pin-yesil', // globals.css'teki sınıf
+  iconSize: [20, 20], // Boyut
+  iconAnchor: [10, 10], // Tam ortası
+  popupAnchor: [0, -10],
+  html: '<div class="pin-dot"></div>' // İçindeki beyaz nokta
 });
 
-// --- 1. YEŞİL İKON (Sorunsuz) ---
-const greenIcon = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/markers/marker-icon-2x-green.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41]
-});
-
-// --- 2. KIRMIZI İKON (Arızalı - Yanıp Sönen) ---
-const redPulseIcon = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/markers/marker-icon-2x-red.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-    className: 'yanip-sonen-pin' // CSS animasyonu için sınıf
+// 2. KIRMIZI İKON (Yanıp Sönen)
+const redDivIcon = L.divIcon({
+  className: 'custom-pin pin-kirmizi',
+  iconSize: [24, 24], // Biraz daha büyük görünsün
+  iconAnchor: [12, 12],
+  popupAnchor: [0, -12],
+  html: '<div class="pin-dot"></div>'
 });
 
 function HaritaUcus({ konum }: { konum: [number, number] | null }) {
@@ -54,22 +44,23 @@ export default function HaritaBileseni({ vincler, secilenVinc, setSecilenVinc }:
         >
             <TileLayer
                 attribution='&copy; OpenStreetMap'
-                // Daha modern, sade harita teması
+                // CartoDB Dark Matter (Koyu Tema) - Renkli pinler bunda EFSANE durur
+                // Eğer açık tema istersen: https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png yapabilirsin.
                 url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
             />
 
             <HaritaUcus konum={secilenVinc && secilenVinc.lat ? [secilenVinc.lat, secilenVinc.lng] : null} />
 
             {vincler.map((vinc: any) => {
-                // Arıza kontrolü: 'tamamlandi' olmayan bir kayıt var mı?
+                // Arıza kontrolü
                 const arizaVar = vinc.service_tickets?.some((ticket: any) => ticket.status !== 'tamamlandi');
 
                 return (vinc.lat && vinc.lng) && (
                     <Marker 
                         key={vinc.id} 
                         position={[vinc.lat, vinc.lng]} 
-                        // Duruma göre ikon seçimi: Arıza varsa Kırmızı, yoksa Yeşil
-                        icon={arizaVar ? redPulseIcon : greenIcon} 
+                        // Sadece CSS sınıfı atıyoruz, resim yükleme derdi yok!
+                        icon={arizaVar ? redDivIcon : greenDivIcon} 
                         eventHandlers={{
                             click: () => setSecilenVinc(vinc),
                         }}
