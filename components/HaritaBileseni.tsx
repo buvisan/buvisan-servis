@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// --- İKON SORUNU ÇÖZÜMÜ ---
+// --- İKON SORUNU ÇÖZÜMÜ (Kırık resmi düzeltir) ---
 // Leaflet'in varsayılan ikon ayarlarını sıfırlıyoruz.
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -49,7 +49,7 @@ export default function HaritaBileseni({ vincler, secilenVinc, setSecilenVinc }:
         <MapContainer 
             center={[39.9334, 32.8597]} 
             zoom={6} 
-            style={{ height: "100%", width: "100%" }} 
+            style={{ height: "100%", width: "100%", zIndex: 0 }} 
             zoomControl={false}
         >
             <TileLayer
@@ -68,7 +68,7 @@ export default function HaritaBileseni({ vincler, secilenVinc, setSecilenVinc }:
                     <Marker 
                         key={vinc.id} 
                         position={[vinc.lat, vinc.lng]} 
-                        // Duruma göre ikon seçimi
+                        // Duruma göre ikon seçimi: Arıza varsa Kırmızı, yoksa Yeşil
                         icon={arizaVar ? redPulseIcon : greenIcon} 
                         eventHandlers={{
                             click: () => setSecilenVinc(vinc),
