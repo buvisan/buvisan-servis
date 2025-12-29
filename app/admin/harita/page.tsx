@@ -17,7 +17,7 @@ const HaritaBileseni = dynamic(() => import('@/components/HaritaBileseni'), {
     loading: () => (
         <div className="h-full w-full flex flex-col items-center justify-center bg-slate-900 text-blue-500 gap-3">
             <Loader2 className="animate-spin w-10 h-10"/>
-            <span className="font-bold">Harita Yükleniyor...</span>
+            <span className="font-bold">Uydu Bağlantısı Kuruluyor...</span>
         </div>
     )
 });
@@ -33,7 +33,12 @@ export default function HaritaModu() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/login'); return; }
 
-      const { data } = await supabase.from('cranes').select('*');
+      // --- KRİTİK NOKTA: service_tickets İLE BERABER ÇEKİYORUZ ---
+      // Bu sayede haritada kırmızı/yeşil ayrımı yapabiliyoruz.
+      const { data } = await supabase
+        .from('cranes')
+        .select('*, service_tickets(*)');
+      
       if (data) setVincler(data);
       setYukleniyor(false);
     }
@@ -45,9 +50,8 @@ export default function HaritaModu() {
   return (
     <div className="h-screen w-full relative bg-slate-900 overflow-hidden">
       
-      {/* --- HARİTA --- */}
+      {/* --- HARİTA BİLEŞENİ (ARKAPLAN) --- */}
       <div className="absolute inset-0 z-0">
-         {/* Artık hata yok, bileşen olarak çağırıyoruz */}
          <HaritaBileseni 
             vincler={vincler} 
             secilenVinc={secilenVinc} 
@@ -55,8 +59,8 @@ export default function HaritaModu() {
          />
       </div>
 
-      {/* --- ÜST KONTROL BAR --- */}
-      <div className="absolute top-4 left-4 right-4 z-[1000] flex justify-between items-start pointer-events-none">
+      {/* --- ÜST SOL: PANELE DÖN --- */}
+      <div className="absolute top-4 left-4 z-[1000]">
          <motion.button 
             initial={{ x: -50, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
@@ -65,7 +69,10 @@ export default function HaritaModu() {
          >
             <ArrowLeft className="w-5 h-5"/> Panele Dön
          </motion.button>
+      </div>
 
+      {/* --- ÜST SAĞ: GOD MODE ETİKETİ --- */}
+      <div className="absolute top-4 right-4 z-[1000]">
          <motion.div 
             initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -79,7 +86,7 @@ export default function HaritaModu() {
          </motion.div>
       </div>
 
-      {/* --- VİNÇ DETAY KARTI (POPUP) --- */}
+      {/* --- ALT ORTA: VİNÇ DETAY KARTI (POPUP) --- */}
       <AnimatePresence>
         {secilenVinc && (
             <motion.div 
@@ -91,26 +98,35 @@ export default function HaritaModu() {
             >
                 <div className="bg-white/95 backdrop-blur-xl p-0 rounded-3xl shadow-2xl overflow-hidden border border-white/50">
                     
-                    {/* Kart Başlığı */}
-                    <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-4 flex justify-between items-start text-white">
-                        <div>
-                            <h2 className="font-bold text-lg flex items-center gap-2">
-                                <MapPin className="w-4 h-4 text-blue-200"/> {secilenVinc.location_address}
-                            </h2>
-                            <p className="text-blue-100 text-xs mt-1 font-mono opacity-80">{secilenVinc.serial_number}</p>
-                        </div>
+                    {/* Kart Başlığı (Duruma Göre Renk Değiştirir) */}
+                    <div className={`p-4 flex justify-between items-center text-white transition-colors duration-300 ${
+                        secilenVinc.service_tickets?.some((t:any) => t.status !== 'tamamlandi') 
+                        ? 'bg-red-600' // Arıza varsa Kırmızı
+                        : 'bg-green-600' // Yoksa Yeşil
+                    }`}>
+                        <h2 className="font-bold text-lg flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-white/80"/> 
+                            <span className="truncate max-w-[200px]">{secilenVinc.location_address}</span>
+                        </h2>
                         <button onClick={() => setSecilenVinc(null)} className="bg-white/20 p-1 rounded-full hover:bg-white/30 transition"><X className="w-5 h-5"/></button>
                     </div>
 
                     {/* Kart İçeriği */}
                     <div className="p-6">
                         <div className="flex items-center gap-4 mb-4">
-                            <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-xl">🏗️</div>
+                            <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 font-bold text-xl shadow-inner border border-slate-100">🏗️</div>
                             <div>
                                 <h3 className="font-bold text-slate-800">{secilenVinc.model_name}</h3>
                                 <p className="text-sm text-slate-500">{secilenVinc.customer_name}</p>
                             </div>
                         </div>
+
+                        {/* Arıza Uyarısı (Sadece Arıza Varsa Görünür) */}
+                        {secilenVinc.service_tickets?.some((t:any) => t.status !== 'tamamlandi') && (
+                            <div className="bg-red-50 border border-red-100 text-red-600 p-3 rounded-xl text-sm font-bold mb-4 flex items-center gap-2 animate-pulse">
+                                <Info className="w-4 h-4"/> DİKKAT: Aktif Arıza Kaydı Mevcut!
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-3 mb-6">
                             <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
@@ -136,11 +152,11 @@ export default function HaritaModu() {
         )}
       </AnimatePresence>
 
-      {/* --- HARİTA KONTROLLERİ --- */}
+      {/* --- ALT SOL: HARİTA KONTROLLERİ (Eksik Olan Kısım) --- */}
       <div className="absolute bottom-8 left-4 z-[1000] hidden md:flex flex-col gap-2">
-          <button className="bg-white p-3 rounded-xl shadow-lg hover:bg-gray-50 text-slate-700"><Navigation className="w-5 h-5"/></button>
-          <button className="bg-white p-3 rounded-xl shadow-lg hover:bg-gray-50 text-slate-700"><Settings className="w-5 h-5"/></button>
-          <button className="bg-white p-3 rounded-xl shadow-lg hover:bg-gray-50 text-slate-700"><Info className="w-5 h-5"/></button>
+          <button className="bg-white p-3 rounded-xl shadow-lg hover:bg-gray-50 text-slate-700 transition" title="Navigasyon"><Navigation className="w-5 h-5"/></button>
+          <button className="bg-white p-3 rounded-xl shadow-lg hover:bg-gray-50 text-slate-700 transition" title="Ayarlar"><Settings className="w-5 h-5"/></button>
+          <button className="bg-white p-3 rounded-xl shadow-lg hover:bg-gray-50 text-slate-700 transition" title="Bilgi"><Info className="w-5 h-5"/></button>
       </div>
 
     </div>
