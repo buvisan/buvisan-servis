@@ -34,12 +34,7 @@ function HaritaKontrol({ konum, resetTetikleyici }: { konum: [number, number] | 
 
     useEffect(() => {
         if (konum) {
-            // Koordinat güvenli mi kontrol et (Lat 90'dan büyük olamaz)
-            if(Math.abs(konum[0]) <= 90) {
-                map.flyTo(konum, 14, { duration: 1.5 });
-            } else {
-                console.error("Hatalı Koordinat:", konum);
-            }
+            map.flyTo(konum, 14, { duration: 1.5 });
         }
     }, [konum, map]);
 
@@ -53,25 +48,20 @@ function HaritaKontrol({ konum, resetTetikleyici }: { konum: [number, number] | 
 }
 
 export default function HaritaBileseni({ vincler, secilenVinc, setSecilenVinc, tema, resetTetikleyici }: any) {
-    // Türkiye Sınırları (Harita çok dışarı çıkmasın)
-    const maxBounds = new L.LatLngBounds(
-        new L.LatLng(-85, -180), // Güney Batı
-        new L.LatLng(85, 180)    // Kuzey Doğu
-    );
+    const maxBounds = new L.LatLngBounds(new L.LatLng(-85, -180), new L.LatLng(85, 180));
 
     return (
         <MapContainer 
             center={[39.9334, 32.8597]} 
             zoom={6}
-            minZoom={3} // Çok fazla uzaklaşmayı engelle (Dünya tekrarlamaz)
-            maxBounds={maxBounds} // Haritayı sınırla
-            maxBoundsViscosity={1.0} // Sınırdan çıkmaya çalışırsa geri teper
+            minZoom={3}
+            maxBounds={maxBounds}
+            maxBoundsViscosity={1.0}
             style={{ height: "100%", width: "100%", zIndex: 0, background: tema === 'dark' ? '#0f172a' : '#ddd' }} 
             zoomControl={false}
         >
             <TileLayer
                 attribution='&copy; OpenStreetMap'
-                // noWrap: true -> HARİTA TEKRAR ETMEZ!
                 noWrap={true} 
                 url={tema === 'dark' 
                     ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -85,15 +75,26 @@ export default function HaritaBileseni({ vincler, secilenVinc, setSecilenVinc, t
             />
 
             {vincler.map((vinc: any) => {
+                // --- SIKI KOORDİNAT KONTROLÜ ---
+                const lat = parseFloat(vinc.lat);
+                const lng = parseFloat(vinc.lng);
+
+                // 1. Sayı değilse gösterme (Boşluk, null, harf vs.)
+                if (isNaN(lat) || isNaN(lng)) return null;
+
+                // 2. Koordinat (0, 0) ise gösterme (Okyanus ortası hatası)
+                if (lat === 0 && lng === 0) return null;
+
+                // 3. Dünya sınırları dışında ise gösterme
+                if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+
+                // --- ARIZA KONTROLÜ ---
                 const arizaVar = vinc.service_tickets?.some((ticket: any) => ticket.status !== 'tamamlandi');
                 
-                // KOORDİNAT KONTROLÜ (Hatalıysa gösterme)
-                if(!vinc.lat || !vinc.lng || Math.abs(vinc.lat) > 90) return null;
-
                 return (
                     <Marker 
                         key={vinc.id} 
-                        position={[vinc.lat, vinc.lng]} 
+                        position={[lat, lng]} 
                         icon={arizaVar ? redDivIcon : greenDivIcon} 
                         eventHandlers={{
                             click: () => setSecilenVinc(vinc),
