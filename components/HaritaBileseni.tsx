@@ -40,7 +40,8 @@ function HaritaKontrol({ konum, resetTetikleyici }: { konum: [number, number] | 
 
     useEffect(() => {
         if (resetTetikleyici > 0) {
-            map.flyTo([39.9334, 32.8597], 6, { duration: 1.5 });
+            // Resetleyince Dünya Görünümüne (Biraz daha uzak) dön
+            map.flyTo([39.9334, 32.8597], 3, { duration: 1.5 });
         }
     }, [resetTetikleyici, map]);
 
@@ -48,13 +49,14 @@ function HaritaKontrol({ konum, resetTetikleyici }: { konum: [number, number] | 
 }
 
 export default function HaritaBileseni({ vincler, secilenVinc, setSecilenVinc, tema, resetTetikleyici }: any) {
+    // Dünyanın tamamını kapsayacak sınırlar
     const maxBounds = new L.LatLngBounds(new L.LatLng(-85, -180), new L.LatLng(85, 180));
 
     return (
         <MapContainer 
             center={[39.9334, 32.8597]} 
             zoom={6}
-            minZoom={3}
+            minZoom={2} // Dünya haritası için daha geniş açıya izin ver
             maxBounds={maxBounds}
             maxBoundsViscosity={1.0}
             style={{ height: "100%", width: "100%", zIndex: 0, background: tema === 'dark' ? '#0f172a' : '#ddd' }} 
@@ -75,18 +77,19 @@ export default function HaritaBileseni({ vincler, secilenVinc, setSecilenVinc, t
             />
 
             {vincler.map((vinc: any) => {
-                // --- SIKI KOORDİNAT KONTROLÜ ---
                 const lat = parseFloat(vinc.lat);
                 const lng = parseFloat(vinc.lng);
 
-                // 1. Sayı değilse gösterme (Boşluk, null, harf vs.)
+                // --- GÜVENLİK FİLTRESİ ---
+                // Sadece "Gerçekten Bozuk" olanları engelliyoruz.
+                
+                // 1. Sayı değilse (Boşluk vs.) -> Çöp
                 if (isNaN(lat) || isNaN(lng)) return null;
 
-                // 2. Koordinat (0, 0) ise gösterme (Okyanus ortası hatası)
+                // 2. Tam 0,0 noktası (Okyanus ortası hatası) -> Çöp
                 if (lat === 0 && lng === 0) return null;
 
-                // 3. Dünya sınırları dışında ise gösterme
-                if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+                // NOT: Türkiye filtresini kaldırdım! Artık dünyanın her yerindeki vinçler görünür.
 
                 // --- ARIZA KONTROLÜ ---
                 const arizaVar = vinc.service_tickets?.some((ticket: any) => ticket.status !== 'tamamlandi');
