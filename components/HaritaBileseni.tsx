@@ -20,7 +20,8 @@ function HaritaUcus({ konum }: { konum: [number, number] | null }) {
     
     useEffect(() => {
         if (konum) {
-            map.flyTo(konum, 14, {
+            // 'as any' ile TypeScript hatasını susturuyoruz
+            (map as any).flyTo(konum, 14, {
                 duration: 1.5
             });
         }
@@ -29,6 +30,7 @@ function HaritaUcus({ konum }: { konum: [number, number] | null }) {
     return null;
 }
 
+// Ana Bileşen
 export default function HaritaBileseni({ vincler, secilenVinc, setSecilenVinc }: any) {
     return (
         <MapContainer 
