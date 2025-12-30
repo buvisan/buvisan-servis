@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, ExternalLink, Search, Package, MapPin, User, Loader2, 
-  History, X, Calendar, Wrench, FileText, CheckCircle2 
+  History, X, Calendar, CheckCircle2, Pencil // <-- PENCIL EKLENDİ
 } from 'lucide-react';
 
 export default function VinclerListesi() {
@@ -39,7 +39,6 @@ export default function VinclerListesi() {
       .from('cranes')
       .select('*')
       .order('created_at', { ascending: false });
-
     if (!error) setVincler(data || []);
     setYukleniyor(false);
   }
@@ -60,16 +59,15 @@ export default function VinclerListesi() {
   const gecmisKaydet = async () => {
     if (!secilenVincId || !modalForm.title) return alert("Başlık zorunludur!");
     setKaydediliyor(true);
-
     const { error } = await supabase.from('crane_history').insert([{
         crane_id: secilenVincId,
         event_type: modalForm.event_type,
         title: modalForm.title,
         description: modalForm.description,
         technician_name: modalForm.technician_name,
-        created_at: modalForm.created_at // Seçilen tarih
+        created_at: modalForm.created_at
     }]);
-
+    
     if (error) {
         alert("Hata: " + error.message);
     } else {
@@ -95,7 +93,7 @@ export default function VinclerListesi() {
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
           <div className="flex items-center gap-4 w-full md:w-auto">
              <button onClick={() => router.push('/admin')} className="bg-white p-3 rounded-xl shadow-sm hover:shadow text-slate-500 hover:text-slate-800 transition">
-               <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" />
              </button>
              <div>
                <h1 className="text-2xl font-bold text-slate-800">Vinç Filosu</h1>
@@ -103,7 +101,7 @@ export default function VinclerListesi() {
              </div>
           </div>
 
-          <div className="relative w-full md:w-96">
+           <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-3.5 text-slate-400 w-5 h-5" />
             <input 
               type="text" 
@@ -118,7 +116,7 @@ export default function VinclerListesi() {
         {/* TABLO KARTI */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden pb-20">
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 text-xs uppercase font-bold tracking-wider border-b border-slate-100">
                   <th className="p-5">Seri No / Model</th>
@@ -128,7 +126,7 @@ export default function VinclerListesi() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filtrelenmisVincler.map((vinc, index) => (
+                {filtrelenmisVincler.map((vinc) => (
                     <tr key={vinc.id} className="hover:bg-blue-50/50 transition group">
                       <td className="p-5">
                         <div className="flex items-center gap-3">
@@ -140,10 +138,20 @@ export default function VinclerListesi() {
                       <td className="p-5"><div className="flex items-center gap-2 text-slate-500 text-sm max-w-xs truncate"><MapPin className="w-4 h-4 text-slate-400 shrink-0" />{vinc.location_address}</div></td>
                       <td className="p-5 text-right">
                         <div className="flex justify-end gap-2">
-                          <button onClick={() => modalAc(vinc.id)} className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 hover:bg-amber-200 px-3 py-2 rounded-lg text-sm font-bold transition-all shadow-sm">
+                           
+                           {/* --- YENİ DÜZENLEME BUTONU --- */}
+                           <button 
+                             onClick={() => router.push(`/admin/vinc-duzenle/${vinc.id}`)} 
+                             className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-2 rounded-lg text-sm font-bold transition-all shadow-sm"
+                             title="Vinci Düzenle"
+                           >
+                             <Pencil className="w-4 h-4" />
+                           </button>
+
+                           <button onClick={() => modalAc(vinc.id)} className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 hover:bg-amber-200 px-3 py-2 rounded-lg text-sm font-bold transition-all shadow-sm">
                              <History className="w-4 h-4" /> İşle
                           </button>
-                          <Link href={`/vinc/${vinc.id}`} target="_blank" className="inline-flex items-center gap-2 bg-slate-100 text-slate-600 hover:bg-blue-600 hover:text-white px-3 py-2 rounded-lg text-sm font-bold transition-all shadow-sm">
+                           <Link href={`/vinc/${vinc.id}`} target="_blank" className="inline-flex items-center gap-2 bg-slate-100 text-slate-600 hover:bg-blue-600 hover:text-white px-3 py-2 rounded-lg text-sm font-bold transition-all shadow-sm">
                             <ExternalLink className="w-4 h-4" />
                           </Link>
                         </div>
@@ -151,12 +159,12 @@ export default function VinclerListesi() {
                     </tr>
                   ))}
               </tbody>
-            </table>
+             </table>
           </div>
         </div>
       </div>
 
-      {/* --- PROFESYONEL MODAL (POPUP) --- */}
+      {/* --- PROFESYONEL MODAL (POPUP) - AYNEN KORUNDU --- */}
       <AnimatePresence>
         {isModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -166,15 +174,12 @@ export default function VinclerListesi() {
                     exit={{ opacity: 0, scale: 0.9 }}
                     className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden"
                 >
-                    {/* Modal Başlığı */}
                     <div className="bg-slate-800 p-4 flex justify-between items-center text-white">
                         <h3 className="font-bold text-lg flex items-center gap-2"><History className="w-5 h-5 text-amber-400"/> Servis Geçmişi İşle</h3>
                         <button onClick={() => setIsModalOpen(false)} className="hover:bg-slate-700 p-1 rounded-full transition"><X className="w-5 h-5"/></button>
                     </div>
 
-                    {/* Modal Formu */}
                     <div className="p-6 space-y-4">
-                        
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">İşlem Tarihi</label>
@@ -213,9 +218,8 @@ export default function VinclerListesi() {
                         </div>
 
                         <button onClick={gecmisKaydet} disabled={kaydediliyor} className="w-full bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-900 transition shadow-lg flex items-center justify-center gap-2">
-                            {kaydediliyor ? <Loader2 className="animate-spin w-5 h-5"/> : <><CheckCircle2 className="w-5 h-5"/> KAYDET VE İŞLE</>}
+                             {kaydediliyor ? <Loader2 className="animate-spin w-5 h-5"/> : <><CheckCircle2 className="w-5 h-5"/> KAYDET VE İŞLE</>}
                         </button>
-
                     </div>
                 </motion.div>
             </div>
