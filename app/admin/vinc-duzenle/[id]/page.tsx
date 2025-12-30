@@ -93,7 +93,7 @@ export default function VincDuzenle() {
     return data.publicUrl;
   };
 
-  // --- GÜNCELLEME İŞLEMİ (UPDATE) ---
+// --- GÜNCELLEME İŞLEMİ (Geliştirilmiş) ---
   const guncelle = async () => {
     setYukleniyor(true);
     try {
@@ -105,9 +105,6 @@ export default function VincDuzenle() {
         dosyayiYukleVeLinkAl(dosyalar.dosya4),
       ]);
 
-      // 2. Güncellenecek objeyi hazırla
-      // Eğer yeni dosya linki geldiyse (linkX), onu kullan.
-      // Gelmediyse, state'deki mevcut linki (formData.pdf_url) koru.
       const guncelVeri = {
         ...formData,
         lat: formData.lat ? parseFloat(formData.lat) : null,
@@ -118,12 +115,20 @@ export default function VincDuzenle() {
         pdf_url_4: link4 || formData.pdf_url_4,
       };
 
-      const { error } = await supabase
+      // 🔥 KRİTİK DEĞİŞİKLİK BURADA 🔥
+      const { data, error } = await supabase
         .from('cranes')
         .update(guncelVeri)
-        .eq('id', id);
+        .eq('id', id)
+        .select(); // <-- Güncellenen veriyi geri istiyoruz
 
       if (error) throw error;
+
+      // Eğer hata yoksa ama data boşsa, Supabase sessizce reddetmiştir
+      if (!data || data.length === 0) {
+        alert("HATA: Güncelleme gerçekleşmedi! Supabase RLS politikalarını kontrol et.");
+        return;
+      }
       
       alert("Vinç başarıyla güncellendi! ✅");
       router.push('/admin/vincler');
