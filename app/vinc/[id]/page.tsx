@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useParams } from 'next/navigation';
 import jsPDF from 'jspdf';
 import { motion } from 'framer-motion';
+import ChatAlani from '@/components/ChatAlani';
 import { 
   FileText, 
   Download, 
@@ -44,7 +45,7 @@ export default function VincDetaySayfasi() {
       // 1. Vinç Bilgisi
       const { data: vincData, error: vincError } = await supabase
         .from('cranes')
-        .select('*')
+        .select('*, service_tickets(*)')
         .eq('id', id)
         .single();
       
@@ -356,6 +357,17 @@ export default function VincDetaySayfasi() {
                🚀 Bildirim Başarıyla Gönderildi!
              </div>
            )}
+           {vinc && vinc.service_tickets?.some((t: any) => t.status !== 'tamamlandi') && (
+            <div className="max-w-md mx-auto mt-6 mb-20">
+              <div className="bg-white/95 backdrop-blur rounded-3xl p-1 shadow-xl border-t-4 border-blue-500 overflow-hidden">
+                {/* En son açılan aktif biletin ID'sini buluyoruz */}
+                <ChatAlani 
+                  ticketId={vinc.service_tickets.find((t: any) => t.status !== 'tamamlandi').id} 
+                  kimimBen="musteri" 
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
       

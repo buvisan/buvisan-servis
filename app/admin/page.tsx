@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion'; // Animasyon kütüphanesi
+import ChatAlani from '@/components/ChatAlani';
 import { 
   LogOut, 
   Plus, 
@@ -27,6 +28,7 @@ export default function AdminPanel() {
   const router = useRouter();
   
   // --- STATE (DURUM) YÖNETİMİ ---
+  const [aktifChatId, setAktifChatId] = useState<string | null>(null);
   const [bildirimler, setBildirimler] = useState<any[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [istatistikler, setIstatistikler] = useState({
@@ -312,6 +314,21 @@ export default function AdminPanel() {
                      <div className="hidden md:block opacity-50 grayscale hover:grayscale-0 transition-all">
                         <CheckCircle2 className="w-16 h-16 text-green-200" />
                      </div>
+                  )}
+
+                  {/* ARTIK BUTONLARIN OLDUĞU YERE ŞUNU EKLE: */}
+                  <button 
+                    onClick={() => setAktifChatId(aktifChatId === kayit.id ? null : kayit.id)}
+                    className="w-full mt-2 bg-slate-100 text-slate-600 font-bold py-2 rounded-xl text-sm hover:bg-slate-200 transition"
+                  >
+                    💬 {aktifChatId === kayit.id ? 'Sohbeti Kapat' : 'Müşteriyle Mesajlaş'}
+                  </button>
+
+                  {/* CHAT ALANI (Eğer butona basıldıysa açılır) */}
+                  {aktifChatId === kayit.id && (
+                    <div className="mt-4">
+                      <ChatAlani ticketId={kayit.id} kimimBen="admin" />
+                    </div>
                   )}
 
                 </div>
