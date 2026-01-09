@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Save, ArrowLeft, FileText, UploadCloud, Hash, Truck, Weight, ArrowUpFromLine, User, MapPin, Loader2, Globe, Trash2 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react'; // <-- QR Kütüphanesi
+import { Save, ArrowLeft, FileText, UploadCloud, Hash, Truck, Weight, ArrowUpFromLine, User, MapPin, Loader2, Globe, Trash2, Printer, QrCode } from 'lucide-react';
 
 export default function VincDuzenle() {
   const router = useRouter();
@@ -13,16 +14,16 @@ export default function VincDuzenle() {
   const [yukleniyor, setYukleniyor] = useState(false);
   const [veriYukleniyor, setVeriYukleniyor] = useState(true);
 
-  // Dosya Yükleme State'i (Yeni yüklenecekler için)
+  // Dosya Yükleme State'i
   const [dosyalar, setDosyalar] = useState<{ [key: string]: File | null }>({
     dosya1: null, dosya2: null, dosya3: null, dosya4: null
   });
 
-  // Form Verileri (Orijinal yapıya uygun)
+  // Form Verileri
   const [formData, setFormData] = useState({
     serial_number: '', model_name: '', capacity: '', 
     lifting_height: '', location_address: '', customer_name: '',
-    lat: '', lng: '', // Koordinat alanları
+    lat: '', lng: '',
     pdf_url: '', pdf_url_2: '', pdf_url_3: '', pdf_url_4: ''
   });
 
@@ -32,7 +33,6 @@ export default function VincDuzenle() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/login'); return; }
 
-      // ID'ye göre vinç verisini çek
       const { data, error } = await supabase
         .from('cranes')
         .select('*')
@@ -45,7 +45,6 @@ export default function VincDuzenle() {
         return;
       }
 
-      // State'i doldur
       setFormData({
         serial_number: data.serial_number || '',
         model_name: data.model_name || '',
@@ -53,7 +52,7 @@ export default function VincDuzenle() {
         lifting_height: data.lifting_height || '',
         location_address: data.location_address || '',
         customer_name: data.customer_name || '',
-        lat: data.lat || '', // Koordinatları doldur
+        lat: data.lat || '',
         lng: data.lng || '',
         pdf_url: data.pdf_url || '',
         pdf_url_2: data.pdf_url_2 || '',
@@ -73,7 +72,6 @@ export default function VincDuzenle() {
     }
   };
 
-  // Mevcut dosya linkini silmek için (Boş string yapar)
   const dosyaSil = (urlKey: string) => {
     if(confirm("Bu dosyayı kaldırmak istediğinize emin misiniz?")) {
         // @ts-ignore
@@ -93,11 +91,9 @@ export default function VincDuzenle() {
     return data.publicUrl;
   };
 
-// --- GÜNCELLEME İŞLEMİ (Geliştirilmiş) ---
   const guncelle = async () => {
     setYukleniyor(true);
     try {
-      // 1. Yeni seçilen dosyalar varsa yükle
       const [link1, link2, link3, link4] = await Promise.all([
         dosyayiYukleVeLinkAl(dosyalar.dosya1),
         dosyayiYukleVeLinkAl(dosyalar.dosya2),
@@ -115,18 +111,15 @@ export default function VincDuzenle() {
         pdf_url_4: link4 || formData.pdf_url_4,
       };
 
-      // 🔥 KRİTİK DEĞİŞİKLİK BURADA 🔥
       const { data, error } = await supabase
         .from('cranes')
         .update(guncelVeri)
         .eq('id', id)
-        .select(); // <-- Güncellenen veriyi geri istiyoruz
+        .select();
 
       if (error) throw error;
-
-      // Eğer hata yoksa ama data boşsa, Supabase sessizce reddetmiştir
       if (!data || data.length === 0) {
-        alert("HATA: Güncelleme gerçekleşmedi! Supabase RLS politikalarını kontrol et.");
+        alert("HATA: Güncelleme gerçekleşmedi! RLS ayarlarını kontrol et.");
         return;
       }
       
@@ -140,16 +133,23 @@ export default function VincDuzenle() {
     }
   };
 
+  // YAZDIRMA FONKSİYONU
+  const yazdir = () => {
+    window.print();
+  }
+
   if (veriYukleniyor) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-blue-600"><Loader2 className="animate-spin w-8 h-8" /></div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center">
-      <div className="w-full max-w-4xl flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center pb-20">
+      
+      {/* BAŞLIK ALANI */}
+      <div className="w-full max-w-4xl flex items-center justify-between mb-8 print:hidden">
         <button onClick={() => router.push('/admin/vincler')} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition"><ArrowLeft className="w-5 h-5" /> Listeye Dön</button>
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">✏️ Vinç Düzenle</h1>
       </div>
 
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-4xl border border-slate-100">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-4xl border border-slate-100 print:shadow-none print:border-none">
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {/* SOL KOLON */}
@@ -188,8 +188,8 @@ export default function VincDuzenle() {
           </div>
 
           {/* DOKÜMAN YÖNETİMİ */}
-          <h3 className="text-sm font-bold text-slate-800 mb-3 border-b pb-2">📂 Doküman Yönetimi</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h3 className="text-sm font-bold text-slate-800 mb-3 border-b pb-2 print:hidden">📂 Doküman Yönetimi</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 print:hidden">
              {[
                 { key: 'dosya1', label: '1. İş Emri Formu', urlKey: 'pdf_url' },
                 { key: 'dosya2', label: '2. Devreye Alma Formu', urlKey: 'pdf_url_2' },
@@ -199,8 +199,6 @@ export default function VincDuzenle() {
                 <div key={item.key} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                     <div className="flex justify-between items-start mb-2">
                         <span className="text-xs font-bold text-slate-600">{item.label}</span>
-                        
-                        {/* Mevcut dosya varsa göster */}
                         {/* @ts-ignore */}
                         {formData[item.urlKey] ? (
                             <div className="flex gap-2 items-center">
@@ -222,9 +220,45 @@ export default function VincDuzenle() {
              ))}
           </div>
 
-          <button onClick={guncelle} disabled={yukleniyor} className="w-full mt-8 bg-slate-800 hover:bg-black text-white font-bold py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+          <button onClick={guncelle} disabled={yukleniyor} className="w-full mb-10 bg-slate-800 hover:bg-black text-white font-bold py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 print:hidden">
             {yukleniyor ? <Loader2 className="animate-spin" /> : <><Save className="w-5 h-5" /> DEĞİŞİKLİKLERİ KAYDET</>}
           </button>
+
+          {/* --- YENİ EKLENEN QR KOD ALANI --- */}
+          <div className="border-t-2 border-slate-100 pt-8 mt-8">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <QrCode className="w-6 h-6 text-blue-600"/> QR Kimlik Kartı
+                </h3>
+                <button onClick={yazdir} className="bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-100 transition flex items-center gap-2 print:hidden">
+                    <Printer className="w-4 h-4"/> Yazdır
+                </button>
+             </div>
+
+             <div className="flex flex-col md:flex-row gap-6 items-center justify-center bg-slate-50 p-8 rounded-3xl border border-slate-200 print:bg-white print:border-4 print:border-black">
+                 {/* QR Kodun Kendisi */}
+                 <div className="bg-white p-4 rounded-xl shadow-sm print:shadow-none">
+                    <QRCodeSVG 
+                        value={`https://buvisan.servis.com/vinc/${id}`} 
+                        size={180} 
+                        level={"H"} 
+                        includeMargin={true} 
+                    />
+                 </div>
+
+                 {/* Yan Bilgiler */}
+                 <div className="text-center md:text-left space-y-2">
+                     <div className="text-2xl font-extrabold text-slate-900 tracking-tight">BUVİSAN SERVİS</div>
+                     <div className="text-sm font-bold text-slate-500 uppercase tracking-widest">Dijital Kimlik Kartı</div>
+                     <div className="w-12 h-1 bg-blue-500 rounded-full mx-auto md:mx-0 my-2"></div>
+                     <div className="text-sm text-slate-600"><strong>Seri No:</strong> {formData.serial_number}</div>
+                     <div className="text-sm text-slate-600"><strong>Model:</strong> {formData.model_name}</div>
+                     <div className="text-sm text-slate-600"><strong>Müşteri:</strong> {formData.customer_name}</div>
+                     <div className="text-[10px] text-slate-400 mt-2">Bu QR kodu okutarak servis geçmişine ulaşabilirsiniz.</div>
+                 </div>
+             </div>
+          </div>
+
       </motion.div>
     </div>
   );
