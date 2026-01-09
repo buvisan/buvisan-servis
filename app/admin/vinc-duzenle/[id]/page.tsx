@@ -239,7 +239,7 @@ export default function VincDuzenle() {
                  {/* QR Kodun Kendisi */}
                  <div className="bg-white p-4 rounded-xl shadow-sm print:shadow-none">
                     <QRCodeSVG 
-                        value={`https://buvisan.servis.com/vinc/${id}`} 
+                        value={`https://servis.buvisan.com/vinc/${id}`} 
                         size={180} 
                         level={"H"} 
                         includeMargin={true} 
