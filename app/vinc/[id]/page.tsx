@@ -76,13 +76,12 @@ export default function VincDetaySayfasi() {
     return isim.replace(/[^a-zA-Z0-9.-]/g, '').toLowerCase();
   };
 
-  // Telegram Bildirimi
+// Telegram Bildirimi
   const telegramBildirimiGonder = async (not: string, medyaVarMi: boolean) => {
-    // BURAYI KENDİ BİLGİLERİNLE DOLDURMAYI UNUTMA! 👇
-    const botToken = "BURAYA_TOKENI_YAZ"; 
-    const grupId = "BURAYA_GRUP_ID_YAZ";  
-
-    if(botToken === "BURAYA_TOKENI_YAZ") return; // Token girilmemişse çalışma
+    
+    // 👇 BURAYI DOLDURUYORSUN 👇
+    const botToken = "8567697885:AAGCSyckJKLG11HwTQaMGGUwMyXIm0UqAK0"; 
+    const grupId = "-5079408473";  // Buraya da -100 ile başlayan ID'yi yapıştır
 
     const baslik = medyaVarMi ? "📸 *FOTOĞRAFLI YENİ ARIZA!*" : "🚨 *YENİ ARIZA BİLDİRİMİ!*";
     
@@ -93,7 +92,6 @@ export default function VincDetaySayfasi() {
                   `📍 *Konum:* ${vinc.location_address}\n` +
                   `------------------\n` +
                   `⚠️ *Sorun:* ${not}`;
-    
     try {
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
