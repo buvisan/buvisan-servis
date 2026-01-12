@@ -3,13 +3,16 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Loader2, Search, X, MapPin, Navigation, AlertTriangle, CheckCircle2, Filter, ExternalLink, Factory, Zap } from 'lucide-react';
+import { Loader2, Search, X, Navigation, AlertTriangle, CheckCircle2, ExternalLink, Factory, Zap, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- STYLES (PREMIUM RADAR EFEKTİ İÇİN) ---
-// Bunu normalde global.css'e atardık ama kolaylık olsun diye buraya inject ediyoruz.
+// --- FABRİKA KOORDİNATLARI (MERKEZ) ---
+// Burası senin verdiğin koordinatlar
+const FABRIKA_KONUM = { lat: 40.221008, lng: 28.905455 };
+
+// --- STYLES (CSS & BUG FIX) ---
 const customStyles = `
   @keyframes radar-pulse {
     0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
@@ -20,18 +23,21 @@ const customStyles = `
     0% { box-shadow: 0 0 5px rgba(239, 68, 68, 0.5), 0 0 10px rgba(239, 68, 68, 0.5); }
     50% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.8), 0 0 30px rgba(239, 68, 68, 0.6); }
     100% { box-shadow: 0 0 5px rgba(239, 68, 68, 0.5), 0 0 10px rgba(239, 68, 68, 0.5); }
-/* 🔥 FIX BURADA: Transform işlemini dış kutuya değil, iç elemana (marker-inner) veriyoruz */
+  }
+  @keyframes blue-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+    70% { box-shadow: 0 0 0 25px rgba(59, 130, 246, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+  }
+  
+  /* 🔥 FIX BURADA: Transform işlemini dış kutuya değil, iç elemana veriyoruz */
   .marker-inner { 
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
     transform-origin: center bottom;
   }
-  
-  /* Leaflet kutusuna hover olunca, İÇİNDEKİ .marker-inner büyüsün */
   .premium-marker:hover .marker-inner { 
     transform: scale(1.2) translateY(-5px); 
   }
-  
-  /* Z-Index ayarı (Üstte kalsın) */
   .premium-marker:hover { 
     z-index: 9999 !important; 
   }
@@ -39,11 +45,28 @@ const customStyles = `
 
 // --- İKON TANIMLAMALARI ---
 
-// 1. SAĞLAM VİNÇ (Premium Yeşil)
+// 1. FABRİKA İKONU (YENİ EKLENDİ)
+const fabrikaIcon = L.divIcon({
+  className: 'premium-marker',
+  html: `
+    <div class="marker-inner" style="position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+      <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: rgba(59, 130, 246, 0.3); animation: blue-pulse 3s infinite;"></div>
+      <div style="position: relative; z-index: 2; background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%); width: 48px; height: 48px; border-radius: 12px; border: 3px solid white; box-shadow: 0 10px 20px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: white;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M8 10h.01"></path><path d="M16 10h.01"></path><path d="M8 14h.01"></path><path d="M16 14h.01"></path></svg>
+      </div>
+      <div style="position: absolute; bottom: -8px; width: 30px; height: 6px; background: rgba(0,0,0,0.3); border-radius: 50%; filter: blur(2px);"></div>
+    </div>
+  `,
+  iconSize: [60, 60],
+  iconAnchor: [30, 50],
+  popupAnchor: [0, -50],
+});
+
+// 2. SAĞLAM VİNÇ (Fix uygulanmış hali)
 const yesilIcon = L.divIcon({
   className: 'premium-marker',
   html: `
-    <div style="
+    <div class="marker-inner" style="
       background: linear-gradient(135deg, #10b981 0%, #059669 100%);
       width: 36px; height: 36px;
       border-radius: 50%;
@@ -51,71 +74,43 @@ const yesilIcon = L.divIcon({
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
       display: flex; align-items: center; justify-content: center;
       color: white;
+      position: relative;
     ">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      <div style="position: absolute; bottom: -6px; left: 10px; width: 12px; height: 12px; background: #059669; transform: rotate(45deg); z-index: -1; border: 2px solid white;"></div>
     </div>
-    <div style="
-      position: absolute; bottom: -8px; left: 12px;
-      width: 12px; height: 12px; background: white; transform: rotate(45deg); z-index: -1;
-    "></div>
   `,
   iconSize: [36, 48],
-  iconAnchor: [18, 48],
-  popupAnchor: [0, -48],
+  iconAnchor: [18, 42],
+  popupAnchor: [0, -42],
 });
 
-// 2. ARIZALI VİNÇ (Premium Radar Kırmızı)
+// 3. ARIZALI VİNÇ (Fix uygulanmış hali)
 const kirmiziIcon = L.divIcon({
   className: 'premium-marker',
   html: `
-    <div style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
-      <div style="
-        position: absolute; width: 100%; height: 100%;
-        border-radius: 50%;
-        background: rgba(239, 68, 68, 0.3);
-        animation: radar-pulse 2s infinite;
-      "></div>
-      
-      <div style="
-        position: relative; z-index: 2;
-        background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-        width: 36px; height: 36px;
-        border-radius: 50%;
-        border: 3px solid white;
-        animation: glow 2s infinite;
-        display: flex; align-items: center; justify-content: center;
-        color: white;
-      ">
+    <div class="marker-inner" style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+      <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: rgba(239, 68, 68, 0.3); animation: radar-pulse 2s infinite;"></div>
+      <div style="position: relative; z-index: 2; background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); width: 36px; height: 36px; border-radius: 50%; border: 3px solid white; animation: glow 2s infinite; display: flex; align-items: center; justify-content: center; color: white;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
       </div>
-      
-      <div style="
-        position: absolute; bottom: 4px; left: 16px;
-        width: 12px; height: 12px; background: white; transform: rotate(45deg); z-index: 1;
-      "></div>
+      <div style="position: absolute; bottom: 8px; left: 16px; width: 12px; height: 12px; background: #b91c1c; transform: rotate(45deg); z-index: 1; border: 2px solid white;"></div>
     </div>
   `,
   iconSize: [44, 54],
-  iconAnchor: [22, 54],
-  popupAnchor: [0, -54],
+  iconAnchor: [22, 48],
+  popupAnchor: [0, -48],
 });
 
 
-// --- MESAFE HESAPLAMA (Haversine Formülü) ---
-// Bütün vinçlerin Bursa Merkeze (veya fabrikaya) uzaklığını hesaplar.
+// --- MESAFE HESAPLAMA ---
 function mesafeyiHesapla(lat1: number, lon1: number) {
-  const fabrikaLat = 40.18261690162871; // ÖRN: Buvisan Fabrika Konumu (Nilüfer)
-  const fabrikaLng = 28.93386695767159; 
-
-  const R = 6371; // Dünya yarıçapı (km)
-  const dLat = (lat1 - fabrikaLat) * (Math.PI / 180);
-  const dLon = (lon1 - fabrikaLng) * (Math.PI / 180);
-  const a = 
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(fabrikaLat * (Math.PI / 180)) * Math.cos(lat1 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const R = 6371; 
+  const dLat = (lat1 - FABRIKA_KONUM.lat) * (Math.PI / 180);
+  const dLon = (lon1 - FABRIKA_KONUM.lng) * (Math.PI / 180);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(FABRIKA_KONUM.lat * (Math.PI / 180)) * Math.cos(lat1 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; // Mesafe KM cinsinden
-  return d.toFixed(1); // Virgülden sonra 1 basamak (örn: 14.2 km)
+  return (R * c).toFixed(1);
 }
 
 function HaritaKontrol({ hedef }: { hedef: { lat: number, lng: number } | null }) {
@@ -134,11 +129,7 @@ export default function HaritaBileseni() {
   const [aramaMetni, setAramaMetni] = useState("");
   const [seciliVincKonum, setSeciliVincKonum] = useState<{lat: number, lng: number} | null>(null);
   const [sonuclarAcik, setSonuclarAcik] = useState(false);
-  
-  // FİLTRELEME İÇİN YENİ STATE
-  // 'hepsi' | 'arizali' | 'saglam'
   const [aktifFiltre, setAktifFiltre] = useState('hepsi'); 
-
   const [ozet, setOzet] = useState({ toplam: 0, arizali: 0, saglam: 0 });
 
   useEffect(() => {
@@ -159,16 +150,13 @@ export default function HaritaBileseni() {
     verileriGetir();
   }, []);
 
-  // --- GELİŞMİŞ FİLTRELEME ---
   const filtrelenmisVincler = vincler.filter(v => {
-    // 1. Arama Metni Kontrolü
     const aranan = aramaMetni.toLocaleLowerCase('tr-TR');
     const metinUyumu = 
       v.model_name?.toLocaleLowerCase('tr-TR').includes(aranan) ||
       v.customer_name?.toLocaleLowerCase('tr-TR').includes(aranan) ||
       v.serial_number?.toLocaleLowerCase('tr-TR').includes(aranan);
 
-    // 2. Buton Filtresi Kontrolü
     const arizaVarMi = v.service_tickets?.some((t: any) => t.status !== 'tamamlandi');
     let durumUyumu = true;
     if (aktifFiltre === 'arizali') durumUyumu = arizaVarMi;
@@ -189,25 +177,14 @@ export default function HaritaBileseni() {
     <div className="relative h-full w-full font-sans">
       <style>{customStyles}</style>
       
-      {/* ÜST KOMUTA PANELİ (Arama + Filtreler) */}
+      {/* ÜST KOMUTA PANELİ */}
       <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute top-6 left-4 right-4 md:left-6 md:w-[450px] z-[9999] flex flex-col gap-3">
-        
-        {/* Arama Kutusu */}
         <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/50 overflow-hidden">
           <div className="flex items-center p-3 gap-3">
             <div className={`p-2 rounded-xl bg-slate-100 text-slate-500`}><Search className="w-5 h-5" /></div>
-            <input 
-              type="text" 
-              placeholder="Filtrele: Model, Müşteri, Seri No..." 
-              className="flex-1 bg-transparent outline-none text-slate-800 font-bold placeholder:text-slate-400 text-sm"
-              value={aramaMetni}
-              onChange={(e) => { setAramaMetni(e.target.value); setSonuclarAcik(true); }}
-              onFocus={() => setSonuclarAcik(true)}
-            />
+            <input type="text" placeholder="Filtrele: Model, Müşteri, Seri No..." className="flex-1 bg-transparent outline-none text-slate-800 font-bold placeholder:text-slate-400 text-sm" value={aramaMetni} onChange={(e) => { setAramaMetni(e.target.value); setSonuclarAcik(true); }} onFocus={() => setSonuclarAcik(true)} />
             {aramaMetni && <button onClick={() => setAramaMetni("")}><X className="text-slate-400 hover:text-red-500 w-5 h-5"/></button>}
           </div>
-
-          {/* Akıllı Sonuç Listesi */}
           <AnimatePresence>
             {sonuclarAcik && aramaMetni && (
               <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="max-h-[350px] overflow-y-auto border-t border-slate-100 bg-white">
@@ -216,10 +193,7 @@ export default function HaritaBileseni() {
                     return (
                       <button key={vinc.id} onClick={() => vinceGit(vinc.lat, vinc.lng)} className="w-full text-left p-3 hover:bg-blue-50 border-b border-slate-50 flex items-center gap-3">
                         <div className={`w-2 h-2 rounded-full ${arizaVarMi ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`}></div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-800">{vinc.customer_name}</div>
-                          <div className="text-[10px] text-slate-500">{vinc.model_name}</div>
-                        </div>
+                        <div><div className="text-xs font-bold text-slate-800">{vinc.customer_name}</div><div className="text-[10px] text-slate-500">{vinc.model_name}</div></div>
                       </button>
                     )
                 })}
@@ -227,44 +201,35 @@ export default function HaritaBileseni() {
             )}
           </AnimatePresence>
         </div>
-
-        {/* Hızlı Filtre Butonları (Cockpit Toggle) */}
         <div className="flex gap-2">
-            <button 
-                onClick={() => setAktifFiltre('hepsi')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-md border ${aktifFiltre === 'hepsi' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white/90 text-slate-600 border-white/50 hover:bg-white'}`}
-            >
-                TÜM FİLO
-            </button>
-            <button 
-                onClick={() => setAktifFiltre('arizali')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-md border flex items-center justify-center gap-1 ${aktifFiltre === 'arizali' ? 'bg-red-600 text-white border-red-600' : 'bg-white/90 text-red-600 border-white/50 hover:bg-red-50'}`}
-            >
-                <AlertTriangle size={14}/> ARIZALILAR
-            </button>
-            <button 
-                onClick={() => setAktifFiltre('saglam')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-md border flex items-center justify-center gap-1 ${aktifFiltre === 'saglam' ? 'bg-green-600 text-white border-green-600' : 'bg-white/90 text-green-600 border-white/50 hover:bg-green-50'}`}
-            >
-                <CheckCircle2 size={14}/> AKTİFLER
-            </button>
+            <button onClick={() => setAktifFiltre('hepsi')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-md border ${aktifFiltre === 'hepsi' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white/90 text-slate-600 border-white/50 hover:bg-white'}`}>TÜM FİLO</button>
+            <button onClick={() => setAktifFiltre('arizali')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-md border flex items-center justify-center gap-1 ${aktifFiltre === 'arizali' ? 'bg-red-600 text-white border-red-600' : 'bg-white/90 text-red-600 border-white/50 hover:bg-red-50'}`}><AlertTriangle size={14}/> ARIZALILAR</button>
+            <button onClick={() => setAktifFiltre('saglam')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-md border flex items-center justify-center gap-1 ${aktifFiltre === 'saglam' ? 'bg-green-600 text-white border-green-600' : 'bg-white/90 text-green-600 border-white/50 hover:bg-green-50'}`}><CheckCircle2 size={14}/> AKTİFLER</button>
         </div>
       </motion.div>
 
-      {/* ALT BİLGİ BAR (Şeffaf İstatistik) */}
+      {/* ALT İSTATİSTİK */}
       <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }} className="absolute bottom-6 left-6 z-[9999] hidden md:flex items-center gap-4">
-         <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-white/50 text-xs font-bold text-slate-600">
-            Toplam: <span className="text-slate-900 text-sm ml-1">{ozet.toplam}</span>
-         </div>
-         <div className="bg-red-50/80 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-red-100 text-xs font-bold text-red-600 flex items-center gap-2">
-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div> Kritik Durum: <span className="text-red-800 text-sm ml-1">{ozet.arizali}</span>
-         </div>
+         <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-white/50 text-xs font-bold text-slate-600">Toplam: <span className="text-slate-900 text-sm ml-1">{ozet.toplam}</span></div>
+         <div className="bg-red-50/80 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-red-100 text-xs font-bold text-red-600 flex items-center gap-2"><div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div> Kritik Durum: <span className="text-red-800 text-sm ml-1">{ozet.arizali}</span></div>
       </motion.div>
 
       {/* HARİTA */}
       <MapContainer center={[39.9334, 32.8597]} zoom={6} zoomControl={false} style={{ height: "100%", width: "100%", zIndex: 0 }}>
-        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" attribution='&copy; OpenStreetMap' />
+        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" attribution='© OpenStreetMap' />
         <HaritaKontrol hedef={seciliVincKonum} />
+
+        {/* --- 🔥 FABRİKA (MERKEZ) İKONU BURADA 🔥 --- */}
+        <Marker position={[FABRIKA_KONUM.lat, FABRIKA_KONUM.lng]} icon={fabrikaIcon}>
+           <Popup className="premium-popup" closeButton={false}>
+              <div className="p-2 text-center">
+                 <div className="bg-blue-100 text-blue-700 p-2 rounded-full inline-block mb-2"><Building2 size={24}/></div>
+                 <h3 className="font-black text-slate-900 text-sm">BUVİSAN FABRİKA</h3>
+                 <p className="text-[10px] text-slate-500 font-bold">OPERASYON MERKEZİ</p>
+                 <div className="mt-2 text-[10px] text-slate-400 bg-slate-50 p-1 rounded">Nilüfer, Bursa</div>
+              </div>
+           </Popup>
+        </Marker>
 
         {filtrelenmisVincler.map((vinc) => {
           const arizaVarMi = vinc.service_tickets?.some((t: any) => t.status !== 'tamamlandi');
@@ -272,51 +237,22 @@ export default function HaritaBileseni() {
             <Marker 
               key={vinc.id} 
               position={[vinc.lat, vinc.lng]} 
-              icon={arizaVarMi ? kirmiziIcon : yesilIcon} // YENİ PREMIUM İKONLAR
+              icon={arizaVarMi ? kirmiziIcon : yesilIcon} 
               eventHandlers={{ click: () => vinceGit(vinc.lat, vinc.lng) }}
             >
               <Popup className="premium-popup" closeButton={false}>
                 <div className="min-w-[240px] p-2">
-                  {/* BAŞLIK & DURUM */}
                   <div className="flex justify-between items-start mb-3">
-                     <div>
-                        <h3 className="font-black text-slate-800 text-sm leading-tight">{vinc.customer_name}</h3>
-                        <p className="text-[10px] text-slate-500 font-bold mt-1">{vinc.model_name}</p>
-                     </div>
-                     <div className={`p-1.5 rounded-lg ${arizaVarMi ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                        {arizaVarMi ? <AlertTriangle size={16}/> : <Zap size={16}/>}
-                     </div>
+                     <div><h3 className="font-black text-slate-800 text-sm leading-tight">{vinc.customer_name}</h3><p className="text-[10px] text-slate-500 font-bold mt-1">{vinc.model_name}</p></div>
+                     <div className={`p-1.5 rounded-lg ${arizaVarMi ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{arizaVarMi ? <AlertTriangle size={16}/> : <Zap size={16}/>}</div>
                   </div>
-
-                  {/* BİLGİ KARTLARI */}
                   <div className="grid grid-cols-2 gap-2 mb-3">
-                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                        <div className="text-[9px] text-slate-400 font-bold uppercase">Uzaklık (Merkez)</div>
-                        <div className="text-xs font-mono font-bold text-slate-700 flex items-center gap-1">
-                            <Factory size={10} className="text-blue-400"/> {mesafeyiHesapla(vinc.lat, vinc.lng)} km
-                        </div>
-                     </div>
-                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                        <div className="text-[9px] text-slate-400 font-bold uppercase">Seri No</div>
-                        <div className="text-xs font-mono font-bold text-slate-700">{vinc.serial_number}</div>
-                     </div>
+                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100"><div className="text-[9px] text-slate-400 font-bold uppercase">Uzaklık (Merkez)</div><div className="text-xs font-mono font-bold text-slate-700 flex items-center gap-1"><Factory size={10} className="text-blue-400"/> {mesafeyiHesapla(vinc.lat, vinc.lng)} km</div></div>
+                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100"><div className="text-[9px] text-slate-400 font-bold uppercase">Seri No</div><div className="text-xs font-mono font-bold text-slate-700">{vinc.serial_number}</div></div>
                   </div>
-
-                  {/* AKSİYON BUTONLARI */}
                   <div className="space-y-2">
-                      <Link href={`/vinc/${vinc.id}`} target="_blank" className="flex items-center justify-center gap-2 w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-2.5 rounded-lg transition shadow-md">
-                        Müşteri Ekranını Aç <ExternalLink size={12}/>
-                      </Link>
-                      
-                      {/* NAVİGASYON BUTONU */}
-                      <a 
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${vinc.lat},${vinc.lng}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-bold py-2.5 rounded-lg transition"
-                      >
-                        <Navigation size={12}/> Yol Tarifi Al (Google Maps)
-                      </a>
+                      <Link href={`/vinc/${vinc.id}`} target="_blank" className="flex items-center justify-center gap-2 w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-2.5 rounded-lg transition shadow-md">Müşteri Ekranını Aç <ExternalLink size={12}/></Link>
+                      <a href={`https://www.google.com/maps/dir/?api=1&destination=${vinc.lat},${vinc.lng}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-bold py-2.5 rounded-lg transition"><Navigation size={12}/> Yol Tarifi Al (Google Maps)</a>
                   </div>
                 </div>
               </Popup>
@@ -324,10 +260,7 @@ export default function HaritaBileseni() {
           );
         })}
       </MapContainer>
-      
-      <Link href="/admin" className="absolute top-6 right-6 z-[9999] bg-white/90 backdrop-blur text-slate-700 px-4 py-3 rounded-2xl shadow-xl font-bold text-xs hover:bg-white hover:text-blue-600 transition flex items-center gap-2 border border-white/50">
-        <Navigation className="w-4 h-4"/> PANELE DÖN
-      </Link>
+      <Link href="/admin" className="absolute top-6 right-6 z-[9999] bg-white/90 backdrop-blur text-slate-700 px-4 py-3 rounded-2xl shadow-xl font-bold text-xs hover:bg-white hover:text-blue-600 transition flex items-center gap-2 border border-white/50"><Navigation className="w-4 h-4"/> PANELE DÖN</Link>
     </div>
   );
 }
