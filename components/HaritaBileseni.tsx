@@ -20,9 +20,21 @@ const customStyles = `
     0% { box-shadow: 0 0 5px rgba(239, 68, 68, 0.5), 0 0 10px rgba(239, 68, 68, 0.5); }
     50% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.8), 0 0 30px rgba(239, 68, 68, 0.6); }
     100% { box-shadow: 0 0 5px rgba(239, 68, 68, 0.5), 0 0 10px rgba(239, 68, 68, 0.5); }
+/* 🔥 FIX BURADA: Transform işlemini dış kutuya değil, iç elemana (marker-inner) veriyoruz */
+  .marker-inner { 
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+    transform-origin: center bottom;
   }
-  .premium-marker { transition: all 0.3s ease; }
-  .premium-marker:hover { transform: scale(1.1) !important; z-index: 9999 !important; }
+  
+  /* Leaflet kutusuna hover olunca, İÇİNDEKİ .marker-inner büyüsün */
+  .premium-marker:hover .marker-inner { 
+    transform: scale(1.2) translateY(-5px); 
+  }
+  
+  /* Z-Index ayarı (Üstte kalsın) */
+  .premium-marker:hover { 
+    z-index: 9999 !important; 
+  }
 `;
 
 // --- İKON TANIMLAMALARI ---
