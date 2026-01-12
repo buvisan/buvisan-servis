@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 // --- FABRİKA KOORDİNATLARI (MERKEZ) ---
 // Burası senin verdiğin koordinatlar
-const FABRIKA_KONUM = { lat: 40.221008, lng: 28.905455 };
+const FABRIKA_KONUM = { lat: 40.18260870488537, lng: 28.933899144178973 };
 
 // --- STYLES (CSS & BUG FIX) ---
 const customStyles = `
