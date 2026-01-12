@@ -3,13 +3,21 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Loader2, Search, X, Navigation, AlertTriangle, CheckCircle2, ExternalLink, Factory, Zap, Building2, Plus, Trash2, Map, Route } from 'lucide-react';
+import { Loader2, Search, X, Navigation, AlertTriangle, CheckCircle2, ExternalLink, Factory, Zap, Building2, Plus, Trash2, Map, Route, Send, UserCog, Phone } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- FABRİKA KOORDİNATLARI (MERKEZ) ---
-const FABRIKA_KONUM = { lat: 40.18264149185276, lng: 28.93383477116421 };
+// --- AYARLAR ---
+const FABRIKA_KONUM = { lat: 40.221008, lng: 28.905455 };
+
+// 👷‍♂️ TEKNİSYEN LİSTESİ (Burayı kendi ekibine göre düzenle)
+// Telefon numaralarını başında 90 olacak şekilde boşluksuz yaz.
+const TEKNISYENLER = [
+  { id: 1, ad: "Ahmet Usta", tel: "905XXXXXXXXX" },
+  { id: 2, ad: "Mehmet Kalfa", tel: "905XXXXXXXXX" },
+  { id: 3, ad: "Servis Ekibi 1", tel: "905XXXXXXXXX" }
+];
 
 // --- STYLES ---
 const customStyles = `
@@ -18,76 +26,35 @@ const customStyles = `
     70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
     100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
   }
-  @keyframes glow {
-    0% { box-shadow: 0 0 5px rgba(239, 68, 68, 0.5), 0 0 10px rgba(239, 68, 68, 0.5); }
-    50% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.8), 0 0 30px rgba(239, 68, 68, 0.6); }
-    100% { box-shadow: 0 0 5px rgba(239, 68, 68, 0.5), 0 0 10px rgba(239, 68, 68, 0.5); }
-  }
   @keyframes blue-pulse {
     0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
     70% { box-shadow: 0 0 0 25px rgba(59, 130, 246, 0); }
     100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
   }
-  
-  .marker-inner { 
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-    transform-origin: center bottom;
-  }
-  .premium-marker:hover .marker-inner { 
-    transform: scale(1.2) translateY(-5px); 
-  }
-  .premium-marker:hover { 
-    z-index: 9999 !important; 
-  }
+  .marker-inner { transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-origin: center bottom; }
+  .premium-marker:hover .marker-inner { transform: scale(1.2) translateY(-5px); }
+  .premium-marker:hover { z-index: 9999 !important; }
 `;
 
 // --- İKON TANIMLAMALARI ---
 const fabrikaIcon = L.divIcon({
   className: 'premium-marker',
-  html: `
-    <div class="marker-inner" style="position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-      <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: rgba(59, 130, 246, 0.3); animation: blue-pulse 3s infinite;"></div>
-      <div style="position: relative; z-index: 2; background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%); width: 48px; height: 48px; border-radius: 12px; border: 3px solid white; box-shadow: 0 10px 20px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: white;">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M8 10h.01"></path><path d="M16 10h.01"></path><path d="M8 14h.01"></path><path d="M16 14h.01"></path></svg>
-      </div>
-      <div style="position: absolute; bottom: -8px; width: 30px; height: 6px; background: rgba(0,0,0,0.3); border-radius: 50%; filter: blur(2px);"></div>
-    </div>
-  `,
-  iconSize: [60, 60],
-  iconAnchor: [30, 50],
-  popupAnchor: [0, -50],
+  html: `<div class="marker-inner" style="position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;"><div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: rgba(59, 130, 246, 0.3); animation: blue-pulse 3s infinite;"></div><div style="position: relative; z-index: 2; background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%); width: 48px; height: 48px; border-radius: 12px; border: 3px solid white; box-shadow: 0 10px 20px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: white;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M8 10h.01"></path><path d="M16 10h.01"></path><path d="M8 14h.01"></path><path d="M16 14h.01"></path></svg></div><div style="position: absolute; bottom: -8px; width: 30px; height: 6px; background: rgba(0,0,0,0.3); border-radius: 50%; filter: blur(2px);"></div></div>`,
+  iconSize: [60, 60], iconAnchor: [30, 50], popupAnchor: [0, -50],
 });
 
 const yesilIcon = L.divIcon({
   className: 'premium-marker',
-  html: `
-    <div class="marker-inner" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); width: 36px; height: 36px; border-radius: 50%; border: 3px solid white; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); display: flex; align-items: center; justify-content: center; color: white; position: relative;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-      <div style="position: absolute; bottom: -6px; left: 10px; width: 12px; height: 12px; background: #059669; transform: rotate(45deg); z-index: -1; border: 2px solid white;"></div>
-    </div>
-  `,
-  iconSize: [36, 48],
-  iconAnchor: [18, 42],
-  popupAnchor: [0, -42],
+  html: `<div class="marker-inner" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); width: 36px; height: 36px; border-radius: 50%; border: 3px solid white; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); display: flex; align-items: center; justify-content: center; color: white; position: relative;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><div style="position: absolute; bottom: -6px; left: 10px; width: 12px; height: 12px; background: #059669; transform: rotate(45deg); z-index: -1; border: 2px solid white;"></div></div>`,
+  iconSize: [36, 48], iconAnchor: [18, 42], popupAnchor: [0, -42],
 });
 
 const kirmiziIcon = L.divIcon({
   className: 'premium-marker',
-  html: `
-    <div class="marker-inner" style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
-      <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: rgba(239, 68, 68, 0.3); animation: radar-pulse 2s infinite;"></div>
-      <div style="position: relative; z-index: 2; background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); width: 36px; height: 36px; border-radius: 50%; border: 3px solid white; animation: glow 2s infinite; display: flex; align-items: center; justify-content: center; color: white;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-      </div>
-      <div style="position: absolute; bottom: 8px; left: 16px; width: 12px; height: 12px; background: #b91c1c; transform: rotate(45deg); z-index: 1; border: 2px solid white;"></div>
-    </div>
-  `,
-  iconSize: [44, 54],
-  iconAnchor: [22, 48],
-  popupAnchor: [0, -48],
+  html: `<div class="marker-inner" style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: rgba(239, 68, 68, 0.3); animation: radar-pulse 2s infinite;"></div><div style="position: relative; z-index: 2; background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); width: 36px; height: 36px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; color: white;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div><div style="position: absolute; bottom: 8px; left: 16px; width: 12px; height: 12px; background: #b91c1c; transform: rotate(45deg); z-index: 1; border: 2px solid white;"></div></div>`,
+  iconSize: [44, 54], iconAnchor: [22, 48], popupAnchor: [0, -48],
 });
 
-// --- MESAFE HESAPLAMA ---
 function mesafeyiHesapla(lat1: number, lon1: number) {
   const R = 6371; 
   const dLat = (lat1 - FABRIKA_KONUM.lat) * (Math.PI / 180);
@@ -99,11 +66,7 @@ function mesafeyiHesapla(lat1: number, lon1: number) {
 
 function HaritaKontrol({ hedef }: { hedef: { lat: number, lng: number } | null }) {
   const map = useMap();
-  useEffect(() => {
-    if (hedef) {
-      map.flyTo([hedef.lat, hedef.lng], 15, { duration: 1.5, easeLinearity: 0.25 });
-    }
-  }, [hedef, map]);
+  useEffect(() => { if (hedef) map.flyTo([hedef.lat, hedef.lng], 15, { duration: 1.5 }); }, [hedef, map]);
   return null;
 }
 
@@ -116,9 +79,10 @@ export default function HaritaBileseni() {
   const [aktifFiltre, setAktifFiltre] = useState('hepsi'); 
   const [ozet, setOzet] = useState({ toplam: 0, arizali: 0, saglam: 0 });
 
-  // 🚀 YENİ ÖZELLİK: ROTA SEPETİ 🚀
+  // ROTA & DİSPATCHER STATE'LERİ
   const [rotaListesi, setRotaListesi] = useState<any[]>([]);
   const [rotaPanelAcik, setRotaPanelAcik] = useState(false);
+  const [seciliTeknisyen, setSeciliTeknisyen] = useState(TEKNISYENLER[0]);
 
   useEffect(() => {
     const verileriGetir = async () => {
@@ -138,41 +102,47 @@ export default function HaritaBileseni() {
     verileriGetir();
   }, []);
 
-  // Sepete Ekle / Çıkar
   const rotayaEkleCikar = (vinc: any) => {
     const listedeVarMi = rotaListesi.find(r => r.id === vinc.id);
-    if (listedeVarMi) {
-        setRotaListesi(prev => prev.filter(r => r.id !== vinc.id));
-    } else {
-        setRotaListesi(prev => [...prev, vinc]);
-        setRotaPanelAcik(true); // Ekleme yapınca paneli aç
-    }
+    if (listedeVarMi) { setRotaListesi(prev => prev.filter(r => r.id !== vinc.id)); } 
+    else { setRotaListesi(prev => [...prev, vinc]); setRotaPanelAcik(true); }
   };
 
-  // 🌍 DEVASA GOOGLE MAPS LİNKİ OLUŞTURUCU 🌍
-  const cokluRotaOlustur = () => {
+  // 🔥 WHATSAPP İŞ EMRİ OLUŞTURUCU 🔥
+  const isEmriGonder = () => {
     if (rotaListesi.length === 0) return;
+
+    // 1. Google Maps Rotası
+    let mapLink = `https://www.google.com/maps/dir/${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}`;
+    rotaListesi.forEach(v => { mapLink += `/${v.lat},${v.lng}`; });
+
+    // 2. Mesaj İçeriği Hazırla
+    let mesaj = `👷‍♂️ *GÜNLÜK İŞ EMRİ*\n`;
+    mesaj += `👤 *Teknisyen:* ${seciliTeknisyen.ad}\n`;
+    mesaj += `📅 *Tarih:* ${new Date().toLocaleDateString('tr-TR')}\n\n`;
     
-    // Format: https://www.google.com/maps/dir/Başlangıç/Durak1/Durak2/Bitiş
-    let url = `https://www.google.com/maps/dir/${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}`;
-    
-    rotaListesi.forEach(v => {
-        url += `/${v.lat},${v.lng}`;
+    mesaj += `📋 *GÖREV LİSTESİ (${rotaListesi.length} Adet)*\n`;
+    rotaListesi.forEach((v, i) => {
+        const aktifAriza = v.service_tickets?.find((t: any) => t.status !== 'tamamlandi');
+        const arizaNotu = aktifAriza ? aktifAriza.description : "Genel Kontrol";
+        mesaj += `------------------\n`;
+        mesaj += `📍 *${i + 1}. ${v.customer_name}*\n`;
+        mesaj += `🏗️ ${v.model_name}\n`;
+        mesaj += `⚠️ *Sorun:* ${arizaNotu}\n`;
     });
 
-    // En son fabrikaya geri dönülecekse bunu ekle (Opsiyonel, şimdilik tek yön yapalım ustalar eve de gidebilir)
-    // url += `/${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}`; 
+    mesaj += `------------------\n`;
+    mesaj += `🗺️ *ROTA NAVİGASYON LİNKİ:*\n${mapLink}\n\n`;
+    mesaj += `Kolay gelsin!`;
 
-    window.open(url, '_blank');
+    // 3. WhatsApp'ı Aç
+    const wpUrl = `https://wa.me/${seciliTeknisyen.tel}?text=${encodeURIComponent(mesaj)}`;
+    window.open(wpUrl, '_blank');
   };
 
   const filtrelenmisVincler = vincler.filter(v => {
     const aranan = aramaMetni.toLocaleLowerCase('tr-TR');
-    const metinUyumu = 
-      v.model_name?.toLocaleLowerCase('tr-TR').includes(aranan) ||
-      v.customer_name?.toLocaleLowerCase('tr-TR').includes(aranan) ||
-      v.serial_number?.toLocaleLowerCase('tr-TR').includes(aranan);
-
+    const metinUyumu = v.model_name?.toLocaleLowerCase('tr-TR').includes(aranan) || v.customer_name?.toLocaleLowerCase('tr-TR').includes(aranan) || v.serial_number?.toLocaleLowerCase('tr-TR').includes(aranan);
     const arizaVarMi = v.service_tickets?.some((t: any) => t.status !== 'tamamlandi');
     let durumUyumu = true;
     if (aktifFiltre === 'arizali') durumUyumu = arizaVarMi;
@@ -181,12 +151,10 @@ export default function HaritaBileseni() {
   });
 
   const vinceGit = (lat: number, lng: number) => {
-    setSeciliVincKonum({ lat, lng });
-    setSonuclarAcik(false);
-    setAramaMetni("");
+    setSeciliVincKonum({ lat, lng }); setSonuclarAcik(false); setAramaMetni("");
   };
 
-  if (yukleniyor) return <div className="h-full flex flex-col items-center justify-center bg-slate-50 text-blue-600 gap-3"><Loader2 className="animate-spin w-10 h-10" /><span className="animate-pulse font-bold">Uydu Bağlantısı Kuruluyor...</span></div>;
+  if (yukleniyor) return <div className="h-full flex flex-col items-center justify-center bg-slate-50 text-blue-600 gap-3"><Loader2 className="animate-spin w-10 h-10" /><span className="animate-pulse font-bold">Sistem Yükleniyor...</span></div>;
 
   return (
     <div className="relative h-full w-full font-sans">
@@ -197,7 +165,7 @@ export default function HaritaBileseni() {
         <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/50 overflow-hidden">
           <div className="flex items-center p-3 gap-3">
             <div className={`p-2 rounded-xl bg-slate-100 text-slate-500`}><Search className="w-5 h-5" /></div>
-            <input type="text" placeholder="Filtrele: Model, Müşteri, Seri No..." className="flex-1 bg-transparent outline-none text-slate-800 font-bold placeholder:text-slate-400 text-sm" value={aramaMetni} onChange={(e) => { setAramaMetni(e.target.value); setSonuclarAcik(true); }} onFocus={() => setSonuclarAcik(true)} />
+            <input type="text" placeholder="Vinç Ara..." className="flex-1 bg-transparent outline-none text-slate-800 font-bold placeholder:text-slate-400 text-sm" value={aramaMetni} onChange={(e) => { setAramaMetni(e.target.value); setSonuclarAcik(true); }} onFocus={() => setSonuclarAcik(true)} />
             {aramaMetni && <button onClick={() => setAramaMetni("")}><X className="text-slate-400 hover:text-red-500 w-5 h-5"/></button>}
           </div>
           <AnimatePresence>
@@ -223,23 +191,30 @@ export default function HaritaBileseni() {
         </div>
       </motion.div>
 
-      {/* 🚚 ROTA SEPETİ PANELİ (SAĞ ALT KÖŞE) 🚚 */}
+      {/* 🚛 DISPATCHER PANELİ (İŞ EMRİ DAĞITICISI) 🚛 */}
       <AnimatePresence>
         {rotaListesi.length > 0 && (
-            <motion.div 
-                initial={{ x: 300, opacity: 0 }} 
-                animate={{ x: 0, opacity: 1 }} 
-                exit={{ x: 300, opacity: 0 }}
-                className="absolute bottom-24 right-4 md:bottom-6 md:right-6 z-[9999] w-72 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
-            >
+            <motion.div initial={{ x: 300, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 300, opacity: 0 }} className="absolute bottom-24 right-4 md:bottom-6 md:right-6 z-[9999] w-80 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
                 <div className="bg-slate-800 text-white p-3 flex justify-between items-center cursor-pointer" onClick={() => setRotaPanelAcik(!rotaPanelAcik)}>
-                    <div className="flex items-center gap-2 text-sm font-bold">
-                        <Route size={16}/> Servis Rotası ({rotaListesi.length})
-                    </div>
+                    <div className="flex items-center gap-2 text-sm font-bold"><Route size={16}/> İş Emri Oluştur ({rotaListesi.length})</div>
                     {rotaPanelAcik ? <X size={16}/> : <Plus size={16}/>}
                 </div>
 
                 {rotaPanelAcik && (
+                    <>
+                    <div className="p-3 bg-blue-50 border-b border-blue-100">
+                        <label className="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-1 mb-1"><UserCog size={12}/> Görevli Teknisyen</label>
+                        <select 
+                            className="w-full p-2 rounded-lg bg-white border border-blue-200 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={(e) => {
+                                const secilen = TEKNISYENLER.find(t => t.id === parseInt(e.target.value));
+                                if(secilen) setSeciliTeknisyen(secilen);
+                            }}
+                        >
+                            {TEKNISYENLER.map(t => <option key={t.id} value={t.id}>{t.ad}</option>)}
+                        </select>
+                    </div>
+
                     <div className="max-h-[200px] overflow-y-auto p-2 space-y-2 bg-slate-50">
                         {rotaListesi.map((item, index) => (
                             <div key={item.id} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-200 shadow-sm text-xs">
@@ -247,56 +222,44 @@ export default function HaritaBileseni() {
                                     <div className="bg-slate-200 text-slate-600 w-5 h-5 rounded-full flex items-center justify-center font-bold">{index + 1}</div>
                                     <div>
                                         <div className="font-bold text-slate-800">{item.customer_name.substring(0, 15)}...</div>
-                                        <div className="text-slate-500">{item.model_name.substring(0, 15)}...</div>
+                                        <div className="text-[9px] text-slate-400">{item.service_tickets?.find((t:any) => t.status!=='tamamlandi')?.description || "Kontrol"}</div>
                                     </div>
                                 </div>
                                 <button onClick={() => rotayaEkleCikar(item)} className="text-red-400 hover:text-red-600"><Trash2 size={14}/></button>
                             </div>
                         ))}
                     </div>
-                )}
-                
-                {rotaPanelAcik && (
-                    <div className="p-3 bg-white border-t border-slate-100">
-                        <button 
-                            onClick={cokluRotaOlustur}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-2 transition"
-                        >
-                            <Map size={14}/> ROTAYI HARİTADA AÇ
+                    
+                    <div className="p-3 bg-white border-t border-slate-100 space-y-2">
+                        <button onClick={isEmriGonder} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition shadow-lg shadow-green-200">
+                            <Send size={14}/> WHATSAPP İŞ EMRİ GÖNDER
                         </button>
                     </div>
+                    </>
                 )}
             </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ALT İSTATİSTİK (SOL ALT) */}
+      {/* ALT İSTATİSTİK */}
       <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }} className="absolute bottom-6 left-6 z-[9999] hidden md:flex items-center gap-4">
          <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-white/50 text-xs font-bold text-slate-600">Toplam: <span className="text-slate-900 text-sm ml-1">{ozet.toplam}</span></div>
          <div className="bg-red-50/80 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-red-100 text-xs font-bold text-red-600 flex items-center gap-2"><div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div> Kritik Durum: <span className="text-red-800 text-sm ml-1">{ozet.arizali}</span></div>
       </motion.div>
 
-      {/* HARİTA */}
-      <MapContainer center={[39.9334, 32.8597]} zoom={6} zoomControl={false} style={{ height: "100%", width: "100%", zIndex: 0 }}>
+      <MapContainer center={[FABRIKA_KONUM.lat, FABRIKA_KONUM.lng]} zoom={9} zoomControl={false} style={{ height: "100%", width: "100%", zIndex: 0 }}>
         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" attribution='© OpenStreetMap' />
         <HaritaKontrol hedef={seciliVincKonum} />
 
-        {/* FABRİKA */}
         <Marker position={[FABRIKA_KONUM.lat, FABRIKA_KONUM.lng]} icon={fabrikaIcon}>
            <Popup className="premium-popup" closeButton={false}>
-              <div className="p-2 text-center">
-                 <div className="bg-blue-100 text-blue-700 p-2 rounded-full inline-block mb-2"><Building2 size={24}/></div>
-                 <h3 className="font-black text-slate-900 text-sm">BUVİSAN FABRİKA</h3>
-                 <p className="text-[10px] text-slate-500 font-bold">ÜRETİM MERKEZİ</p>
-                 <div className="mt-2 text-[10px] text-slate-400 bg-slate-50 p-1 rounded">Demirci, Doğan Cd. No:40, 16315 Ni̇lüfer/Bursa</div>
-              </div>
+              <div className="p-2 text-center"><div className="bg-blue-100 text-blue-700 p-2 rounded-full inline-block mb-2"><Building2 size={24}/></div><h3 className="font-black text-slate-900 text-sm">BUVİSAN FABRİKA</h3><p className="text-[10px] text-slate-500 font-bold">OPERASYON MERKEZİ</p></div>
            </Popup>
         </Marker>
 
         {filtrelenmisVincler.map((vinc) => {
           const arizaVarMi = vinc.service_tickets?.some((t: any) => t.status !== 'tamamlandi');
           const rotadaEkliMi = rotaListesi.some(r => r.id === vinc.id);
-
           return (
             <Marker key={vinc.id} position={[vinc.lat, vinc.lng]} icon={arizaVarMi ? kirmiziIcon : yesilIcon} eventHandlers={{ click: () => vinceGit(vinc.lat, vinc.lng) }}>
               <Popup className="premium-popup" closeButton={false}>
@@ -310,16 +273,8 @@ export default function HaritaBileseni() {
                      <div className="bg-slate-50 p-2 rounded-lg border border-slate-100"><div className="text-[9px] text-slate-400 font-bold uppercase">Seri No</div><div className="text-xs font-mono font-bold text-slate-700">{vinc.serial_number}</div></div>
                   </div>
                   <div className="space-y-2">
-                      {/* 🔥 ROTA SEPETİNE EKLEME BUTONU 🔥 */}
-                      <button 
-                        onClick={() => rotayaEkleCikar(vinc)} 
-                        className={`flex items-center justify-center gap-2 w-full text-xs font-bold py-2.5 rounded-lg transition shadow-md ${rotadaEkliMi ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-600 text-white hover:bg-green-700'}`}
-                      >
-                        {rotadaEkliMi ? <><Trash2 size={12}/> Rotadan Çıkar</> : <><Plus size={12}/> Rotaya Ekle</>}
-                      </button>
-
+                      <button onClick={() => rotayaEkleCikar(vinc)} className={`flex items-center justify-center gap-2 w-full text-xs font-bold py-2.5 rounded-lg transition shadow-md ${rotadaEkliMi ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-600 text-white hover:bg-green-700'}`}>{rotadaEkliMi ? <><Trash2 size={12}/> Rotadan Çıkar</> : <><Plus size={12}/> Rotaya Ekle</>}</button>
                       <Link href={`/vinc/${vinc.id}`} target="_blank" className="flex items-center justify-center gap-2 w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-2.5 rounded-lg transition shadow-md">Müşteri Ekranı <ExternalLink size={12}/></Link>
-                      <a href={`https://www.google.com/maps/dir/?api=1&origin=${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}&destination=${vinc.lat},${vinc.lng}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-bold py-2.5 rounded-lg transition"><Navigation size={12}/> Tekil Rota</a>
                   </div>
                 </div>
               </Popup>
