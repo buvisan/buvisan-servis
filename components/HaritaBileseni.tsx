@@ -225,8 +225,8 @@ export default function HaritaBileseni() {
               <div className="p-2 text-center">
                  <div className="bg-blue-100 text-blue-700 p-2 rounded-full inline-block mb-2"><Building2 size={24}/></div>
                  <h3 className="font-black text-slate-900 text-sm">BUVİSAN FABRİKA</h3>
-                 <p className="text-[10px] text-slate-500 font-bold">OPERASYON MERKEZİ</p>
-                 <div className="mt-2 text-[10px] text-slate-400 bg-slate-50 p-1 rounded">Nilüfer, Bursa</div>
+                 <p className="text-[10px] text-slate-500 font-bold">ÜRETİM MERKEZİ</p>
+                 <div className="mt-2 text-[10px] text-slate-400 bg-slate-50 p-1 rounded">Demirci, Doğan Cd. No:40, 16315 Ni̇lüfer/Bursa</div>
               </div>
            </Popup>
         </Marker>
