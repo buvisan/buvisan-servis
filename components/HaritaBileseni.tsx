@@ -104,8 +104,8 @@ const kirmiziIcon = L.divIcon({
 // --- MESAFE HESAPLAMA (Haversine Formülü) ---
 // Bütün vinçlerin Bursa Merkeze (veya fabrikaya) uzaklığını hesaplar.
 function mesafeyiHesapla(lat1: number, lon1: number) {
-  const fabrikaLat = 40.221008; // ÖRN: Buvisan Fabrika Konumu (Nilüfer)
-  const fabrikaLng = 28.905455; 
+  const fabrikaLat = 40.18261690162871; // ÖRN: Buvisan Fabrika Konumu (Nilüfer)
+  const fabrikaLng = 28.93386695767159; 
 
   const R = 6371; // Dünya yarıçapı (km)
   const dLat = (lat1 - fabrikaLat) * (Math.PI / 180);
