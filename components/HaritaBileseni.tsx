@@ -252,7 +252,14 @@ export default function HaritaBileseni() {
                   </div>
                   <div className="space-y-2">
                       <Link href={`/vinc/${vinc.id}`} target="_blank" className="flex items-center justify-center gap-2 w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-2.5 rounded-lg transition shadow-md">Müşteri Ekranını Aç <ExternalLink size={12}/></Link>
-                      <a href={`https://www.google.com/maps/dir/?api=1&destination=${vinc.lat},${vinc.lng}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-bold py-2.5 rounded-lg transition"><Navigation size={12}/> Yol Tarifi Al (Google Maps)</a>
+                      <a 
+                        href={`https://www.google.com/maps/dir/?api=1&origin=${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}&destination=${vinc.lat},${vinc.lng}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-bold py-2.5 rounded-lg transition"
+                      >
+                        <Navigation size={12}/> Yol Tarifi Al (Merkezden)
+                      </a>
                   </div>
                 </div>
               </Popup>
