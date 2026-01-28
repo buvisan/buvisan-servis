@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Loader2, Plus, TrendingUp, DollarSign, Calendar, Save, Trash2, Briefcase, User, MapPin, Clock, Wrench, FileText, X, Box } from 'lucide-react';
+import { Loader2, Plus, TrendingUp, DollarSign, Calendar, Save, Trash2, Briefcase, User, MapPin, Clock, Wrench, FileText, X, Box, Edit2, RotateCcw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,6 +13,9 @@ export default function AnalizSayfasi() {
   // Detay Modalı İçin State
   const [seciliKayit, setSeciliKayit] = useState<any | null>(null);
 
+  // Düzenleme Modu İçin State (ID varsa düzenleme modundayız demektir)
+  const [duzenlemeId, setDuzenlemeId] = useState<string | null>(null);
+
   // İstatistikler
   const [istatistik, setIstatistik] = useState({
     toplamCiro: 0,
@@ -23,17 +26,17 @@ export default function AnalizSayfasi() {
   
   const [grafikVerisi, setGrafikVerisi] = useState<any[]>([]);
 
-  // --- GELİŞMİŞ KAYIT FORMU ---
+  // Form Verileri
   const [yeniKayit, setYeniKayit] = useState({
     service_date: new Date().toISOString().split('T')[0],
     customer_text: '', 
-    company_address: '', // YENİ
-    customer_rep: '',    // YENİ
-    crane_capacity: '',  // YENİ
-    service_type: 'Servis', // YENİ (Default)
-    work_hours: '',      // YENİ
+    company_address: '', 
+    customer_rep: '',    
+    crane_capacity: '',  
+    service_type: 'Servis', 
+    work_hours: '',      
     description: '',
-    materials_text: '',  // YENİ
+    materials_text: '',  
     price: '',
     technician: 'Genel Servis'
   });
@@ -98,11 +101,13 @@ export default function AnalizSayfasi() {
     setGrafikVerisi(grafikArr);
   };
 
-  const kaydet = async () => {
+  // 🔥 KAYDETME VE GÜNCELLEME FONKSİYONU 🔥
+  const kaydetVeyaGuncelle = async () => {
     if (!yeniKayit.customer_text || !yeniKayit.price) return alert("Müşteri adı ve fiyat zorunludur.");
     
     setYukleniyor(true);
-    const { error } = await supabase.from('completed_services').insert([{
+
+    const veriPaketi = {
         service_date: yeniKayit.service_date,
         customer_text: yeniKayit.customer_text,
         company_address: yeniKayit.company_address,
@@ -114,32 +119,70 @@ export default function AnalizSayfasi() {
         materials_text: yeniKayit.materials_text,
         price: yeniKayit.price,
         technician: yeniKayit.technician
-    }]);
+    };
+
+    let error;
+
+    if (duzenlemeId) {
+        // GÜNCELLEME MODU
+        const response = await supabase.from('completed_services').update(veriPaketi).eq('id', duzenlemeId);
+        error = response.error;
+    } else {
+        // YENİ KAYIT MODU
+        const response = await supabase.from('completed_services').insert([veriPaketi]);
+        error = response.error;
+    }
     
     if (error) {
         alert("Hata: " + error.message);
     } else {
-        alert("Kayıt Başarıyla Eklendi! ✅");
-        // Formu sıfırla
-        setYeniKayit({
-            service_date: new Date().toISOString().split('T')[0],
-            customer_text: '', company_address: '', customer_rep: '', crane_capacity: '',
-            service_type: 'Servis', work_hours: '', description: '', materials_text: '',
-            price: '', technician: 'Genel Servis'
-        });
+        alert(duzenlemeId ? "Kayıt Güncellendi! ✅" : "Kayıt Eklendi! ✅");
+        formuSifirla();
         verileriGetir();
     }
+    setYukleniyor(false);
+  };
+
+  // Düzenleme Modunu Aç
+  const duzenle = (e: any, kayit: any) => {
+      e.stopPropagation(); // Detay modalını açmasın
+      setDuzenlemeId(kayit.id);
+      setYeniKayit({
+          service_date: kayit.service_date,
+          customer_text: kayit.customer_text || '',
+          company_address: kayit.company_address || '',
+          customer_rep: kayit.customer_rep || '',
+          crane_capacity: kayit.crane_capacity || '',
+          service_type: kayit.service_type || 'Servis',
+          work_hours: kayit.work_hours || '',
+          description: kayit.description || '',
+          materials_text: kayit.materials_text || '',
+          price: kayit.price || '',
+          technician: kayit.technician || ''
+      });
+      // Sayfanın en üstüne (forma) kaydır
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Vazgeç / Formu Sıfırla
+  const formuSifirla = () => {
+      setDuzenlemeId(null);
+      setYeniKayit({
+          service_date: new Date().toISOString().split('T')[0],
+          customer_text: '', company_address: '', customer_rep: '', crane_capacity: '',
+          service_type: 'Servis', work_hours: '', description: '', materials_text: '',
+          price: '', technician: 'Genel Servis'
+      });
   };
 
   const sil = async (e: any, id: string) => {
-    e.stopPropagation(); // Satıra tıklamayı engelle
+    e.stopPropagation();
     if(!confirm("Bu kaydı silmek istediğine emin misin?")) return;
     await supabase.from('completed_services').delete().eq('id', id);
     verileriGetir();
-    setSeciliKayit(null); // Modalı kapat
+    if (seciliKayit?.id === id) setSeciliKayit(null);
   }
 
-  // Servis Tipine Göre Renk Ayarı
   const tipRengi = (tip: string) => {
       if(tip === 'Periyodik Bakım') return 'bg-purple-100 text-purple-700 border-purple-200';
       if(tip === 'Garanti') return 'bg-green-100 text-green-700 border-green-200';
@@ -183,15 +226,16 @@ export default function AnalizSayfasi() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* --- SOL TARAF: DETAYLI GİRİŞ FORMU --- */}
-        <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg border border-slate-100 h-fit sticky top-6">
-            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <Plus className="w-5 h-5 bg-slate-800 text-white rounded-full p-1"/> Yeni İşlem Ekle
+        {/* --- SOL TARAF: FORM (HEM EKLEME HEM DÜZENLEME) --- */}
+        <div className={`lg:col-span-1 p-6 rounded-2xl shadow-lg border h-fit sticky top-6 transition-all ${duzenlemeId ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-100'}`}>
+            <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 ${duzenlemeId ? 'text-orange-700' : 'text-slate-800'}`}>
+                {duzenlemeId ? <Edit2 className="w-5 h-5"/> : <Plus className="w-5 h-5 bg-slate-800 text-white rounded-full p-1"/>}
+                {duzenlemeId ? 'Kaydı Düzenle' : 'Yeni İşlem Ekle'}
             </h2>
             
             <div className="space-y-3">
                 {/* 1. Müşteri & Adres */}
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+                <div className="p-3 bg-white/50 rounded-xl border border-slate-200/50 space-y-3">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Müşteri Bilgileri</span>
                     <input type="date" value={yeniKayit.service_date} onChange={e => setYeniKayit({...yeniKayit, service_date: e.target.value})} className="w-full p-2 bg-white rounded-lg border text-sm font-bold"/>
                     <input type="text" placeholder="Firma Adı (Örn: Buvisan)" value={yeniKayit.customer_text} onChange={e => setYeniKayit({...yeniKayit, customer_text: e.target.value})} className="w-full p-2 bg-white rounded-lg border text-sm font-bold"/>
@@ -200,7 +244,7 @@ export default function AnalizSayfasi() {
                 </div>
 
                 {/* 2. Vinç & İşlem */}
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+                <div className="p-3 bg-white/50 rounded-xl border border-slate-200/50 space-y-3">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">İşlem Detayları</span>
                     <div className="flex gap-2">
                          <select value={yeniKayit.service_type} onChange={e => setYeniKayit({...yeniKayit, service_type: e.target.value})} className="flex-1 p-2 bg-white rounded-lg border text-xs font-bold">
@@ -217,7 +261,7 @@ export default function AnalizSayfasi() {
                 </div>
 
                 {/* 3. Finans & Ekip */}
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+                <div className="p-3 bg-white/50 rounded-xl border border-slate-200/50 space-y-3">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fiyat & Ekip</span>
                     <div className="flex gap-2">
                         <div className="flex-1 relative">
@@ -229,9 +273,17 @@ export default function AnalizSayfasi() {
                     <input type="text" placeholder="Teknisyenler (Ahmet, Mehmet...)" value={yeniKayit.technician} onChange={e => setYeniKayit({...yeniKayit, technician: e.target.value})} className="w-full p-2 bg-white rounded-lg border text-xs"/>
                 </div>
 
-                <button onClick={kaydet} disabled={yukleniyor} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-200">
-                    {yukleniyor ? <Loader2 className="animate-spin"/> : <><Save size={18}/> KAYDET</>}
-                </button>
+                {/* BUTONLAR */}
+                <div className="flex gap-2">
+                    {duzenlemeId && (
+                        <button onClick={formuSifirla} className="flex-1 py-3 bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold rounded-xl transition flex items-center justify-center gap-2">
+                            <RotateCcw size={18}/> VAZGEÇ
+                        </button>
+                    )}
+                    <button onClick={kaydetVeyaGuncelle} disabled={yukleniyor} className={`flex-[2] py-3 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-lg ${duzenlemeId ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'}`}>
+                        {yukleniyor ? <Loader2 className="animate-spin"/> : duzenlemeId ? <><Save size={18}/> GÜNCELLE</> : <><Save size={18}/> KAYDET</>}
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -254,7 +306,7 @@ export default function AnalizSayfasi() {
                 </div>
             </div>
 
-            {/* LİSTE (TIKLANABİLİR) */}
+            {/* LİSTE */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 <div className="p-4 border-b border-slate-100 font-bold text-slate-700 flex justify-between items-center">
                     <span>📜 Son İşlemler</span>
@@ -269,15 +321,15 @@ export default function AnalizSayfasi() {
                                 <th className="p-4">İşlem</th>
                                 <th className="p-4">Tip</th>
                                 <th className="p-4">Tutar</th>
-                                <th className="p-4 text-right">Sil</th>
+                                <th className="p-4 text-right">Düzenle / Sil</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {kayitlar.map((item) => (
                                 <tr 
                                     key={item.id} 
-                                    onClick={() => setSeciliKayit(item)} // 🔥 SATIRA TIKLAYINCA MODAL AÇILIR
-                                    className="hover:bg-blue-50 transition cursor-pointer group"
+                                    onClick={() => setSeciliKayit(item)} 
+                                    className={`transition cursor-pointer group ${duzenlemeId === item.id ? 'bg-orange-50' : 'hover:bg-blue-50'}`}
                                 >
                                     <td className="p-4 font-mono text-slate-500 text-xs">{new Date(item.service_date).toLocaleDateString('tr-TR')}</td>
                                     <td className="p-4">
@@ -292,7 +344,24 @@ export default function AnalizSayfasi() {
                                     </td>
                                     <td className="p-4 font-bold text-green-600">{Number(item.price).toLocaleString('tr-TR')} ₺</td>
                                     <td className="p-4 text-right">
-                                        <button onClick={(e) => sil(e, item.id)} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 size={16}/></button>
+                                        <div className="flex justify-end gap-1">
+                                            {/* 🔥 DÜZENLE BUTONU BURADA 🔥 */}
+                                            <button 
+                                                onClick={(e) => duzenle(e, item)} 
+                                                className="text-blue-400 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition" 
+                                                title="Düzenle"
+                                            >
+                                                <Edit2 size={16}/>
+                                            </button>
+                                            
+                                            <button 
+                                                onClick={(e) => sil(e, item.id)} 
+                                                className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition" 
+                                                title="Sil"
+                                            >
+                                                <Trash2 size={16}/>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -303,7 +372,7 @@ export default function AnalizSayfasi() {
         </div>
       </div>
 
-      {/* --- 🔥 DETAY MODALI (POP-UP) 🔥 --- */}
+      {/* DETAY MODALI (Aynı kaldı) */}
       <AnimatePresence>
         {seciliKayit && (
             <motion.div 
@@ -316,7 +385,6 @@ export default function AnalizSayfasi() {
                     className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden"
                     onClick={e => e.stopPropagation()}
                 >
-                    {/* Modal Başlık */}
                     <div className="bg-slate-900 text-white p-6 flex justify-between items-start">
                         <div>
                             <div className="flex items-center gap-3 mb-1">
@@ -331,9 +399,7 @@ export default function AnalizSayfasi() {
                         <button onClick={() => setSeciliKayit(null)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><X size={20}/></button>
                     </div>
 
-                    {/* Modal İçerik */}
                     <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-                        
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                                 <div className="text-xs font-bold text-slate-400 uppercase mb-1 flex items-center gap-1"><Wrench size={12}/> Teknik Detaylar</div>
@@ -365,11 +431,19 @@ export default function AnalizSayfasi() {
                                 </div>
                             </div>
                         )}
-                        
                     </div>
                     
-                    {/* Modal Alt Bar */}
-                    <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                    <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
+                        {/* Modal İçinden Düzenleme Butonu */}
+                        <button 
+                            onClick={(e) => {
+                                setSeciliKayit(null); // Modalı kapat
+                                duzenle(e, seciliKayit); // Düzenleme moduna geç
+                            }} 
+                            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition flex items-center gap-2"
+                        >
+                            <Edit2 size={16}/> Düzenle
+                        </button>
                         <button onClick={() => setSeciliKayit(null)} className="px-6 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold hover:bg-slate-100 transition">Kapat</button>
                     </div>
 
