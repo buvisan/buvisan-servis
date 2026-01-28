@@ -143,7 +143,7 @@ export default function AnalizSayfasi() {
       <div className="flex justify-between items-center mb-8">
         <div>
             <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">📊 Finansal & İş Analizi</h1>
-            <p className="text-slate-500 text-sm">Haftalık ve aylık performans raporları.</p>
+            <p className="text-slate-500 text-sm">Buvisan Servis İşlem Raporları</p>
         </div>
         <Link href="/admin" className="text-sm font-bold text-slate-500 hover:text-slate-800">Panele Dön</Link>
       </div>
@@ -163,7 +163,7 @@ export default function AnalizSayfasi() {
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
             <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><TrendingUp size={20}/></div>
-                <span className="text-xs text-slate-400 font-bold uppercase">Bu Ay Ciro</span>
+                <span className="text-xs text-slate-400 font-bold uppercase">Bu Ay Yapılan Ciro</span>
             </div>
             <div className="text-xl font-black text-slate-800">{istatistik.buAyCiro.toLocaleString('tr-TR')} ₺</div>
         </div>
@@ -172,7 +172,7 @@ export default function AnalizSayfasi() {
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
             <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-purple-100 text-purple-600 rounded-lg"><Calendar size={20}/></div>
-                <span className="text-xs text-slate-400 font-bold uppercase">Bu Hafta İş</span>
+                <span className="text-xs text-slate-400 font-bold uppercase">Bu Hafta Yapılan Servis Sayısı</span>
             </div>
             <div className="text-xl font-black text-slate-800">{istatistik.buHaftaIslem} <span className="text-sm font-normal text-slate-400">Adet</span></div>
         </div>
@@ -181,7 +181,7 @@ export default function AnalizSayfasi() {
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
             <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-orange-100 text-orange-600 rounded-lg"><Briefcase size={20}/></div>
-                <span className="text-xs text-slate-400 font-bold uppercase">Bu Ay İş</span>
+                <span className="text-xs text-slate-400 font-bold uppercase">Bu Ay Yapılan Servis Sayısı</span>
             </div>
             <div className="text-xl font-black text-slate-800">{istatistik.buAyIslem} <span className="text-sm font-normal text-slate-400">Adet</span></div>
         </div>
@@ -192,7 +192,7 @@ export default function AnalizSayfasi() {
         {/* --- SOL TARAF: YENİ KAYIT FORMU (MANUEL GİRİŞ) --- */}
         <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg border border-slate-100 h-fit sticky top-6">
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <Plus className="w-5 h-5 bg-slate-800 text-white rounded-full p-1"/> İşlem Gir
+                <Plus className="w-5 h-5 bg-slate-800 text-white rounded-full p-1"/> Yeni İşlem Ekle
             </h2>
             
             <div className="space-y-4">
@@ -206,7 +206,7 @@ export default function AnalizSayfasi() {
                     <label className="text-xs font-bold text-slate-400">Müşteri / Firma Adı</label>
                     <input 
                         type="text" 
-                        placeholder="Örn: Arçelik Fabrikası" 
+                        placeholder="Örn: Buvisan" 
                         value={yeniKayit.customer_text} 
                         onChange={e => setYeniKayit({...yeniKayit, customer_text: e.target.value})} 
                         className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700"
