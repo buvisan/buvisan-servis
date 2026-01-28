@@ -2,7 +2,6 @@
 // --------------------------------------------------------
 // BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ 🛠️
 // --------------------------------------------------------
-
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -202,8 +201,23 @@ export default function AdminPanel() {
                Toplam {istatistikler.toplam} kayıttan
             </div>
           </div>
-          
+          {/* KART 4: FİNANSAL ANALİZ (YENİ EKLİYORUZ) */}
+          <motion.button 
+            whileHover={{ y: -5 }}
+            onClick={() => router.push('/admin/analiz')}
+            className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-green-100/50 transition-all flex items-center gap-4 group text-left"
+          >
+            <div className="bg-green-50 text-green-600 p-4 rounded-2xl group-hover:bg-green-600 group-hover:text-white transition-colors">
+              <Activity className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-lg group-hover:text-green-600 transition-colors">Finansal Analiz</h3>
+              <p className="text-slate-400 text-sm">Gelir/Gider Raporları</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-slate-300 ml-auto group-hover:text-green-500" />
+          </motion.button>
         </div>
+        
 
         {/* --- 2. BÖLÜM: BİLDİRİM LİSTESİ --- */}
         <div className="flex items-center justify-between mb-6">
@@ -280,7 +294,6 @@ export default function AdminPanel() {
                         <span className="font-bold text-slate-900 block mb-1">Bildirilen Sorun:</span> 
                         {kayit.description}
                     </div>
-
                     {/* FOTOĞRAF GÖRME BUTONU (Varsa) */}
                     {kayit.media_url && (
                       <div className="pt-2">
@@ -294,7 +307,6 @@ export default function AdminPanel() {
                       </div>
                     )}
                   </div>
-
                   {/* SAĞ TARAF: AKSİYON BUTONU */}
                   {kayit.status !== 'tamamlandi' && (
                     <div className="w-full md:w-auto flex justify-end">
