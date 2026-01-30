@@ -2,6 +2,7 @@
 // --------------------------------------------------------
 // BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ 🛠️
 // --------------------------------------------------------
+import { Package } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -216,6 +217,20 @@ export default function AdminPanel() {
             </div>
             <ChevronRight className="w-5 h-5 text-slate-300 ml-auto group-hover:text-green-500" />
           </motion.button>
+          <motion.button 
+          whileHover={{ y: -5 }}
+          onClick={() => router.push('/admin/malzemeler')}
+          className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-yellow-100/50 transition-all flex items-center gap-4 group text-left"
+        >
+          <div className="bg-yellow-50 text-yellow-600 p-4 rounded-2xl group-hover:bg-yellow-600 group-hover:text-white transition-colors">
+            <Package className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-800 text-lg group-hover:text-yellow-600 transition-colors">Malzeme Deposu</h3>
+            <p className="text-slate-400 text-sm">Stok Kartları & Fiyatlar</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-slate-300 ml-auto group-hover:text-yellow-500" />
+        </motion.button>
         </div>
         
 
@@ -342,6 +357,8 @@ export default function AdminPanel() {
                       <ChatAlani ticketId={kayit.id} kimimBen="admin" />
                     </div>
                   )}
+
+                  
 
                 </div>
               </motion.div>

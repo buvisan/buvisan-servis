@@ -2,6 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - FİNANSAL ANALİZ VE SERVİS TAKİP MODÜLÜ 🛠️
+// (Final Versiyon: Stok Entegrasyonlu & Tam Mobil Uyumlu)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -23,7 +24,8 @@ import {
   X, 
   Box, 
   Edit2, 
-  RotateCcw 
+  RotateCcw,
+  Package // Depo ikonu
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -43,23 +45,34 @@ export default function AnalizSayfasi() {
   const [yukleniyor, setYukleniyor] = useState(true);
   const [kayitlar, setKayitlar] = useState<any[]>([]);
   
+  // 🔥 YENİ: Stoktaki Malzemeler Listesi
+  const [stokMalzemeleri, setStokMalzemeleri] = useState<any[]>([]);
+  
   // Detay Modalı için seçili kayıt
   const [seciliKayit, setSeciliKayit] = useState<any | null>(null);
 
   // Düzenleme Modu için ID (Varsa düzenleme, yoksa yeni kayıt)
   const [duzenlemeId, setDuzenlemeId] = useState<string | null>(null);
 
-  // İstatistik Verileri - 🔥 DÜZELTİLEN KISIM BURASI 🔥
+  // İstatistik Verileri
   const [istatistik, setIstatistik] = useState({
     toplamCiro: 0,
     buAyCiro: 0,
-    toplamIslem: 0, // <--- ARTIK BU EKSİK DEĞİL!
+    toplamIslem: 0, 
     buHaftaIslem: 0,
     buAyIslem: 0
   });
   
   // Grafik Verisi
   const [grafikVerisi, setGrafikVerisi] = useState<any[]>([]);
+
+  // --- MALZEME YÖNETİMİ ---
+  // Sepetteki Malzemeler
+  const [malzemeListesi, setMalzemeListesi] = useState<{id: number, ad: string, fiyat: number}[]>([]);
+  
+  // Seçim Kutuları (Geçici)
+  const [secilenMalzemeId, setSecilenMalzemeId] = useState("");
+  const [tempMalzemeFiyat, setTempMalzemeFiyat] = useState("");
 
   // Form Verileri (Tüm detaylar burada)
   const [yeniKayit, setYeniKayit] = useState({
@@ -71,7 +84,6 @@ export default function AnalizSayfasi() {
     service_type: 'Servis', 
     work_hours: '',      
     description: '',
-    materials_text: '',  
     price: '',
     technician: 'Genel Servis'
   });
@@ -82,15 +94,21 @@ export default function AnalizSayfasi() {
   }, []);
 
   const verileriGetir = async () => {
-    const { data, error } = await supabase
+    // 1. Servis Kayıtlarını Çek
+    const { data: servisData } = await supabase
       .from('completed_services')
       .select('*')
       .order('service_date', { ascending: false });
 
-    if (data) {
-        setKayitlar(data);
-        hesaplamalariYap(data);
+    if (servisData) {
+        setKayitlar(servisData);
+        hesaplamalariYap(servisData);
     }
+
+    // 2. 🔥 Depodaki Malzemeleri Çek
+    const { data: stokData } = await supabase.from('materials').select('*').order('name', { ascending: true });
+    if (stokData) setStokMalzemeleri(stokData);
+
     setYukleniyor(false);
   };
 
@@ -143,7 +161,7 @@ export default function AnalizSayfasi() {
     setIstatistik({
         toplamCiro: topCiro,
         buAyCiro: ayCiro,
-        toplamIslem: data.length, // ARTIK HATA VERMEZ
+        toplamIslem: data.length, 
         buHaftaIslem: haftaSayi,
         buAyIslem: aySayi
     });
@@ -157,6 +175,40 @@ export default function AnalizSayfasi() {
     setGrafikVerisi(grafikArr);
   };
 
+  // 🔥 YENİ: Listeden Malzeme Seçince Çalışır
+  const malzemeSecildi = (e: any) => {
+      const id = e.target.value;
+      setSecilenMalzemeId(id);
+      
+      const bulunan = stokMalzemeleri.find(m => m.id === id);
+      if(bulunan) {
+          setTempMalzemeFiyat(bulunan.sale_price); // Fiyatı otomatik doldur
+      } else {
+          setTempMalzemeFiyat("");
+      }
+  };
+
+  // 🔥 Malzeme Ekle Butonu
+  const malzemeEkle = () => {
+      if(!secilenMalzemeId || !tempMalzemeFiyat) return alert("Lütfen malzeme seçin ve fiyatı kontrol edin.");
+      
+      const bulunan = stokMalzemeleri.find(m => m.id === secilenMalzemeId);
+      
+      const yeni = {
+          id: Date.now(),
+          ad: bulunan ? bulunan.name : "Bilinmeyen",
+          fiyat: parseFloat(tempMalzemeFiyat)
+      };
+      
+      setMalzemeListesi([...malzemeListesi, yeni]);
+      setSecilenMalzemeId(""); // Seçimi sıfırla
+      setTempMalzemeFiyat("");
+  };
+
+  const malzemeSil = (id: number) => {
+      setMalzemeListesi(malzemeListesi.filter(m => m.id !== id));
+  };
+
   // --- KAYDETME VE GÜNCELLEME İŞLEMİ ---
   const kaydetVeyaGuncelle = async () => {
     if (!yeniKayit.customer_text || !yeniKayit.price) {
@@ -167,17 +219,9 @@ export default function AnalizSayfasi() {
 
     // Gönderilecek Veri Paketi
     const veriPaketi = {
-        service_date: yeniKayit.service_date,
-        customer_text: yeniKayit.customer_text,
-        company_address: yeniKayit.company_address,
-        customer_rep: yeniKayit.customer_rep,
-        crane_capacity: yeniKayit.crane_capacity,
-        service_type: yeniKayit.service_type,
+        ...yeniKayit,
         work_hours: yeniKayit.work_hours ? Number(yeniKayit.work_hours) : 0,
-        description: yeniKayit.description,
-        materials_text: yeniKayit.materials_text,
-        price: yeniKayit.price,
-        technician: yeniKayit.technician
+        materials: malzemeListesi // 🔥 ARTIK JSON LİSTESİ GİDİYOR
     };
 
     let error;
@@ -209,11 +253,14 @@ export default function AnalizSayfasi() {
 
   // --- DÜZENLEME MODUNU AÇ ---
   const duzenle = (e: any, kayit: any) => {
-      e.stopPropagation(); // Satıra tıklayınca detay açılmasını engelle
+      e.stopPropagation(); 
       
       setDuzenlemeId(kayit.id);
       
-      // Formu seçilen kayıtla doldur
+      // 🔥 Malzemeleri JSON'dan geri yükle
+      const eskiMalzemeler = kayit.materials && Array.isArray(kayit.materials) ? kayit.materials : [];
+      setMalzemeListesi(eskiMalzemeler);
+
       setYeniKayit({
           service_date: kayit.service_date,
           customer_text: kayit.customer_text || '',
@@ -223,30 +270,22 @@ export default function AnalizSayfasi() {
           service_type: kayit.service_type || 'Servis',
           work_hours: kayit.work_hours || '',
           description: kayit.description || '',
-          materials_text: kayit.materials_text || '',
           price: kayit.price || '',
           technician: kayit.technician || ''
       });
 
-      // Sayfanın en üstüne (forma) kaydır
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // --- FORMU SIFIRLA / VAZGEÇ ---
   const formuSifirla = () => {
       setDuzenlemeId(null);
+      setMalzemeListesi([]);
       setYeniKayit({
           service_date: new Date().toISOString().split('T')[0],
-          customer_text: '', 
-          company_address: '', 
-          customer_rep: '', 
-          crane_capacity: '',
-          service_type: 'Servis', 
-          work_hours: '', 
-          description: '', 
-          materials_text: '',
-          price: '', 
-          technician: 'Genel Servis'
+          customer_text: '', company_address: '', customer_rep: '', crane_capacity: '',
+          service_type: 'Servis', work_hours: '', description: '', 
+          price: '', technician: 'Genel Servis'
       });
   };
 
@@ -258,7 +297,6 @@ export default function AnalizSayfasi() {
     await supabase.from('completed_services').delete().eq('id', id);
     verileriGetir();
     
-    // Eğer silinen kayıt detayda açıksa kapat
     if (seciliKayit?.id === id) setSeciliKayit(null);
   }
 
@@ -270,6 +308,9 @@ export default function AnalizSayfasi() {
       if(tip === 'Montaj') return 'bg-orange-100 text-orange-700 border-orange-200';
       return 'bg-slate-100 text-slate-700 border-slate-200';
   }
+
+  // Toplam Malzeme Hesabı
+  const malzemeToplami = malzemeListesi.reduce((acc, curr) => acc + curr.fiyat, 0);
 
   // Yükleniyor Ekranı
   if (yukleniyor && kayitlar.length === 0) {
@@ -294,12 +335,15 @@ export default function AnalizSayfasi() {
             </h1>
             <p className="text-slate-500 text-xs md:text-sm">Finansal analiz, servis dökümü ve iş takibi.</p>
         </div>
-        <Link 
-            href="/admin" 
-            className="w-full md:w-auto text-center bg-white border border-slate-200 px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition shadow-sm"
-        >
-            Panele Dön
-        </Link>
+        <div className="flex gap-2 w-full md:w-auto">
+            {/* Depo Butonu */}
+            <Link href="/admin/malzemeler" className="flex-1 md:flex-none text-center bg-yellow-50 text-yellow-700 border border-yellow-200 px-4 py-2 rounded-xl text-sm font-bold hover:bg-yellow-100 transition flex items-center justify-center gap-2">
+                <Package size={16}/> Depo
+            </Link>
+            <Link href="/admin" className="flex-1 md:flex-none text-center bg-white border border-slate-200 px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition">
+                Panele Dön
+            </Link>
+        </div>
       </div>
 
       {/* ========================================
@@ -370,10 +414,56 @@ export default function AnalizSayfasi() {
                          <input type="text" placeholder="Kapasite (10 Ton)" value={yeniKayit.crane_capacity} onChange={e => setYeniKayit({...yeniKayit, crane_capacity: e.target.value})} className="flex-1 p-2 bg-white rounded-lg border text-xs"/>
                     </div>
                     <textarea rows={2} placeholder="Yapılan İşin Açıklaması..." value={yeniKayit.description} onChange={e => setYeniKayit({...yeniKayit, description: e.target.value})} className="w-full p-2 bg-white rounded-lg border text-sm"/>
-                    <textarea rows={2} placeholder="Kullanılan Malzemeler & Fiyatları..." value={yeniKayit.materials_text} onChange={e => setYeniKayit({...yeniKayit, materials_text: e.target.value})} className="w-full p-2 bg-white rounded-lg border text-xs font-mono"/>
                 </div>
 
-                {/* 3. Kısım: Fiyat & Ekip */}
+                {/* 3. 🔥 YENİ STOKTAN MALZEME SEÇME 🔥 */}
+                <div className="p-3 bg-yellow-50 rounded-xl border border-yellow-100 space-y-3">
+                    <span className="text-[10px] font-bold text-yellow-600 uppercase tracking-wider flex items-center gap-1"><Box size={12}/> Malzeme Deposu</span>
+                    
+                    <div className="flex flex-col md:flex-row gap-2 items-center">
+                        <select 
+                            value={secilenMalzemeId} 
+                            onChange={malzemeSecildi}
+                            className="w-full md:flex-[2] p-2 bg-white rounded-lg border border-yellow-200 text-xs font-bold text-slate-700 outline-none"
+                        >
+                            <option value="">Malzeme Seçiniz...</option>
+                            {stokMalzemeleri.map(m => (
+                                <option key={m.id} value={m.id}>{m.name}</option>
+                            ))}
+                        </select>
+
+                        <div className="flex gap-2 w-full md:w-auto">
+                            <input 
+                                type="number" 
+                                placeholder="Fiyat" 
+                                value={tempMalzemeFiyat} 
+                                onChange={e => setTempMalzemeFiyat(e.target.value)} 
+                                className="flex-1 p-2 bg-white rounded-lg border border-yellow-200 text-xs font-bold"
+                            />
+                            <button onClick={malzemeEkle} className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-lg transition"><Plus size={16}/></button>
+                        </div>
+                    </div>
+
+                    {/* Malzeme Listesi */}
+                    {malzemeListesi.length > 0 && (
+                        <div className="max-h-[150px] overflow-y-auto bg-white rounded-lg border border-yellow-100 p-2 space-y-1">
+                            {malzemeListesi.map((m) => (
+                                <div key={m.id} className="flex justify-between items-center text-xs p-1.5 bg-slate-50 rounded hover:bg-slate-100">
+                                    <span className="font-medium text-slate-700">{m.ad}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-bold text-slate-900">{Number(m.fiyat).toLocaleString()} ₺</span>
+                                        <button onClick={() => malzemeSil(m.id)} className="text-red-400 hover:text-red-600"><X size={12}/></button>
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="text-right text-[10px] font-bold text-yellow-700 pt-1 border-t border-slate-100">
+                                Toplam Malzeme: {malzemeToplami.toLocaleString()} ₺
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* 4. Kısım: Fiyat & Ekip */}
                 <div className="p-3 bg-white/50 rounded-xl border border-slate-200/50 space-y-3">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fiyat & Ekip</span>
                     <div className="flex gap-2">
@@ -577,13 +667,35 @@ export default function AnalizSayfasi() {
                             </div>
                         </div>
 
-                        {seciliKayit.materials_text && (
+                        {/* 🔥 YENİ: MALZEME TABLOSU GÖRÜNÜMÜ 🔥 */}
+                        {seciliKayit.materials && Array.isArray(seciliKayit.materials) && seciliKayit.materials.length > 0 && (
                             <div>
                                 <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2">
-                                    <Box size={16}/> Kullanılan Malzemeler & Fiyatlar
+                                    <Box size={16}/> Kullanılan Malzemeler
                                 </h3>
-                                <div className="bg-yellow-50 p-4 rounded-xl text-xs md:text-sm text-slate-700 font-mono whitespace-pre-line border border-yellow-100">
-                                    {seciliKayit.materials_text}
+                                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                                    <table className="w-full text-xs md:text-sm">
+                                        <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                                            <tr>
+                                                <th className="p-3 text-left">Malzeme Adı</th>
+                                                <th className="p-3 text-right">Fiyat</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {seciliKayit.materials.map((m: any, i: number) => (
+                                                <tr key={i}>
+                                                    <td className="p-3 text-slate-700">{m.ad}</td>
+                                                    <td className="p-3 text-right font-bold text-slate-900">{m.fiyat.toLocaleString()} ₺</td>
+                                                </tr>
+                                            ))}
+                                            <tr className="bg-yellow-50">
+                                                <td className="p-3 font-bold text-yellow-800">TOPLAM MALZEME</td>
+                                                <td className="p-3 text-right font-black text-yellow-800">
+                                                    {seciliKayit.materials.reduce((a:any, b:any) => a + Number(b.fiyat), 0).toLocaleString()} ₺
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         )}
