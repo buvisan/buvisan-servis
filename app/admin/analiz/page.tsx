@@ -17,9 +17,19 @@ import {
 } from 'recharts';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRef } from 'react'; // React importuna useRef ekle
+import html2canvas from 'html2canvas'; // Bunu en tepeye ekle
+import { Download } from 'lucide-react'; // İkonlara bunu ekle
 
 export default function AnalizSayfasi() {
   
+
+  
+  // 1. Ekran görüntüsü alınacak alanı seçmek için referans
+  const modalRef = useRef<HTMLDivElement>(null);
+  
+  // 2. İndirme sırasında butonda 'Yükleniyor' göstermek için
+  const [indiriliyor, setIndiriliyor] = useState(false);
   // ==========================================================================
   // 1. STATE (DURUM) YÖNETİMİ
   // ==========================================================================
@@ -194,6 +204,36 @@ export default function AnalizSayfasi() {
     }
     setYukleniyor(false);
   };
+ 
+  // --- FİŞİ RESİM OLARAK İNDİR ---
+  const fisiIndir = async () => {
+    if (!modalRef.current || !seciliKayit) return;
+    
+    setIndiriliyor(true);
+    try {
+      // Modalı yakala ve resme çevir
+      const canvas = await html2canvas(modalRef.current, {
+        scale: 2, // Kaliteyi artırır (Retina ekranlar için netlik)
+        backgroundColor: '#ffffff', // Arka planı beyaz yapar
+        useCORS: true // Dış kaynaklı resim varsa (logo vs) izin verir
+      });
+
+      // Resmi oluştur
+      const image = canvas.toDataURL("image/png");
+      
+      // İndirme linki oluştur ve tıkla
+      const link = document.createElement("a");
+      link.href = image;
+      // Dosya adı: FirmaAdi-Tarih.png
+      link.download = `ServisFisi-${seciliKayit.customer_text}-${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.png`;
+      link.click();
+      
+    } catch (error) {
+      console.error("Resim oluşturulurken hata:", error);
+      alert("Fiş oluşturulurken bir hata oluştu.");
+    }
+    setIndiriliyor(false);
+  };
 
   const formuSifirla = () => {
       setMalzemeListesi([]);
@@ -306,7 +346,7 @@ export default function AnalizSayfasi() {
       <AnimatePresence>
         {formAcik && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setFormAcik(false)}>
-                <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} ref={modalRef} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                     
                     {/* MODAL BAŞLIK */}
                     <div className={`p-6 flex justify-between items-center shrink-0 ${duzenlemeId ? 'bg-orange-50 border-b border-orange-100' : 'bg-blue-50 border-b border-blue-100'}`}>
@@ -376,6 +416,15 @@ export default function AnalizSayfasi() {
 
                     {/* MODAL FOOTER */}
                     <div className="p-5 border-t border-slate-100 bg-slate-50 flex gap-3 shrink-0">
+                        {/* 🔥 YENİ EKLENEN İNDİRME BUTONU 🔥 */}
+                        <button 
+                            onClick={fisiIndir} 
+                            disabled={indiriliyor}
+                            className="px-6 py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition flex items-center gap-2 shadow-lg text-sm"
+                        >
+                            {indiriliyor ? <Loader2 size={16} className="animate-spin"/> : <Download size={16}/>}
+                            {indiriliyor ? 'İniliyor...' : 'Fişi İndir'}
+                        </button>
                         <button onClick={() => setFormAcik(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition">Vazgeç</button>
                         <button onClick={kaydetVeyaGuncelle} className={`flex-[2] py-3 text-white font-bold rounded-xl hover:shadow-lg transition ${duzenlemeId ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
                             {duzenlemeId ? 'Kaydı Güncelle' : 'Kaydet ve Tamamla'}
