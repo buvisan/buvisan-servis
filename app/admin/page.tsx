@@ -2,7 +2,7 @@
 // --------------------------------------------------------
 // BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ 🛠️
 // --------------------------------------------------------
-import { Package } from 'lucide-react';
+import { Package, FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -232,6 +232,21 @@ export default function AdminPanel() {
           <ChevronRight className="w-5 h-5 text-slate-300 ml-auto group-hover:text-yellow-500" />
         </motion.button>
         </div>
+
+        <motion.button 
+        whileHover={{ y: -5 }}
+        onClick={() => router.push('/admin/teklifler')}
+        className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-blue-100/50 transition-all flex items-center gap-4 group text-left"
+      >
+        <div className="bg-blue-50 text-blue-600 p-4 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
+          <FileText className="w-8 h-8" />
+        </div>
+        <div>
+          <h3 className="font-bold text-slate-800 text-lg group-hover:text-blue-600 transition-colors">Teklif Hazırla</h3>
+          <p className="text-slate-400 text-sm">Sözleşme & Fiyat Teklifi</p>
+        </div>
+        <ChevronRight className="w-5 h-5 text-slate-300 ml-auto group-hover:text-blue-500" />
+      </motion.button>
         
 
         {/* --- 2. BÖLÜM: BİLDİRİM LİSTESİ --- */}
