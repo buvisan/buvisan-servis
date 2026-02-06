@@ -306,12 +306,12 @@ export default function TekliflerSayfasi() {
                         {/* HEADER: LOGO VE FİRMA BİLGİSİ */}
                         <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-8">
                             <div>
-                                <h1 className="text-3xl font-black text-slate-800 tracking-tighter">BUVİSAN</h1>
-                                <p className="text-sm font-bold text-slate-500">VİNÇ VE MAKİNA SANAYİ</p>
+                                <h1 className="text-3xl font-black text-slate-800 tracking-tighter">ZM METAL</h1>
+                                <p className="text-sm font-bold text-slate-500">MAKİNA İMALAT SANAYİ VE TİCARET LİMİTED ŞİRKETİ</p>
                             </div>
                             <div className="text-right text-xs text-slate-600">
-                                <p>Nilüfer / BURSA</p>
-                                <p>Tel: 0224 XXX XX XX</p>
+                                <p>Demirci / Nilüfer / BURSA</p>
+                                <p>Tel: 0224 374 00 01</p>
                                 <p>Web: www.buvisan.com</p>
                             </div>
                         </div>
