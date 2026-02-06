@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { 
   Loader2, Plus, FileText, Calendar, DollarSign, User, MapPin, 
-  Box, Printer, Trash2, CheckCircle, XCircle, Search, FileCheck, Clock 
+  Box, Printer, Trash2, CheckCircle, XCircle, Search, FileCheck, Clock,
+  ThumbsUp, ThumbsDown, MessageCircle // 🔥 Yeni ikonlar eklendi
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -104,6 +105,22 @@ export default function TekliflerSayfasi() {
       verileriGetir();
   };
 
+  // 🔥 YENİ: DURUM GÜNCELLEME (ONAYLA / REDDET) 🔥
+  const durumGuncelle = async (id: string, yeniDurum: string) => {
+      const { error } = await supabase.from('offers').update({ status: yeniDurum }).eq('id', id);
+      if(!error) {
+          verileriGetir(); // Listeyi yenile ki istatistikler güncellensin
+      }
+  };
+
+  // 🔥 YENİ: WHATSAPP PAYLAŞIM 🔥
+  const whatsappPaylas = () => {
+      if(!seciliTeklif) return;
+      const mesaj = `Sayın ${seciliTeklif.customer_rep || 'Yetkili'}, ${seciliTeklif.template_type === 'standart' ? 'Fiyat Teklifiniz' : 'Sözleşmeniz'} ektedir. Toplam Tutar: ${seciliTeklif.total_price.toLocaleString()} TL. Saygılarımızla, Buvisan Vinç.`;
+      const url = `https://wa.me/?text=${encodeURIComponent(mesaj)}`;
+      window.open(url, '_blank');
+  };
+
   // --- YAZDIRMA / PDF ---
   const yazdir = () => {
       const printContent = printRef.current;
@@ -187,10 +204,20 @@ export default function TekliflerSayfasi() {
                           <td className="p-4"><span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs uppercase font-bold">{t.template_type}</span></td>
                           <td className="p-4 font-black text-slate-700">{t.total_price.toLocaleString()} ₺</td>
                           <td className="p-4">
+                              {/* DURUM GÖSTERGESİ */}
                               {t.status === 'beklemede' && <span className="text-orange-500 font-bold text-xs flex items-center gap-1"><Clock size={12}/> Bekliyor</span>}
                               {t.status === 'onaylandi' && <span className="text-green-600 font-bold text-xs flex items-center gap-1"><CheckCircle size={12}/> Onaylandı</span>}
+                              {t.status === 'reddedildi' && <span className="text-red-500 font-bold text-xs flex items-center gap-1"><XCircle size={12}/> Reddedildi</span>}
                           </td>
-                          <td className="p-4 text-right flex justify-end gap-2">
+                          <td className="p-4 text-right flex justify-end gap-2 items-center">
+                              {/* 🔥 DURUM BUTONLARI (Sadece beklemedeyse görünür) */}
+                              {t.status === 'beklemede' && (
+                                  <>
+                                    <button onClick={() => durumGuncelle(t.id, 'onaylandi')} className="p-2 bg-green-100 text-green-600 rounded hover:bg-green-200 transition" title="Onayla"><ThumbsUp size={16}/></button>
+                                    <button onClick={() => durumGuncelle(t.id, 'reddedildi')} className="p-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition mr-2" title="Reddet"><ThumbsDown size={16}/></button>
+                                  </>
+                              )}
+                              
                               <button onClick={() => { setSeciliTeklif(t); setOnizlemeAcik(true); }} className="p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100" title="Görüntüle & Yazdır"><Printer size={16}/></button>
                               <button onClick={() => sil(t.id)} className="p-2 bg-red-50 text-red-500 rounded hover:bg-red-100"><Trash2 size={16}/></button>
                           </td>
@@ -306,12 +333,12 @@ export default function TekliflerSayfasi() {
                         {/* HEADER: LOGO VE FİRMA BİLGİSİ */}
                         <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-8">
                             <div>
-                                <h1 className="text-3xl font-black text-slate-800 tracking-tighter">ZM METAL</h1>
-                                <p className="text-sm font-bold text-slate-500">MAKİNA İMALAT SANAYİ VE TİCARET LİMİTED ŞİRKETİ</p>
+                                <h1 className="text-3xl font-black text-slate-800 tracking-tighter">BUVİSAN</h1>
+                                <p className="text-sm font-bold text-slate-500">VİNÇ VE MAKİNA SANAYİ</p>
                             </div>
                             <div className="text-right text-xs text-slate-600">
-                                <p>Demirci / Nilüfer / BURSA</p>
-                                <p>Tel: 0224 374 00 01</p>
+                                <p>Nilüfer / BURSA</p>
+                                <p>Tel: 0224 XXX XX XX</p>
                                 <p>Web: www.buvisan.com</p>
                             </div>
                         </div>
@@ -400,6 +427,8 @@ export default function TekliflerSayfasi() {
                     {/* AKSİYON BUTONLARI (KAĞIDIN ALTINDA) */}
                     <div className="flex gap-4 mt-6 pb-10">
                         <button onClick={yazdir} className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-xl hover:bg-blue-700 flex items-center gap-2 transform hover:scale-105 transition"><Printer/> Yazdır / PDF Kaydet</button>
+                        {/* 🔥 WHATSAPP BUTONU EKLENDİ 🔥 */}
+                        <button onClick={whatsappPaylas} className="bg-green-500 text-white px-8 py-3 rounded-full font-bold shadow-xl hover:bg-green-600 flex items-center gap-2 transform hover:scale-105 transition"><MessageCircle/> WhatsApp'tan At</button>
                         <button onClick={() => setOnizlemeAcik(false)} className="bg-white text-slate-800 px-8 py-3 rounded-full font-bold shadow-xl hover:bg-slate-100 flex items-center gap-2"><XCircle/> Kapat</button>
                     </div>
 
