@@ -1,84 +1,171 @@
 "use client";
+
 import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import { ShieldCheck, User, Lock, Mail, Loader2, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Lock, Mail, ChevronRight, Loader2 } from 'lucide-react';
 
-export default function GirisYap() {
+export default function LoginPage() {
   const router = useRouter();
+  
+  // --- STATE ---
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [hata, setHata] = useState('');
   const [yukleniyor, setYukleniyor] = useState(false);
+  
+  // LOGIN TÜRÜ: 'admin' veya 'personel'
+  const [girisTuru, setGirisTuru] = useState<'admin' | 'personel'>('admin');
 
-  const girisYap = async () => {
+  // --- GİRİŞ FONKSİYONU ---
+  const girisYap = async (e: any) => {
+    e.preventDefault();
     setYukleniyor(true);
-    setHata('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setHata("Giriş başarısız! Bilgileri kontrol et.");
+
+    try {
+      // 1. Supabase ile Kimlik Doğrula
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        // 2. Kullanıcının Rolünü Kontrol Et (profiles tablosundan)
+        const { data: profil, error: profilHata } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', data.user.id)
+            .single();
+
+        if (profilHata) throw new Error("Kullanıcı profili bulunamadı.");
+
+        // 3. ROL EŞLEŞMESİ KONTROLÜ (Güvenlik Duvarı) 🛡️
+        // Eğer 'Admin' sekmesinden giriyorsa ama rolü 'personel' ise -> HATA VER
+        if (girisTuru === 'admin' && profil.role !== 'admin') {
+            await supabase.auth.signOut(); // Oturumu geri kapat
+            throw new Error("Yetkisiz Giriş! Bu alana sadece Yöneticiler girebilir.");
+        }
+
+        // Eğer 'Personel' sekmesinden giriyorsa ama rolü 'admin' ise -> İsteğe bağlı, ben izin vermiyorum karışmasın diye.
+        if (girisTuru === 'personel' && profil.role !== 'personel') {
+             await supabase.auth.signOut();
+             throw new Error("Lütfen Yönetici panelinden giriş yapınız.");
+        }
+
+        // 4. Doğru Sayfaya Yönlendir
+        if (profil.role === 'admin') {
+            router.push('/admin');
+        } else {
+            router.push('/personel');
+        }
+      }
+
+    } catch (error: any) {
+      alert(error.message || "Giriş başarısız.");
+    } finally {
       setYukleniyor(false);
-    } else {
-      router.push('/admin');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans">
       
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="bg-white/10 backdrop-blur-lg p-8 rounded-3xl shadow-2xl w-full max-w-sm border border-white/20 relative z-10"
-      >
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">BUVİSAN</h1>
-          <p className="text-blue-200 text-xs font-medium tracking-widest uppercase mt-2">Admin Security Gate</p>
-        </div>
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
         
-        <div className="space-y-4">
-          <div className="relative">
-            <Mail className="absolute left-3 top-3.5 text-blue-300 w-5 h-5" />
-            <input 
-              type="email" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              placeholder="E-Posta Adresi"
-            />
-          </div>
-          
-          <div className="relative">
-            <Lock className="absolute left-3 top-3.5 text-blue-300 w-5 h-5" />
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              placeholder="Şifre"
-            />
-          </div>
-
-          {hata && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-red-500/20 text-red-200 text-sm p-3 rounded-lg text-center border border-red-500/50">
-              {hata}
-            </motion.div>
-          )}
-
-          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={girisYap}
-            disabled={yukleniyor}
-            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2"
-          >
-            {yukleniyor ? <Loader2 className="animate-spin" /> : <>GİRİŞ YAP <ChevronRight className="w-4 h-4" /></>}
-          </motion.button>
+        {/* ÜST BAŞLIK ALANI */}
+        <div className={`p-8 pb-6 transition-colors duration-500 ${girisTuru === 'admin' ? 'bg-slate-900' : 'bg-blue-600'}`}>
+            <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-white backdrop-blur-sm shadow-inner">
+                    {girisTuru === 'admin' ? <ShieldCheck size={32}/> : <User size={32}/>}
+                </div>
+            </div>
+            <h2 className="text-2xl font-black text-center text-white tracking-tight">BUVİSAN</h2>
+            <p className="text-center text-white/60 text-xs uppercase font-bold tracking-widest mt-1">Servis Yönetim Sistemi</p>
         </div>
-      </motion.div>
+
+        {/* SEKME GEÇİŞİ (TOGGLE) */}
+        <div className="flex p-2 bg-slate-100 m-6 rounded-xl border border-slate-200">
+            <button 
+                onClick={() => setGirisTuru('admin')}
+                className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                    girisTuru === 'admin' 
+                    ? 'bg-white text-slate-800 shadow-sm' 
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+            >
+                <ShieldCheck size={16}/> Yönetici
+            </button>
+            <button 
+                onClick={() => setGirisTuru('personel')}
+                className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                    girisTuru === 'personel' 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+            >
+                <User size={16}/> Personel
+            </button>
+        </div>
+
+        {/* FORM ALANI */}
+        <form onSubmit={girisYap} className="px-8 pb-8 space-y-4">
+            
+            <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 ml-1">E-Posta Adresi</label>
+                <div className="relative">
+                    <Mail className="absolute left-3 top-3.5 text-slate-400 w-5 h-5"/>
+                    <input 
+                        type="email" 
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                        placeholder="ornek@buvisan.com"
+                    />
+                </div>
+            </div>
+
+            <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 ml-1">Şifre</label>
+                <div className="relative">
+                    <Lock className="absolute left-3 top-3.5 text-slate-400 w-5 h-5"/>
+                    <input 
+                        type="password" 
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                        placeholder="••••••••"
+                    />
+                </div>
+            </div>
+
+            <div className="pt-2">
+                <button 
+                    type="submit" 
+                    disabled={yukleniyor}
+                    className={`w-full py-4 rounded-xl text-white font-bold shadow-lg flex items-center justify-center gap-2 transition-all transform active:scale-95 ${
+                        girisTuru === 'admin' 
+                        ? 'bg-slate-900 hover:bg-slate-800 shadow-slate-200' 
+                        : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
+                    }`}
+                >
+                    {yukleniyor ? <Loader2 className="animate-spin"/> : <ArrowRight/>}
+                    {girisTuru === 'admin' ? 'Yönetici Girişi Yap' : 'Personel Girişi Yap'}
+                </button>
+            </div>
+
+            <div className="text-center mt-4">
+                <p className="text-xs text-slate-400">
+                    Giriş sorunu mu yaşıyorsunuz? <br/>
+                    <span className="text-slate-600 font-bold underline cursor-pointer">Bilgi İşlem ile görüşün.</span>
+                </p>
+            </div>
+
+        </form>
+      </div>
     </div>
   );
 }
