@@ -3,7 +3,7 @@ import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 
 // Haritayı dinamik olarak import ediyoruz ve Sunucu Taraflı Render (SSR)'ı kapatıyoruz.
-const HaritaBileseni2 = dynamic(() => import('@/components/HaritaBileseni'), {
+const HaritaBileseni2 = dynamic(() => import('@/components/HaritaBileseni2'), {
   ssr: false, // 🔥 İŞTE SİHİRLİ KOD BURASI!
   loading: () => (
     <div className="h-screen flex items-center justify-center bg-slate-50">
