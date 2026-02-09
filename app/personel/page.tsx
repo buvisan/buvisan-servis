@@ -1,8 +1,8 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN PRO-FIELD | SAHA PERSONEL MODÜLÜ 👷‍♂️📲
-// Mobil Öncelikli Tasarım - Tam Senkronizasyon
+// BUVISAN PRO-FIELD | SAHA PERSONEL MODÜLÜ V2.0 👷‍♂️📲
+// (Canlı Harita Butonu Eklendi)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LogOut, MapPin, Clock, Camera, Wrench, ChevronRight, 
-  CheckCircle2, Play, Square, Package, Plus, X, UploadCloud, User
+  CheckCircle2, Play, Square, Package, Plus, X, UploadCloud, User, Globe // 🔥 Globe ikonu eklendi
 } from 'lucide-react';
 
 export default function PersonelApp() {
@@ -33,7 +33,6 @@ export default function PersonelApp() {
   // İşlem Detayları (Form)
   const [kullanilanMalzemeler, setKullanilanMalzemeler] = useState<any[]>([]);
   const [yapilanIslemAciklamasi, setYapilanIslemAciklamasi] = useState("");
-  const [fotoUrl, setFotoUrl] = useState("");
   
   // Modal Kontrolleri
   const [malzemeModalAcik, setMalzemeModalAcik] = useState(false);
@@ -71,7 +70,6 @@ export default function PersonelApp() {
     setAktifGorev(gorev);
     setYapilanIslemAciklamasi("");
     setKullanilanMalzemeler([]);
-    setFotoUrl("");
     setIslemSuresi(0);
     
     // Sayacı başlat
@@ -105,7 +103,7 @@ export default function PersonelApp() {
     setKullanilanMalzemeler(kullanilanMalzemeler.filter(m => m.id !== id));
   };
 
-  // --- 4. İŞİ BİTİR & SENKRONİZE ET (EN ÖNEMLİ KISIM) ---
+  // --- 4. İŞİ BİTİR & SENKRONİZE ET ---
   const isiBitir = async () => {
     if (!yapilanIslemAciklamasi) return alert("Lütfen yapılan işlemi kısaca anlat.");
     if (!confirm("İşi tamamlayıp merkeze göndermek istiyor musun?")) return;
@@ -113,27 +111,26 @@ export default function PersonelApp() {
     setYukleniyor(true);
     clearInterval(timerRef.current);
 
-    const toplamTutar = kullanilanMalzemeler.reduce((acc, m) => acc + m.toplam_fiyat, 0); // + İşçilik eklenebilir
+    const toplamTutar = kullanilanMalzemeler.reduce((acc, m) => acc + m.toplam_fiyat, 0);
 
     try {
-        // ADIM 1: Admin Panelindeki 'Son Bildirimler'i güncelle (Çözüldü yap)
+        // ADIM 1: Admin Panelindeki 'Son Bildirimler'i güncelle
         await supabase
             .from('service_tickets')
-            .update({ status: 'tamamlandi' }) // Admin panelinde yeşil olacak
+            .update({ status: 'tamamlandi' })
             .eq('id', aktifGorev.id);
 
-        // ADIM 2: Finansal Analiz tablosuna (completed_services) ekle
-        // Böylece Ciro ve Raporlara otomatik düşecek!
+        // ADIM 2: Finansal Analiz tablosuna ekle
         const servisKaydi = {
             service_date: new Date().toISOString(),
             customer_text: aktifGorev.cranes?.customer_name || 'Bilinmeyen Müşteri',
             company_address: aktifGorev.cranes?.location_address || '',
-            service_type: 'Servis', // Otomatik servis atadık
+            service_type: 'Servis',
             description: yapilanIslemAciklamasi,
-            price: toplamTutar, // Malzeme tutarı
+            price: toplamTutar,
             technician: oturum.email || 'Mobil Personel',
-            work_hours: (islemSuresi / 3600).toFixed(2), // Saate çevir
-            materials: kullanilanMalzemeler // JSON olarak malzemeler
+            work_hours: (islemSuresi / 3600).toFixed(2),
+            materials: kullanilanMalzemeler
         };
 
         const { error } = await supabase.from('completed_services').insert([servisKaydi]);
@@ -142,7 +139,7 @@ export default function PersonelApp() {
 
         alert("Harika! İş tamamlandı ve merkeze iletildi. 🚀");
         setAktifGorev(null);
-        baslat(); // Listeyi yenile
+        baslat(); 
 
     } catch (error: any) {
         alert("Hata oluştu: " + error.message);
@@ -169,7 +166,24 @@ export default function PersonelApp() {
                     <p className="text-xs text-slate-400">Saha Personeli</p>
                 </div>
             </div>
-            <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} className="bg-slate-800 p-2 rounded-full text-red-400"><LogOut size={18}/></button>
+            
+            {/* 🔥 YENİ BUTONLAR GRUBU 🔥 */}
+            <div className="flex items-center gap-2">
+                <button 
+                    onClick={() => router.push('/personel/harita')} // Personel harita sayfasına gider
+                    className="bg-slate-800 p-2.5 rounded-full text-green-400 border border-slate-700 hover:bg-slate-700 hover:text-green-300 transition shadow-lg"
+                    title="Canlı Harita"
+                >
+                    <Globe size={20}/>
+                </button>
+                <button 
+                    onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} 
+                    className="bg-slate-800 p-2.5 rounded-full text-red-400 border border-slate-700 hover:bg-slate-700 hover:text-red-300 transition shadow-lg"
+                    title="Çıkış Yap"
+                >
+                    <LogOut size={20}/>
+                </button>
+            </div>
         </div>
         
         {/* ÖZET KARTLARI */}
