@@ -28,22 +28,35 @@ export default function AdminPanel() {
     toplam: 0
   });
 
-  // --- SAYFA YÜKLENİRKEN ---
-  useEffect(() => {
-    oturumKontroluVeVeriler();
+  // --- SAYFA YÜKLENİRKEN --
+
+useEffect(() => {
+    guvenliGirisVeVeriler();
   }, []);
 
-  // --- VERİ ÇEKME ---
-  async function oturumKontroluVeVeriler() {
+  // 🔥 GÜVENLİK VE VERİ ÇEKME MOTORU 🔥
+  async function guvenliGirisVeVeriler() {
+    // 1. Oturum Var mı?
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { 
-      router.push('/login'); 
-      return; 
+    if (!session) { router.push('/login'); return; }
+
+    // 2. 🔥 KRİTİK ADIM: ROL KONTROLÜ 🔥
+    const { data: profil } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+    // Eğer adam admin değilse, personel sayfasına postala!
+    if (profil?.role !== 'admin') {
+        router.push('/personel'); 
+        return; 
     }
 
+    // 3. Adminse Verileri Çek
     const { data, error } = await supabase
       .from('service_tickets')
-      .select('*, cranes(*)') // İlişkili vinç verisini de çek
+      .select('*, cranes(*)')
       .order('created_at', { ascending: false });
 
     if (!error && data) {
@@ -67,7 +80,7 @@ export default function AdminPanel() {
       .eq('id', id);
     
     if (!error) {
-        oturumKontroluVeVeriler(); // Listeyi yenile
+        guvenliGirisVeVeriler(); // Listeyi yenile
     } else {
         alert("Güncelleme hatası: " + error.message);
     }

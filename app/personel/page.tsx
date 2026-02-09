@@ -43,11 +43,25 @@ export default function PersonelApp() {
     return () => clearInterval(timerRef.current);
   }, []);
 
-  const baslat = async () => {
-    // A. Oturum Kontrolü
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { router.push('/login'); return; }
-    setOturum(session.user);
+    const baslat = async () => {
+        // A. Oturum Kontrolü
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { router.push('/login'); return; }
+        setOturum(session.user);
+
+        // 🔥 B. ROL KONTROLÜ (GÜVENLİK) 🔥
+        const { data: profil } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+
+        // Eğer admin ise, admin paneline yolla (Opsiyonel: İstersen admin personeli de görebilsin diye bunu silebilirsin)
+        if (profil?.role !== 'personel' && profil?.role !== 'admin') {
+            // Rolü belirsizse login'e at
+            router.push('/login');
+            return;
+        }
 
     // B. Görevleri Çek (Admin panelindeki 'bekleyen' arızalar)
     const { data: biletler } = await supabase
