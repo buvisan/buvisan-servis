@@ -1,26 +1,23 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN PRO MAP | PERSONEL HARİTA MODÜLÜ (PREMIUM VERSİYON) 🌍
+// BUVISAN PRO MAP | PERSONEL HARİTA MODÜLÜ (FULL + FULL) 🌍
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { 
-  Loader2, Search, X, Navigation, AlertTriangle, CheckCircle2, 
-  ExternalLink, Factory, Zap, Building2, Plus, Trash2, Map, Route, ArrowLeft 
-} from 'lucide-react';
+import { Loader2, Search, X, Navigation, AlertTriangle, CheckCircle2, ExternalLink, Factory, Zap, Building2, Plus, Trash2, Map, Route, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 
 // --- FABRİKA KOORDİNATLARI (MERKEZ) ---
 const FABRIKA_KONUM = { lat: 40.18264149185276, lng: 28.93383477116421 };
 
-// --- STYLES (Animasyonlar ve Efektler) ---
+// --- CSS STYLES (O Havalı Animasyonlar Burada) ---
 const customStyles = `
   @keyframes radar-pulse {
     0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
@@ -50,7 +47,7 @@ const customStyles = `
   }
 `;
 
-// --- İKON TANIMLAMALARI ---
+// --- İKON TANIMLAMALARI (Senin Kodundaki Özel SVG İkonlar) ---
 const fabrikaIcon = L.divIcon({
   className: 'premium-marker',
   html: `
@@ -116,7 +113,7 @@ function HaritaKontrol({ hedef }: { hedef: { lat: number, lng: number } | null }
   return null;
 }
 
-export default function PersonelHaritaPage() {
+export default function PersonelHaritaBileseni() {
   const [vincler, setVincler] = useState<any[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [aramaMetni, setAramaMetni] = useState("");
@@ -161,14 +158,10 @@ export default function PersonelHaritaPage() {
   // 🌍 DEVASA GOOGLE MAPS LİNKİ OLUŞTURUCU 🌍
   const cokluRotaOlustur = () => {
     if (rotaListesi.length === 0) return;
-    
-    // Format: https://www.google.com/maps/dir/Başlangıç/Durak1/Durak2/Bitiş
-    let url = `https://www.google.com/maps/dir/$${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}`;
-    
+    let url = `https://www.google.com/maps/dir/${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}`;
     rotaListesi.forEach(v => {
         url += `/${v.lat},${v.lng}`;
     });
-
     window.open(url, '_blank');
   };
 
@@ -192,7 +185,7 @@ export default function PersonelHaritaPage() {
     setAramaMetni("");
   };
 
-  if (yukleniyor) return <div className="h-full flex flex-col items-center justify-center bg-slate-50 text-blue-600 gap-3"><Loader2 className="animate-spin w-10 h-10" /><span className="animate-pulse font-bold">Uydu Bağlantısı Kuruluyor...</span></div>;
+  if (yukleniyor) return <div className="h-screen flex flex-col items-center justify-center bg-slate-50 text-blue-600 gap-3"><Loader2 className="animate-spin w-10 h-10" /><span className="animate-pulse font-bold">Uydu Bağlantısı Kuruluyor...</span></div>;
 
   return (
     <div className="relative h-screen w-full font-sans overflow-hidden">
@@ -324,7 +317,7 @@ export default function PersonelHaritaPage() {
                       </button>
 
                       <Link href={`/vinc/${vinc.id}`} target="_blank" className="flex items-center justify-center gap-2 w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-2.5 rounded-lg transition shadow-md">Müşteri Ekranı <ExternalLink size={12}/></Link>
-                      <a href={`https://www.google.com/maps/dir/?api=1&origin=$${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}&destination=${vinc.lat},${vinc.lng}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-bold py-2.5 rounded-lg transition"><Navigation size={12}/> Tekil Rota</a>
+                      <a href={`https://www.google.com/maps/dir/?api=1&origin=${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}&destination=${vinc.lat},${vinc.lng}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-bold py-2.5 rounded-lg transition"><Navigation size={12}/> Tekil Rota</a>
                   </div>
                 </div>
               </Popup>
@@ -333,7 +326,7 @@ export default function PersonelHaritaPage() {
         })}
       </MapContainer>
       
-      {/* 🔥 DEĞİŞEN TEK KISIM BURASI: PANELE DÖN BUTONU 🔥 */}
+      {/* 🔥 DEĞİŞEN TEK KISIM: PANELE DÖN BUTONU (/personel 'e gider) 🔥 */}
       <Link href="/personel" className="absolute top-6 right-6 z-[9999] bg-white/90 backdrop-blur text-slate-700 px-4 py-3 rounded-2xl shadow-xl font-bold text-xs hover:bg-white hover:text-blue-600 transition flex items-center gap-2 border border-white/50">
           <ArrowLeft className="w-4 h-4"/> PANELE DÖN
       </Link>
