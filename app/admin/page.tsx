@@ -22,6 +22,7 @@ export default function AdminPanel() {
   const [aktifChatId, setAktifChatId] = useState<string | null>(null);
   const [bildirimler, setBildirimler] = useState<any[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
+  const [erisimIzni, setErisimIzni] = useState(false);
   const [istatistikler, setIstatistikler] = useState({
     bekleyen: 0,
     cozulen: 0,
@@ -31,43 +32,54 @@ export default function AdminPanel() {
   // --- SAYFA YÜKLENİRKEN --
 
 useEffect(() => {
-    guvenliGirisVeVeriler();
+    guvenlikVeVeri();
   }, []);
 
-  // 🔥 GÜVENLİK VE VERİ ÇEKME MOTORU 🔥
-  async function guvenliGirisVeVeriler() {
-    // 1. Oturum Var mı?
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { router.push('/login'); return; }
+  async function guvenlikVeVeri() {
+    try {
+        // 1. Oturum Kontrolü
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { 
+            router.replace('/login'); 
+            return; 
+        }
 
-    // 2. 🔥 KRİTİK ADIM: ROL KONTROLÜ 🔥
-    const { data: profil } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
+        // 2. Rol Kontrolü (GÜVENLİK DUVARI) 🛡️
+        const { data: profil } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
 
-    // Eğer adam admin değilse, personel sayfasına postala!
-    if (profil?.role !== 'admin') {
-        router.push('/personel'); 
-        return; 
+        // Eğer admin değilse, anında personel sayfasına at
+        if (!profil || profil.role !== 'admin') {
+            router.replace('/personel');
+            return;
+        }
+
+        // Buraya geldiyse Admirdir, izni ver
+        setErisimIzni(true);
+
+        // 3. Verileri Çek
+        const { data } = await supabase
+            .from('service_tickets')
+            .select('*, cranes(*)')
+            .order('created_at', { ascending: false });
+
+        if (data) {
+            setBildirimler(data);
+            setIstatistikler({
+                bekleyen: data.filter(x => x.status !== 'tamamlandi').length,
+                cozulen: data.filter(x => x.status === 'tamamlandi').length,
+                toplam: data.length
+            });
+        }
+
+    } catch (error) {
+        console.error("Hata:", error);
+    } finally {
+        setYukleniyor(false); // Yükleme bitti
     }
-
-    // 3. Adminse Verileri Çek
-    const { data, error } = await supabase
-      .from('service_tickets')
-      .select('*, cranes(*)')
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      setBildirimler(data);
-      setIstatistikler({
-        bekleyen: data.filter(x => x.status !== 'tamamlandi').length,
-        cozulen: data.filter(x => x.status === 'tamamlandi').length,
-        toplam: data.length
-      });
-    }
-    setYukleniyor(false);
   }
 
   // --- DURUM GÜNCELLEME ---
@@ -80,7 +92,7 @@ useEffect(() => {
       .eq('id', id);
     
     if (!error) {
-        guvenliGirisVeVeriler(); // Listeyi yenile
+        guvenlikVeVeri(); // Listeyi yenile
     } else {
         alert("Güncelleme hatası: " + error.message);
     }
@@ -92,11 +104,12 @@ useEffect(() => {
     router.push('/login');
   }
 
-  if (yukleniyor) {
+// 🔥 KRİTİK NOKTA: Erişim izni yoksa veya yükleniyorsa içeriği GÖSTERME 🔥
+  if (yukleniyor || !erisimIzni) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-blue-600">
-         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-         <div className="animate-pulse font-bold text-lg">Panel Yükleniyor...</div>
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
+         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+         <div className="font-bold text-lg animate-pulse">Güvenlik Kontrolü Yapılıyor...</div>
       </div>
     );
   }
