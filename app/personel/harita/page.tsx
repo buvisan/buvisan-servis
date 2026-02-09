@@ -1,17 +1,26 @@
 "use client";
+
+// ----------------------------------------------------------------------------
+// BUVISAN PRO MAP | PERSONEL HARİTA MODÜLÜ (PREMIUM VERSİYON) 🌍
+// ----------------------------------------------------------------------------
+
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Loader2, Search, X, Navigation, AlertTriangle, CheckCircle2, ExternalLink, Factory, Zap, Building2, Plus, Trash2, Map, Route } from 'lucide-react';
+import { 
+  Loader2, Search, X, Navigation, AlertTriangle, CheckCircle2, 
+  ExternalLink, Factory, Zap, Building2, Plus, Trash2, Map, Route, ArrowLeft 
+} from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 // --- FABRİKA KOORDİNATLARI (MERKEZ) ---
 const FABRIKA_KONUM = { lat: 40.18264149185276, lng: 28.93383477116421 };
 
-// --- STYLES ---
+// --- STYLES (Animasyonlar ve Efektler) ---
 const customStyles = `
   @keyframes radar-pulse {
     0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
@@ -107,7 +116,7 @@ function HaritaKontrol({ hedef }: { hedef: { lat: number, lng: number } | null }
   return null;
 }
 
-export default function HaritaBileseni() {
+export default function PersonelHaritaPage() {
   const [vincler, setVincler] = useState<any[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [aramaMetni, setAramaMetni] = useState("");
@@ -116,7 +125,7 @@ export default function HaritaBileseni() {
   const [aktifFiltre, setAktifFiltre] = useState('hepsi'); 
   const [ozet, setOzet] = useState({ toplam: 0, arizali: 0, saglam: 0 });
 
-  // 🚀 YENİ ÖZELLİK: ROTA SEPETİ 🚀
+  // 🚀 ROTA SEPETİ 🚀
   const [rotaListesi, setRotaListesi] = useState<any[]>([]);
   const [rotaPanelAcik, setRotaPanelAcik] = useState(false);
 
@@ -154,14 +163,11 @@ export default function HaritaBileseni() {
     if (rotaListesi.length === 0) return;
     
     // Format: https://www.google.com/maps/dir/Başlangıç/Durak1/Durak2/Bitiş
-    let url = `https://www.google.com/maps/dir/${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}`;
+    let url = `https://www.google.com/maps/dir/$${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}`;
     
     rotaListesi.forEach(v => {
         url += `/${v.lat},${v.lng}`;
     });
-
-    // En son fabrikaya geri dönülecekse bunu ekle (Opsiyonel, şimdilik tek yön yapalım ustalar eve de gidebilir)
-    // url += `/${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}`; 
 
     window.open(url, '_blank');
   };
@@ -189,7 +195,7 @@ export default function HaritaBileseni() {
   if (yukleniyor) return <div className="h-full flex flex-col items-center justify-center bg-slate-50 text-blue-600 gap-3"><Loader2 className="animate-spin w-10 h-10" /><span className="animate-pulse font-bold">Uydu Bağlantısı Kuruluyor...</span></div>;
 
   return (
-    <div className="relative h-full w-full font-sans">
+    <div className="relative h-screen w-full font-sans overflow-hidden">
       <style>{customStyles}</style>
       
       {/* ÜST PANEL */}
@@ -302,15 +308,14 @@ export default function HaritaBileseni() {
               <Popup className="premium-popup" closeButton={false}>
                 <div className="min-w-[240px] p-2">
                   <div className="flex justify-between items-start mb-3">
-                     <div><h3 className="font-black text-slate-800 text-sm leading-tight">{vinc.customer_name}</h3><p className="text-[10px] text-slate-500 font-bold mt-1">{vinc.model_name}</p></div>
-                     <div className={`p-1.5 rounded-lg ${arizaVarMi ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{arizaVarMi ? <AlertTriangle size={16}/> : <Zap size={16}/>}</div>
+                      <div><h3 className="font-black text-slate-800 text-sm leading-tight">{vinc.customer_name}</h3><p className="text-[10px] text-slate-500 font-bold mt-1">{vinc.model_name}</p></div>
+                      <div className={`p-1.5 rounded-lg ${arizaVarMi ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{arizaVarMi ? <AlertTriangle size={16}/> : <Zap size={16}/>}</div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mb-3">
-                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100"><div className="text-[9px] text-slate-400 font-bold uppercase">Uzaklık</div><div className="text-xs font-mono font-bold text-slate-700 flex items-center gap-1"><Factory size={10} className="text-blue-400"/> {mesafeyiHesapla(vinc.lat, vinc.lng)} km</div></div>
-                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100"><div className="text-[9px] text-slate-400 font-bold uppercase">Seri No</div><div className="text-xs font-mono font-bold text-slate-700">{vinc.serial_number}</div></div>
+                      <div className="bg-slate-50 p-2 rounded-lg border border-slate-100"><div className="text-[9px] text-slate-400 font-bold uppercase">Uzaklık</div><div className="text-xs font-mono font-bold text-slate-700 flex items-center gap-1"><Factory size={10} className="text-blue-400"/> {mesafeyiHesapla(vinc.lat, vinc.lng)} km</div></div>
+                      <div className="bg-slate-50 p-2 rounded-lg border border-slate-100"><div className="text-[9px] text-slate-400 font-bold uppercase">Seri No</div><div className="text-xs font-mono font-bold text-slate-700">{vinc.serial_number}</div></div>
                   </div>
                   <div className="space-y-2">
-                      {/* 🔥 ROTA SEPETİNE EKLEME BUTONU 🔥 */}
                       <button 
                         onClick={() => rotayaEkleCikar(vinc)} 
                         className={`flex items-center justify-center gap-2 w-full text-xs font-bold py-2.5 rounded-lg transition shadow-md ${rotadaEkliMi ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-600 text-white hover:bg-green-700'}`}
@@ -319,7 +324,7 @@ export default function HaritaBileseni() {
                       </button>
 
                       <Link href={`/vinc/${vinc.id}`} target="_blank" className="flex items-center justify-center gap-2 w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-2.5 rounded-lg transition shadow-md">Müşteri Ekranı <ExternalLink size={12}/></Link>
-                      <a href={`https://www.google.com/maps/dir/?api=1&origin=${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}&destination=${vinc.lat},${vinc.lng}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-bold py-2.5 rounded-lg transition"><Navigation size={12}/> Tekil Rota</a>
+                      <a href={`https://www.google.com/maps/dir/?api=1&origin=$${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}&destination=${vinc.lat},${vinc.lng}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-bold py-2.5 rounded-lg transition"><Navigation size={12}/> Tekil Rota</a>
                   </div>
                 </div>
               </Popup>
@@ -327,7 +332,11 @@ export default function HaritaBileseni() {
           );
         })}
       </MapContainer>
-      <Link href="/admin" className="absolute top-6 right-6 z-[9999] bg-white/90 backdrop-blur text-slate-700 px-4 py-3 rounded-2xl shadow-xl font-bold text-xs hover:bg-white hover:text-blue-600 transition flex items-center gap-2 border border-white/50"><Navigation className="w-4 h-4"/> PANELE DÖN</Link>
+      
+      {/* 🔥 DEĞİŞEN TEK KISIM BURASI: PANELE DÖN BUTONU 🔥 */}
+      <Link href="/personel" className="absolute top-6 right-6 z-[9999] bg-white/90 backdrop-blur text-slate-700 px-4 py-3 rounded-2xl shadow-xl font-bold text-xs hover:bg-white hover:text-blue-600 transition flex items-center gap-2 border border-white/50">
+          <ArrowLeft className="w-4 h-4"/> PANELE DÖN
+      </Link>
     </div>
   );
 }
