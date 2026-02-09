@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Loader2, Search, X, Navigation, AlertTriangle, CheckCircle2, ExternalLink, Factory, Zap, Building2, Plus, Trash2, Map, Route } from 'lucide-react';
+import { Loader2, Search, X, Navigation, AlertTriangle, CheckCircle2, ExternalLink, Factory, Zap, Building2, Plus, Trash2, Map, Route, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -327,7 +327,11 @@ export default function HaritaBileseni() {
           );
         })}
       </MapContainer>
-      <Link href="/personel" className="absolute top-6 right-6 z-[9999] bg-white/90 backdrop-blur text-slate-700 px-4 py-3 rounded-2xl shadow-xl font-bold text-xs hover:bg-white hover:text-blue-600 transition flex items-center gap-2 border border-white/50"><Navigation className="w-4 h-4"/> PANELE DÖN</Link>
-    </div>
+            
+            {/* 🔥 DEĞİŞEN TEK KISIM: PANELE DÖN BUTONU (/personel 'e gider) 🔥 */}
+            <Link href="/personel" className="absolute top-6 right-6 z-[9999] bg-white/90 backdrop-blur text-slate-700 px-4 py-3 rounded-2xl shadow-xl font-bold text-xs hover:bg-white hover:text-blue-600 transition flex items-center gap-2 border border-white/50">
+                <ArrowLeft className="w-4 h-4"/> PANELE DÖN
+            </Link>
+          </div>
   );
 }
