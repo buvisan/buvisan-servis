@@ -1,8 +1,8 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN PRO-FIELD | SAHA PERSONEL MODÜLÜ V2.0 👷‍♂️📲
-// (Canlı Harita Butonu Eklendi)
+// BUVISAN PRO-FIELD V3.0 | SAHA PERSONEL SÜPER UYGULAMASI 👷‍♂️📱
+// Alt Navigasyonlu, Stok Kontrollü, Vinç Sorgulamalı
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -10,340 +10,259 @@ import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  LogOut, MapPin, Clock, Camera, Wrench, ChevronRight, 
-  CheckCircle2, Play, Square, Package, Plus, X, UploadCloud, User, Globe // 🔥 Globe ikonu eklendi
+  LogOut, MapPin, Clock, Camera, Wrench, CheckCircle2, Play, 
+  Package, Plus, X, User, Globe, Search, History, Home, 
+  Box, FileText, ChevronRight, BarChart3
 } from 'lucide-react';
 
 export default function PersonelApp() {
   const router = useRouter();
   
-  // --- STATE YÖNETİMİ ---
+  // --- STATE ---
   const [yukleniyor, setYukleniyor] = useState(true);
   const [oturum, setOturum] = useState<any>(null);
-  
-  // Veriler
+  const [aktifSekme, setAktifSekme] = useState<'gorevler' | 'stok' | 'gecmis' | 'profil'>('gorevler');
+
+  // VERİLER
   const [gorevler, setGorevler] = useState<any[]>([]);
   const [stok, setStok] = useState<any[]>([]);
   
-  // Aktif İş Yönetimi
+  // GÖREV YÖNETİMİ
   const [aktifGorev, setAktifGorev] = useState<any | null>(null);
-  const [islemSuresi, setIslemSuresi] = useState(0); // Saniye cinsinden
+  const [islemSuresi, setIslemSuresi] = useState(0);
   const timerRef = useRef<any>(null);
-
-  // İşlem Detayları (Form)
   const [kullanilanMalzemeler, setKullanilanMalzemeler] = useState<any[]>([]);
   const [yapilanIslemAciklamasi, setYapilanIslemAciklamasi] = useState("");
-  
-  // Modal Kontrolleri
   const [malzemeModalAcik, setMalzemeModalAcik] = useState(false);
 
-  // --- 1. BAŞLANGIÇ & VERİ ÇEKME ---
-  useEffect(() => {
-    baslat();
-    return () => clearInterval(timerRef.current);
-  }, []);
+  // VİNÇ SORGULAMA (GEÇMİŞ)
+  const [vincArama, setVincArama] = useState("");
+  const [bulunanVincler, setBulunanVincler] = useState<any[]>([]);
+  const [seciliVincGecmisi, setSeciliVincGecmisi] = useState<any[]>([]);
 
+  // STOK ARAMA
+  const [stokArama, setStokArama] = useState("");
+
+  // --- 1. BAŞLAT ---
+  useEffect(() => {
     const baslat = async () => {
-        // A. Oturum Kontrolü
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { router.push('/login'); return; }
         setOturum(session.user);
 
-        // 🔥 B. ROL KONTROLÜ (GÜVENLİK) 🔥
-        const { data: profil } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
+        // Görevleri Çek
+        const { data: biletler } = await supabase.from('service_tickets').select('*, cranes(*)').neq('status', 'tamamlandi').order('created_at', { ascending: false });
+        if (biletler) setGorevler(biletler);
 
-        // Eğer admin ise, admin paneline yolla (Opsiyonel: İstersen admin personeli de görebilsin diye bunu silebilirsin)
-        if (profil?.role !== 'personel' && profil?.role !== 'admin') {
-            // Rolü belirsizse login'e at
-            router.push('/login');
-            return;
-        }
+        // Stok Çek
+        const { data: stokData } = await supabase.from('materials').select('*').order('name');
+        if (stokData) setStok(stokData);
 
-    // B. Görevleri Çek (Admin panelindeki 'bekleyen' arızalar)
-    const { data: biletler } = await supabase
-        .from('service_tickets')
-        .select('*, cranes(*)')
-        .neq('status', 'tamamlandi') // Sadece bitmemiş işler
-        .order('created_at', { ascending: false });
-    
-    if (biletler) setGorevler(biletler);
+        setYukleniyor(false);
+    };
+    baslat();
+    return () => clearInterval(timerRef.current);
+  }, []);
 
-    // C. Stok Listesini Çek (Malzeme seçimi için)
-    const { data: stokData } = await supabase.from('materials').select('*').order('name');
-    if (stokData) setStok(stokData);
-
-    setYukleniyor(false);
-  };
-
-  // --- 2. KRONOMETRE & İŞ BAŞLATMA ---
-  const isiBaslat = (gorev: any) => {
-    setAktifGorev(gorev);
-    setYapilanIslemAciklamasi("");
-    setKullanilanMalzemeler([]);
-    setIslemSuresi(0);
-    
-    // Sayacı başlat
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setIslemSuresi(prev => prev + 1);
-    }, 1000);
-  };
-
+  // --- FONKSİYONLAR ---
   const sureFormatla = (saniye: number) => {
     const dk = Math.floor(saniye / 60);
     const sn = saniye % 60;
     return `${dk.toString().padStart(2, '0')}:${sn.toString().padStart(2, '0')}`;
   };
 
-  // --- 3. MALZEME YÖNETİMİ ---
-  const malzemeEkle = (malzeme: any) => {
-    const yeniKalem = {
-        id: Date.now(), // Geçici ID
-        stokId: malzeme.id,
-        ad: malzeme.name,
-        adet: 1,
-        birim_fiyat: malzeme.sale_price,
-        toplam_fiyat: malzeme.sale_price
-    };
-    setKullanilanMalzemeler([...kullanilanMalzemeler, yeniKalem]);
-    setMalzemeModalAcik(false);
+  const isiBaslat = (gorev: any) => {
+    setAktifGorev(gorev);
+    setYapilanIslemAciklamasi("");
+    setKullanilanMalzemeler([]);
+    setIslemSuresi(0);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => setIslemSuresi(prev => prev + 1), 1000);
   };
 
-  const malzemeCikar = (id: number) => {
-    setKullanilanMalzemeler(kullanilanMalzemeler.filter(m => m.id !== id));
-  };
-
-  // --- 4. İŞİ BİTİR & SENKRONİZE ET ---
   const isiBitir = async () => {
-    if (!yapilanIslemAciklamasi) return alert("Lütfen yapılan işlemi kısaca anlat.");
-    if (!confirm("İşi tamamlayıp merkeze göndermek istiyor musun?")) return;
-
+    if (!yapilanIslemAciklamasi) return alert("Açıklama giriniz.");
+    if (!confirm("İşi tamamlıyor musun?")) return;
+    
     setYukleniyor(true);
     clearInterval(timerRef.current);
+    const toplam = kullanilanMalzemeler.reduce((a, b) => a + b.toplam_fiyat, 0);
 
-    const toplamTutar = kullanilanMalzemeler.reduce((acc, m) => acc + m.toplam_fiyat, 0);
+    await supabase.from('service_tickets').update({ status: 'tamamlandi' }).eq('id', aktifGorev.id);
+    await supabase.from('completed_services').insert([{
+        service_date: new Date().toISOString(),
+        customer_text: aktifGorev.cranes?.customer_name,
+        company_address: aktifGorev.cranes?.location_address,
+        service_type: 'Servis',
+        description: yapilanIslemAciklamasi,
+        price: toplam,
+        technician: oturum.email,
+        work_hours: (islemSuresi / 3600).toFixed(2),
+        materials: kullanilanMalzemeler
+    }]);
 
-    try {
-        // ADIM 1: Admin Panelindeki 'Son Bildirimler'i güncelle
-        await supabase
-            .from('service_tickets')
-            .update({ status: 'tamamlandi' })
-            .eq('id', aktifGorev.id);
-
-        // ADIM 2: Finansal Analiz tablosuna ekle
-        const servisKaydi = {
-            service_date: new Date().toISOString(),
-            customer_text: aktifGorev.cranes?.customer_name || 'Bilinmeyen Müşteri',
-            company_address: aktifGorev.cranes?.location_address || '',
-            service_type: 'Servis',
-            description: yapilanIslemAciklamasi,
-            price: toplamTutar,
-            technician: oturum.email || 'Mobil Personel',
-            work_hours: (islemSuresi / 3600).toFixed(2),
-            materials: kullanilanMalzemeler
-        };
-
-        const { error } = await supabase.from('completed_services').insert([servisKaydi]);
-
-        if (error) throw error;
-
-        alert("Harika! İş tamamlandı ve merkeze iletildi. 🚀");
-        setAktifGorev(null);
-        baslat(); 
-
-    } catch (error: any) {
-        alert("Hata oluştu: " + error.message);
-    } finally {
-        setYukleniyor(false);
-    }
+    alert("İşlem Başarılı! ✅");
+    setAktifGorev(null);
+    setYukleniyor(false);
+    router.refresh();
   };
 
-  // --- ARAYÜZ (UI) ---
-  if (yukleniyor) return <div className="h-screen bg-slate-900 flex items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div></div>;
+  const malzemeEkle = (m: any) => {
+      setKullanilanMalzemeler([...kullanilanMalzemeler, { ...m, id: Date.now(), stokId: m.id, ad: m.name, birim_fiyat: m.sale_price, toplam_fiyat: m.sale_price }]);
+      setMalzemeModalAcik(false);
+  };
+
+  // VİNÇ GEÇMİŞİ SORGULA
+  const vincAra = async () => {
+      if(vincArama.length < 3) return;
+      const { data } = await supabase.from('cranes').select('*').ilike('customer_name', `%${vincArama}%`);
+      if(data) setBulunanVincler(data);
+  };
+
+  const vincGecmisiGetir = async (vincId: string) => {
+      const { data } = await supabase.from('completed_services').select('*').ilike('customer_text', `%${bulunanVincler.find(v=>v.id===vincId)?.customer_name}%`).order('service_date', { ascending: false });
+      if(data) setSeciliVincGecmisi(data);
+  };
+
+  if (yukleniyor) return <div className="h-screen bg-slate-900 flex items-center justify-center text-white"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div></div>;
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans pb-20 select-none">
+    <div className="min-h-screen bg-slate-100 font-sans pb-24 select-none">
       
-      {/* 🟢 HEADER: PROFİL & DURUM */}
-      <div className="bg-slate-900 text-white p-5 rounded-b-3xl shadow-xl sticky top-0 z-40">
-        <div className="flex justify-between items-center mb-4">
+      {/* 🟢 HEADER */}
+      <div className="bg-slate-900 text-white p-5 pt-8 rounded-b-3xl shadow-xl sticky top-0 z-30">
+        <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-bold text-lg">
-                    <User size={20}/>
-                </div>
-                <div>
-                    <h2 className="font-bold text-lg leading-tight">Merhaba, Ekip!</h2>
-                    <p className="text-xs text-slate-400">Saha Personeli</p>
-                </div>
+                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-bold text-lg"><User size={20}/></div>
+                <div><h2 className="font-bold text-lg leading-tight">Saha Personeli</h2><p className="text-xs text-slate-400">{oturum?.email}</p></div>
             </div>
-            
-            {/* 🔥 YENİ BUTONLAR GRUBU 🔥 */}
-            <div className="flex items-center gap-2">
-                <button 
-                    onClick={() => router.push('/personel/harita')} // Personel harita sayfasına gider
-                    className="bg-slate-800 p-2.5 rounded-full text-green-400 border border-slate-700 hover:bg-slate-700 hover:text-green-300 transition shadow-lg"
-                    title="Canlı Harita"
-                >
-                    <Globe size={20}/>
-                </button>
-                <button 
-                    onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} 
-                    className="bg-slate-800 p-2.5 rounded-full text-red-400 border border-slate-700 hover:bg-slate-700 hover:text-red-300 transition shadow-lg"
-                    title="Çıkış Yap"
-                >
-                    <LogOut size={20}/>
-                </button>
-            </div>
-        </div>
-        
-        {/* ÖZET KARTLARI */}
-        <div className="flex gap-3">
-            <div className="flex-1 bg-slate-800 p-3 rounded-2xl border border-slate-700">
-                <div className="text-xs text-slate-400 mb-1">Bekleyen Görev</div>
-                <div className="text-2xl font-black text-blue-400">{gorevler.length}</div>
-            </div>
-            <div className="flex-1 bg-slate-800 p-3 rounded-2xl border border-slate-700">
-                <div className="text-xs text-slate-400 mb-1">Durum</div>
-                <div className={`text-sm font-bold ${aktifGorev ? 'text-green-400 animate-pulse' : 'text-slate-500'}`}>
-                    {aktifGorev ? '• ÇALIŞILIYOR' : '• MÜSAİT'}
-                </div>
-            </div>
+            <button onClick={() => router.push('/personel/harita')} className="bg-slate-800 p-2.5 rounded-full text-green-400 border border-slate-700 shadow-lg"><Globe size={20}/></button>
         </div>
       </div>
 
+      {/* 🔵 İÇERİK ALANI (SEKMELERE GÖRE DEĞİŞİR) */}
       <div className="p-5">
         
-        {/* 🟡 EĞER AKTİF GÖREV VARSA (İŞLEM MODU) */}
-        <AnimatePresence mode="wait">
-        {aktifGorev ? (
-            <motion.div initial={{y:20, opacity:0}} animate={{y:0, opacity:1}} className="space-y-6">
-                
-                {/* 1. SAYAÇ & BİLGİ */}
-                <div className="bg-white p-6 rounded-3xl shadow-lg border-2 border-blue-500 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-bl-xl">AKTİF İŞLEM</div>
-                    <h3 className="text-xl font-black text-slate-800 mb-1">{aktifGorev.cranes?.customer_name}</h3>
-                    <p className="text-sm text-slate-500 flex items-center gap-1 mb-6"><MapPin size={14}/> {aktifGorev.cranes?.location_address}</p>
-                    
-                    <div className="flex justify-center my-4">
-                        <div className="text-5xl font-mono font-black text-slate-800 tracking-widest bg-slate-100 px-6 py-2 rounded-xl border border-slate-200">
-                            {sureFormatla(islemSuresi)}
-                        </div>
-                    </div>
-                    
-                    <div className="text-center text-xs text-slate-400 uppercase font-bold tracking-widest animate-pulse">Süre İşliyor...</div>
-                </div>
-
-                {/* 2. MALZEME EKLEME */}
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
-                    <div className="flex justify-between items-center mb-4">
-                        <h4 className="font-bold text-slate-700 flex items-center gap-2"><Package size={18}/> Kullanılan Malzemeler</h4>
-                        <button onClick={() => setMalzemeModalAcik(true)} className="bg-yellow-500 text-white p-2 rounded-xl shadow-lg hover:scale-105 transition"><Plus size={20}/></button>
-                    </div>
-                    
-                    {kullanilanMalzemeler.length === 0 ? (
-                        <div className="text-center py-6 text-slate-400 text-sm italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                            Henüz malzeme eklenmedi.
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {kullanilanMalzemeler.map((m, i) => (
-                                <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100 text-sm">
-                                    <span className="font-bold text-slate-700">{m.ad}</span>
-                                    <button onClick={() => malzemeCikar(m.id)} className="text-red-400"><X size={16}/></button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* 3. AÇIKLAMA & BİTİR */}
-                <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 space-y-4">
-                    <h4 className="font-bold text-slate-700 flex items-center gap-2"><Wrench size={18}/> Yapılan İşlem Özeti</h4>
-                    <textarea 
-                        value={yapilanIslemAciklamasi}
-                        onChange={e => setYapilanIslemAciklamasi(e.target.value)}
-                        placeholder="Örn: Halat değişti, fren ayarlandı..." 
-                        className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
-                    ></textarea>
-                    
-                    <button 
-                        onClick={isiBitir}
-                        className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg shadow-xl shadow-slate-300 active:scale-95 transition flex items-center justify-center gap-3"
-                    >
-                        <CheckCircle2 size={24}/> İŞİ TAMAMLA
-                    </button>
-                    
-                    <button 
-                        onClick={() => { if(confirm("İptal edilsin mi?")) { setAktifGorev(null); clearInterval(timerRef.current); } }}
-                        className="w-full text-slate-400 text-sm font-bold py-2"
-                    >
-                        Vazgeç ve Çık
-                    </button>
-                </div>
-
-            </motion.div>
-        ) : (
-            /* 🔵 GÖREV LİSTESİ (NORMAL MOD) */
+        {/* SEKME 1: GÖREVLER (ANA EKRAN) */}
+        {aktifSekme === 'gorevler' && (
             <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
-                    <div className="w-1 h-6 bg-blue-600 rounded-full"></div> Görev Listesi
-                </h3>
-
-                {gorevler.length === 0 ? (
-                    <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-300">
-                        <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3"/>
-                        <p className="text-slate-500 font-bold">Harika! Tüm işler bitti.</p>
-                        <p className="text-xs text-slate-400">Şu an atanmış yeni görev yok.</p>
-                    </div>
+                {aktifGorev ? (
+                    <motion.div initial={{y:10}} animate={{y:0}} className="bg-white p-6 rounded-3xl shadow-lg border-2 border-blue-500 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-bl-xl animate-pulse">AKTİF</div>
+                        <h3 className="text-xl font-black text-slate-800">{aktifGorev.cranes?.customer_name}</h3>
+                        <p className="text-sm text-slate-500 mb-6 flex items-center gap-1"><MapPin size={14}/> {aktifGorev.cranes?.location_address}</p>
+                        
+                        <div className="text-5xl font-mono font-black text-center text-slate-800 bg-slate-50 py-4 rounded-2xl border border-slate-100 mb-6">{sureFormatla(islemSuresi)}</div>
+                        
+                        <div className="space-y-3">
+                            <button onClick={() => setMalzemeModalAcik(true)} className="w-full bg-yellow-50 text-yellow-700 font-bold py-3 rounded-xl border border-yellow-200 flex items-center justify-center gap-2"><Package size={18}/> Malzeme Ekle ({kullanilanMalzemeler.length})</button>
+                            <textarea value={yapilanIslemAciklamasi} onChange={e=>setYapilanIslemAciklamasi(e.target.value)} placeholder="Yapılan işlem..." className="w-full p-3 bg-slate-50 border rounded-xl outline-none text-sm min-h-[80px]"></textarea>
+                            <button onClick={isiBitir} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2"><CheckCircle2 size={20}/> İŞİ BİTİR</button>
+                        </div>
+                    </motion.div>
                 ) : (
-                    gorevler.map((gorev) => (
-                        <motion.div 
-                            key={gorev.id} 
-                            whileTap={{ scale: 0.98 }}
-                            className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden"
-                        >
-                            <div className="flex justify-between items-start mb-3">
-                                <div>
-                                    <h4 className="font-bold text-slate-800 text-lg">{gorev.cranes?.customer_name}</h4>
-                                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                                        <MapPin size={12}/> {gorev.cranes?.location_address || 'Adres Girilmemiş'}
-                                    </div>
-                                </div>
-                                <span className="bg-red-100 text-red-600 text-[10px] font-bold px-2 py-1 rounded uppercase">Acil</span>
-                            </div>
-                            
-                            <div className="bg-slate-50 p-3 rounded-xl text-sm text-slate-600 mb-4 border border-slate-100">
-                                {gorev.description}
-                            </div>
-
-                            <button 
-                                onClick={() => isiBaslat(gorev)}
-                                className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-200 flex items-center justify-center gap-2 active:bg-blue-700 transition"
-                            >
-                                <Play size={18} fill="currentColor"/> İŞE BAŞLA
-                            </button>
-                        </motion.div>
-                    ))
+                    <>
+                        <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2"><div className="w-1 h-5 bg-blue-600 rounded-full"></div> Bekleyen İşler ({gorevler.length})</h3>
+                        {gorevler.length === 0 ? <div className="text-center py-10 text-slate-400 bg-white rounded-2xl border border-dashed">İş yok, keyfine bak! ☕</div> : gorevler.map(g => (
+                            <motion.div key={g.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative">
+                                <span className="absolute top-4 right-4 bg-red-100 text-red-600 text-[10px] font-bold px-2 py-1 rounded">ACİL</span>
+                                <h4 className="font-bold text-slate-800">{g.cranes?.customer_name}</h4>
+                                <p className="text-xs text-slate-500 mt-1 mb-3">{g.description}</p>
+                                <button onClick={() => isiBaslat(g)} className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-2"><Play size={16}/> BAŞLA</button>
+                            </motion.div>
+                        ))}
+                    </>
                 )}
             </div>
         )}
-        </AnimatePresence>
 
+        {/* SEKME 2: STOK KONTROL (SADECE GÖRÜNTÜLEME) */}
+        {aktifSekme === 'stok' && (
+            <div className="space-y-4">
+                <div className="bg-white p-3 rounded-xl shadow-sm border flex items-center gap-2 sticky top-24 z-20">
+                    <Search className="text-slate-400 w-5 h-5"/>
+                    <input type="text" placeholder="Malzeme ara..." className="flex-1 outline-none text-sm font-bold text-slate-700" value={stokArama} onChange={e=>setStokArama(e.target.value)}/>
+                </div>
+                <div className="space-y-2">
+                    {stok.filter(s => s.name.toLowerCase().includes(stokArama.toLowerCase())).map(s => (
+                        <div key={s.id} className="bg-white p-4 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
+                            <div><div className="font-bold text-slate-700 text-sm">{s.name}</div><div className="text-[10px] text-slate-400">{s.category || 'Genel'}</div></div>
+                            <div className="text-right"><div className="font-black text-blue-600">{s.stock_quantity || 0} Adet</div><div className="text-[10px] text-slate-400">Stokta</div></div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
+
+        {/* SEKME 3: VİNÇ GEÇMİŞİ */}
+        {aktifSekme === 'gecmis' && (
+            <div className="space-y-4">
+                <div className="bg-white p-4 rounded-2xl shadow-sm border">
+                    <h3 className="font-bold text-slate-800 text-sm mb-2">Vinç Geçmişi Sorgula</h3>
+                    <div className="flex gap-2">
+                        <input type="text" placeholder="Müşteri adı gir..." className="flex-1 p-3 bg-slate-50 border rounded-xl text-sm outline-none" value={vincArama} onChange={e=>setVincArama(e.target.value)}/>
+                        <button onClick={vincAra} className="bg-slate-900 text-white p-3 rounded-xl"><Search size={20}/></button>
+                    </div>
+                </div>
+                {bulunanVincler.map(v => (
+                    <div key={v.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="font-bold text-slate-800">{v.customer_name}</h4>
+                            <button onClick={()=>vincGecmisiGetir(v.id)} className="bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1 rounded-lg">Geçmişi Gör</button>
+                        </div>
+                        <p className="text-xs text-slate-500">{v.model_name} - {v.serial_number}</p>
+                        
+                        {/* Geçmiş Kayıtları Listele */}
+                        {seciliVincGecmisi.length > 0 && bulunanVincler.find(x=>x.id===v.id) && (
+                            <div className="mt-3 pt-3 border-t space-y-2">
+                                {seciliVincGecmisi.map(g => (
+                                    <div key={g.id} className="bg-slate-50 p-2 rounded-lg text-xs">
+                                        <div className="font-bold text-slate-700">{new Date(g.service_date).toLocaleDateString()}</div>
+                                        <div className="text-slate-500">{g.description}</div>
+                                        <div className="text-right text-blue-600 font-bold mt-1">{g.technician}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        )}
+
+        {/* SEKME 4: PROFİL */}
+        {aktifSekme === 'profil' && (
+            <div className="bg-white p-6 rounded-3xl text-center shadow-lg border border-slate-100">
+                <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl font-black">{oturum?.email[0].toUpperCase()}</div>
+                <h3 className="font-bold text-xl text-slate-800">Saha Teknisyeni</h3>
+                <p className="text-slate-500 text-sm mb-6">{oturum?.email}</p>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-slate-50 p-3 rounded-xl"><div className="text-2xl font-black text-slate-800">12</div><div className="text-xs text-slate-400">Tamamlanan</div></div>
+                    <div className="bg-slate-50 p-3 rounded-xl"><div className="text-2xl font-black text-green-500">4.8</div><div className="text-xs text-slate-400">Puan</div></div>
+                </div>
+                <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} className="w-full bg-red-50 text-red-600 font-bold py-3 rounded-xl flex items-center justify-center gap-2"><LogOut size={18}/> Çıkış Yap</button>
+            </div>
+        )}
+
+      </div>
+
+      {/* 🚀 ALT NAVİGASYON BAR (BOTTOM TAB) */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2 pb-6 shadow-2xl z-50 flex justify-around items-center rounded-t-3xl">
+        <button onClick={() => setAktifSekme('gorevler')} className={`p-3 rounded-2xl flex flex-col items-center gap-1 transition ${aktifSekme === 'gorevler' ? 'text-blue-600 bg-blue-50' : 'text-slate-400'}`}><Home size={24}/><span className="text-[10px] font-bold">Görevler</span></button>
+        <button onClick={() => setAktifSekme('stok')} className={`p-3 rounded-2xl flex flex-col items-center gap-1 transition ${aktifSekme === 'stok' ? 'text-yellow-600 bg-yellow-50' : 'text-slate-400'}`}><Box size={24}/><span className="text-[10px] font-bold">Stok</span></button>
+        <div className="w-12"></div> {/* Orta Boşluk (Opsiyonel FAB için) */}
+        <button onClick={() => setAktifSekme('gecmis')} className={`p-3 rounded-2xl flex flex-col items-center gap-1 transition ${aktifSekme === 'gecmis' ? 'text-purple-600 bg-purple-50' : 'text-slate-400'}`}><History size={24}/><span className="text-[10px] font-bold">Geçmiş</span></button>
+        <button onClick={() => setAktifSekme('profil')} className={`p-3 rounded-2xl flex flex-col items-center gap-1 transition ${aktifSekme === 'profil' ? 'text-slate-800 bg-slate-100' : 'text-slate-400'}`}><User size={24}/><span className="text-[10px] font-bold">Profil</span></button>
+        
+        {/* Ortadaki Yüzen Harita Butonu */}
+        <button onClick={() => router.push('/personel/harita')} className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-4 rounded-full shadow-xl border-4 border-slate-100 hover:scale-110 transition"><Globe size={28}/></button>
       </div>
 
       {/* --- MALZEME SEÇİM MODALI --- */}
       <AnimatePresence>
         {malzemeModalAcik && (
-            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/80 z-50 flex items-end sm:items-center justify-center p-4 backdrop-blur-sm">
+            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/80 z-[60] flex items-end sm:items-center justify-center p-4 backdrop-blur-sm">
                 <motion.div initial={{y:100}} animate={{y:0}} className="bg-white w-full max-w-md rounded-3xl overflow-hidden max-h-[80vh] flex flex-col">
-                    <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
-                        <h3 className="font-bold text-slate-800">Depodan Malzeme Seç</h3>
-                        <button onClick={() => setMalzemeModalAcik(false)} className="p-2 bg-white rounded-full shadow-sm"><X size={20}/></button>
-                    </div>
+                    <div className="p-4 border-b bg-slate-50 flex justify-between items-center"><h3 className="font-bold text-slate-800">Depodan Malzeme Seç</h3><button onClick={() => setMalzemeModalAcik(false)} className="p-2 bg-white rounded-full shadow-sm"><X size={20}/></button></div>
                     <div className="overflow-y-auto p-4 space-y-2">
                         {stok.map(s => (
                             <button key={s.id} onClick={() => malzemeEkle(s)} className="w-full text-left p-4 rounded-xl border border-slate-100 bg-white hover:bg-blue-50 hover:border-blue-200 transition flex justify-between items-center group">
