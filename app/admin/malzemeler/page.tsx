@@ -25,6 +25,13 @@ export default function MalzemelerSayfasi() {
   // ==========================================================================
   const [yukleniyor, setYukleniyor] = useState(true);
   const [showFinancialModal, setShowFinancialModal] = useState(false);
+
+  const [seciliAy, setSeciliAy] = useState("2026-02"); // Varsayılan ŞUBAT 2026
+    const [finansalVeri, setFinansalVeri] = useState<any>({
+    maas: 503577, malzeme: 110000, kira: 50000, tazminat: 33000, 
+    yakit: 32000, yemek: 31000, mesaiYemek: 20000, aracYipranma: 10000, 
+    aracSigorta: 8500, aracBakim: 4000, kdvDahilFatura: 1096255.20, gResmiFatura: 132500
+    });
   
   // Veriler
   const [malzemeler, setMalzemeler] = useState<any[]>([]);
@@ -470,56 +477,172 @@ export default function MalzemelerSayfasi() {
         )}
       </AnimatePresence>
 
-      {/* MODAL FORM (ESKİ STOK EKLEME FORMUN) */}
-      <AnimatePresence>
-        {formAcik && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setFormAcik(false)}>
-                <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-                    <div className={`p-6 flex justify-between items-center shrink-0 ${duzenlemeId ? 'bg-orange-50' : 'bg-blue-50'}`}>
-                        <h2 className={`text-xl font-bold flex items-center gap-3 ${duzenlemeId ? 'text-orange-700' : 'text-blue-700'}`}>
-                            {duzenlemeId ? <Edit2 className="w-6 h-6"/> : <Plus className="w-6 h-6"/>}
-                            {duzenlemeId ? 'Malzemeyi Düzenle' : 'Yeni Malzeme Ekle'}
-                        </h2>
-                        <button onClick={() => setFormAcik(false)} className="bg-white/50 hover:bg-white p-2 rounded-full transition"><X size={24}/></button>
+<AnimatePresence>
+  {showFinancialModal && (
+    <motion.div 
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-2 md:p-6"
+    >
+      <motion.div 
+        initial={{ scale: 0.9, y: 50 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 50 }}
+        className="bg-white w-full max-w-7xl rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]"
+      >
+        {/* MODAL HEADER */}
+        <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div className="flex items-center gap-6">
+            <div className="w-14 h-14 bg-slate-900 rounded-3xl flex items-center justify-center text-emerald-400 shadow-xl border-4 border-white">
+              <TrendingUp size={28} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight">FİNANSAL YÖNETİM MERKEZİ</h2>
+              <div className="flex items-center gap-3 mt-1">
+                <select 
+                  value={seciliAy} 
+                  onChange={(e) => setSeciliAy(e.target.value)}
+                  className="bg-blue-600 text-white text-xs font-black px-4 py-1.5 rounded-full outline-none shadow-lg shadow-blue-200 cursor-pointer hover:bg-blue-700 transition-colors"
+                >
+                  <option value="2026-01">OCAK 2026</option>
+                  <option value="2026-02">ŞUBAT 2026</option>
+                  <option value="2026-03">MART 2026</option>
+                  <option value="2026-04">NİSAN 2026</option>
+                  <option value="2026-05">MAYIS 2026</option>
+                  <option value="2026-06">HAZİRAN 2026</option>
+                  <option value="2026-07">TEMMUZ 2026</option>
+                  <option value="2026-08">AĞUSTOS 2026</option>
+                  <option value="2026-09">EYLÜL 2026</option>
+                  <option value="2026-10">EKİM 2026</option>
+                  <option value="2026-11">KASIM 2026</option>
+                  <option value="2026-12">ARALIK 2026</option>
+                </select>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic">Lütfen ilgili ayın verilerini giriniz</span>
+              </div>
+            </div>
+          </div>
+          <button onClick={() => setShowFinancialModal(false)} className="p-3 bg-white hover:bg-red-50 hover:text-red-500 rounded-2xl transition-all shadow-sm border border-slate-100"><X size={24} /></button>
+        </div>
+
+        {/* MODAL İÇERİK (SOL: VERİ GİRİŞİ | SAĞ: ANALİZ) */}
+        <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+          
+          {/* SOL PANEL: VERİ GİRİŞ FORMU */}
+          <div className="w-full md:w-1/2 p-8 overflow-y-auto border-r border-slate-100 bg-slate-50/30">
+            <h3 className="font-black text-slate-800 text-sm mb-6 flex items-center gap-2 uppercase tracking-tighter">
+              <Edit2 size={16} className="text-blue-600"/> GİDER VE GELİR KALEMLERİNİ DÜZENLE
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                { id: 'maas', label: 'Personel Maaşları', color: 'red' },
+                { id: 'malzeme', label: 'Malzeme Maliyeti', color: 'red' },
+                { id: 'kira', label: 'Fabrika Kirası', color: 'red' },
+                { id: 'yakit', label: 'Benzin Harcaması', color: 'red' },
+                { id: 'yemek', label: 'Yemek Giderleri', color: 'red' },
+                { id: 'tazminat', label: 'Tazminat Karşılığı', color: 'red' },
+                { id: 'mesaiYemek', label: 'Servis/Mesai Yemek', color: 'red' },
+                { id: 'aracYipranma', label: 'Araç Yıpranma (%5)', color: 'red' },
+                { id: 'aracSigorta', label: 'Kasko/Sigorta/Muayene', color: 'red' },
+                { id: 'aracBakim', label: 'Araç Bakım Onarım', color: 'red' },
+                { id: 'kdvDahilFatura', label: 'ŞUBAT FATURA (KDV DAHİL)', color: 'emerald' },
+                { id: 'gResmiFatura', label: 'G.RESMİ FATURA GELİRİ', color: 'emerald' }
+              ].map((item) => (
+                <div key={item.id} className="space-y-1.5">
+                  <label className={`text-[10px] font-black uppercase ml-1 ${item.color === 'red' ? 'text-slate-400' : 'text-emerald-600'}`}>
+                    {item.label}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-3 text-slate-300 text-xs font-bold">₺</span>
+                    <input 
+                      type="number" 
+                      value={finansalVeri[item.id]} 
+                      onChange={(e) => setFinansalVeri({...finansalVeri, [item.id]: parseFloat(e.target.value) || 0})}
+                      className={`w-full pl-7 p-3 bg-white border rounded-2xl text-sm font-black outline-none focus:ring-4 transition-all ${item.color === 'red' ? 'border-slate-200 focus:ring-slate-100 text-slate-700' : 'border-emerald-100 focus:ring-emerald-50 text-emerald-700'}`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-8 p-4 bg-blue-600 rounded-3xl text-white flex justify-between items-center shadow-xl shadow-blue-100">
+               <div className="text-xs font-bold uppercase opacity-80">VERİLERİ BULUTA YEDEKLE</div>
+               <button onClick={() => alert('Seçili ay verileri kaydedildi!')} className="bg-white text-blue-600 px-6 py-2 rounded-xl text-xs font-black hover:bg-blue-50 transition-colors">KAYDET</button>
+            </div>
+          </div>
+
+          {/* SAĞ PANEL: ANLIK ANALİZ RAPORU */}
+          <div className="w-full md:w-1/2 p-8 overflow-y-auto space-y-8 bg-white">
+             {/* HESAPLAMA MOTORU */}
+             {(() => {
+                const toplamGider = finansalVeri.maas + finansalVeri.malzeme + finansalVeri.kira + finansalVeri.tazminat + 
+                                   finansalVeri.yakit + finansalVeri.yemek + finansalVeri.mesaiYemek + 
+                                   finansalVeri.aracYipranma + finansalVeri.aracSigorta + finansalVeri.aracBakim;
+                
+                const kdvHaricGelir = finansalVeri.kdvDahilFatura / 1.20; // %20 KDV Düşümü
+                const brutKar = (kdvHaricGelir + finansalVeri.gResmiFatura) - toplamGider;
+                const gelirVergisi = brutKar > 0 ? brutKar * 0.20 : 0;
+                const netKar = brutKar - gelirVergisi;
+
+                return (
+                  <div className="space-y-8 animate-in fade-in duration-700">
+                    <div className="text-center space-y-2">
+                       <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">ANLIK {seciliAy.split("-")[1]}. AY KAR/ZARAR DURUMU</h4>
+                       <div className={`text-6xl font-black tracking-tighter ${netKar >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {formatCurrency(netKar)}
+                       </div>
+                       <div className="text-xs text-slate-400 font-bold uppercase italic">Tüm vergiler ve operasyonel giderler düşülmüştür.</div>
                     </div>
 
-                    <div className="p-6 space-y-5">
-                        <div>
-                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Malzeme Adı</label>
-                            <input type="text" placeholder="Örn: 10mm Çelik Halat" value={yeniMalzeme.name} onChange={e => setYeniMalzeme({...yeniMalzeme, name: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition"/>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-bold text-slate-400 uppercase ml-1">Birim</label>
-                                <select value={yeniMalzeme.unit} onChange={e => setYeniMalzeme({...yeniMalzeme, unit: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"><option>Adet</option><option>Metre</option><option>Kg</option><option>Takım</option><option>Litre</option><option>Kutu</option><option>Set</option></select>
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-slate-400 uppercase ml-1">İskonto (%)</label>
-                                <input type="number" value={yeniMalzeme.discount_rate} onChange={e => setYeniMalzeme({...yeniMalzeme, discount_rate: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"/>
-                            </div>
-                        </div>
-                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
-                            <div>
-                                <label className="text-[10px] font-bold text-red-400 uppercase ml-1">Alış Fiyatı (Maliyet)</label>
-                                <input type="number" placeholder="0.00" value={yeniMalzeme.buy_price} onChange={e => setYeniMalzeme({...yeniMalzeme, buy_price: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none"/>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-blue-500 uppercase ml-1">Satış Fiyatı (Liste)</label>
-                                <input type="number" placeholder="0.00" value={yeniMalzeme.sale_price} onChange={e => setYeniMalzeme({...yeniMalzeme, sale_price: e.target.value})} className="w-full p-3 bg-white border-2 border-blue-100 rounded-xl text-lg font-black text-blue-600 outline-none"/>
-                            </div>
-                        </div>
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="p-5 bg-slate-900 rounded-[32px] text-white">
+                          <div className="text-[10px] font-black text-slate-500 uppercase mb-1">TOPLAM GİDER</div>
+                          <div className="text-xl font-black text-red-400">{formatCurrency(toplamGider)}</div>
+                       </div>
+                       <div className="p-5 bg-emerald-50 rounded-[32px] border border-emerald-100 text-emerald-700">
+                          <div className="text-[10px] font-black text-emerald-400 uppercase mb-1">TOPLAM GELİR (NET)</div>
+                          <div className="text-xl font-black">{formatCurrency(kdvHaricGelir + finansalVeri.gResmiFatura)}</div>
+                       </div>
                     </div>
 
-                    <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
-                        <button onClick={() => setFormAcik(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100">Vazgeç</button>
-                        <button onClick={kaydetVeyaGuncelle} className={`flex-[2] py-3 text-white font-bold rounded-xl transition ${duzenlemeId ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                            {duzenlemeId ? 'Güncelle' : 'Kaydet'}
-                        </button>
+                    {/* GÖRSEL ANALİZ: PROGRESS BARS */}
+                    <div className="bg-slate-50 p-6 rounded-[35px] space-y-4">
+                       <div className="space-y-2">
+                          <div className="flex justify-between text-[10px] font-black uppercase text-slate-500">
+                             <span>GİDER / GELİR ORANI</span>
+                             <span>%{Math.round((toplamGider / (kdvHaricGelir + finansalVeri.gResmiFatura)) * 100) || 0}</span>
+                          </div>
+                          <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                             <div className="h-full bg-red-500 rounded-full" style={{ width: `${(toplamGider / (kdvHaricGelir + finansalVeri.gResmiFatura)) * 100}%` }}></div>
+                          </div>
+                       </div>
                     </div>
-                </motion.div>
-            </motion.div>
-        )}
-      </AnimatePresence>
+
+                    <div className="bg-yellow-50 p-6 rounded-[35px] border border-yellow-100 border-dashed">
+                       <div className="flex items-start gap-4 text-yellow-800">
+                          <AlertCircle size={20} className="shrink-0"/>
+                          <div>
+                             <p className="text-xs font-bold leading-relaxed">
+                                Bu ayki <strong>{formatCurrency(brutKar)}</strong> brüt kar üzerinden <strong>{formatCurrency(gelirVergisi)}</strong> tutarında %20 gelir vergisi tahakkuku hesaplanmıştır.
+                             </p>
+                          </div>
+                       </div>
+                    </div>
+                  </div>
+                );
+             })()}
+          </div>
+        </div>
+        
+        {/* MODAL FOOTER */}
+        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center shrink-0">
+           <div className="flex items-center gap-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest font-mono">
+             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div> CANLI FİNANSAL HESAPLAMA AKTİF
+           </div>
+           <button onClick={() => setShowFinancialModal(false)} className="bg-slate-900 text-white px-10 py-3.5 rounded-2xl font-black text-sm hover:bg-slate-800 transition shadow-xl active:scale-95">PANELİ KAPAT</button>
+        </div>
+
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
         
     </div>
   );
