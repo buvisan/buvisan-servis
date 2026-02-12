@@ -497,22 +497,21 @@ export default function MalzemelerSayfasi() {
               <h2 className="text-2xl font-black text-slate-800 tracking-tight">FİNANSAL YÖNETİM MERKEZİ</h2>
               <div className="flex items-center gap-3 mt-1">
                 <select 
-                  value={seciliAy} 
-                  onChange={(e) => setSeciliAy(e.target.value)}
-                  className="bg-blue-600 text-white text-xs font-black px-4 py-1.5 rounded-full outline-none shadow-lg shadow-blue-200 cursor-pointer hover:bg-blue-700 transition-colors"
+                value={seciliAy} 
+                onChange={(e) => setSeciliAy(e.target.value)}
+                className="bg-blue-600 text-white text-xs font-black px-4 py-1.5 rounded-full outline-none shadow-lg shadow-blue-200 cursor-pointer hover:bg-blue-700 transition-colors"
                 >
-                  <option value="2026-01">OCAK 2026</option>
-                  <option value="2026-02">ŞUBAT 2026</option>
-                  <option value="2026-03">MART 2026</option>
-                  <option value="2026-04">NİSAN 2026</option>
-                  <option value="2026-05">MAYIS 2026</option>
-                  <option value="2026-06">HAZİRAN 2026</option>
-                  <option value="2026-07">TEMMUZ 2026</option>
-                  <option value="2026-08">AĞUSTOS 2026</option>
-                  <option value="2026-09">EYLÜL 2026</option>
-                  <option value="2026-10">EKİM 2026</option>
-                  <option value="2026-11">KASIM 2026</option>
-                  <option value="2026-12">ARALIK 2026</option>
+                {/* OTOMATİK TARİH ÜRETİCİSİ (2025 - 2030 Arası) */}
+                {Array.from({ length: 6 }, (_, i) => 2025 + i).map(yil => (
+                    ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"].map((ayAdi, index) => {
+                    const ayDegeri = `${yil}-${String(index + 1).padStart(2, '0')}`;
+                    return (
+                        <option key={ayDegeri} value={ayDegeri}>
+                        {ayAdi} {yil}
+                        </option>
+                    );
+                    })
+                ))}
                 </select>
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic">Lütfen ilgili ayın verilerini giriniz</span>
               </div>
