@@ -410,7 +410,7 @@ export default function MalzemelerSayfasi() {
                         onChange={(e) => setSeciliAy(e.target.value)}
                         className="bg-blue-600 text-white text-xs font-black px-4 py-1.5 rounded-full outline-none shadow-lg shadow-blue-200 cursor-pointer hover:bg-blue-700 transition-colors"
                       >
-                         {Array.from({ length: 6 }, (_, i) => 2025 + i).map(yil => (
+                         {Array.from({ length: 6 }, (_, i) => 2026 + i).map(yil => (
                             ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"].map((ayAdi, index) => {
                               const ayDegeri = `${yil}-${String(index + 1).padStart(2, '0')}`;
                               return <option key={ayDegeri} value={ayDegeri}>{ayAdi} {yil}</option>;
