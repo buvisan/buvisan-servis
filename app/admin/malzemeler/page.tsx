@@ -346,7 +346,7 @@ export default function MalzemelerSayfasi() {
                         <div className="p-3 bg-slate-900 rounded-2xl text-emerald-400"><TrendingUp size={28}/></div>
                         <div><h2 className="text-2xl font-black text-slate-800">FİNANS YÖNETİMİ</h2>
                         <select value={seciliAy} onChange={e=>setSeciliAy(e.target.value)} className="bg-blue-600 text-white text-xs font-black px-4 py-1.5 rounded-full outline-none shadow-lg mt-1 cursor-pointer hover:bg-blue-700">
-                             {Array.from({length:6},(_,i)=>2025+i).map(y=>["OCAK","ŞUBAT","MART","NİSAN","MAYIS","HAZİRAN","TEMMUZ","AĞUSTOS","EYLÜL","EKİM","KASIM","ARALIK"].map((a,ix)=><option key={`${y}-${ix+1}`} value={`${y}-${String(ix+1).padStart(2,'0')}`}>{a} {y}</option>))}
+                             {Array.from({length:6},(_,i)=>2026+i).map(y=>["OCAK","ŞUBAT","MART","NİSAN","MAYIS","HAZİRAN","TEMMUZ","AĞUSTOS","EYLÜL","EKİM","KASIM","ARALIK"].map((a,ix)=><option key={`${y}-${ix+1}`} value={`${y}-${String(ix+1).padStart(2,'0')}`}>{a} {y}</option>))}
                         </select></div>
                     </div>
                     <button onClick={()=>setShowFinancialModal(false)} className="p-3 bg-white hover:text-red-500 rounded-2xl border"><X size={24}/></button>
