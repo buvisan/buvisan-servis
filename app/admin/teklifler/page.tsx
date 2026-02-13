@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { 
   Loader2, Plus, FileText, Calendar, DollarSign, User, MapPin, 
   Box, Printer, Trash2, CheckCircle, XCircle, Search, FileCheck, Clock,
-  ThumbsUp, ThumbsDown, MessageCircle // 🔥 Yeni ikonlar eklendi
+  ThumbsUp, ThumbsDown, MessageCircle, X
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -105,15 +105,15 @@ export default function TekliflerSayfasi() {
       verileriGetir();
   };
 
-  // 🔥 YENİ: DURUM GÜNCELLEME (ONAYLA / REDDET) 🔥
+  // DURUM GÜNCELLEME
   const durumGuncelle = async (id: string, yeniDurum: string) => {
       const { error } = await supabase.from('offers').update({ status: yeniDurum }).eq('id', id);
       if(!error) {
-          verileriGetir(); // Listeyi yenile ki istatistikler güncellensin
+          verileriGetir(); 
       }
   };
 
-  // 🔥 YENİ: WHATSAPP PAYLAŞIM 🔥
+  // WHATSAPP PAYLAŞIM
   const whatsappPaylas = () => {
       if(!seciliTeklif) return;
       const mesaj = `Sayın ${seciliTeklif.customer_rep || 'Yetkili'}, ${seciliTeklif.template_type === 'standart' ? 'Fiyat Teklifiniz' : 'Sözleşmeniz'} ektedir. Toplam Tutar: ${seciliTeklif.total_price.toLocaleString()} TL. Saygılarımızla, Buvisan Vinç.`;
@@ -210,14 +210,12 @@ export default function TekliflerSayfasi() {
                               {t.status === 'reddedildi' && <span className="text-red-500 font-bold text-xs flex items-center gap-1"><XCircle size={12}/> Reddedildi</span>}
                           </td>
                           <td className="p-4 text-right flex justify-end gap-2 items-center">
-                              {/* 🔥 DURUM BUTONLARI (Sadece beklemedeyse görünür) */}
                               {t.status === 'beklemede' && (
                                   <>
                                     <button onClick={() => durumGuncelle(t.id, 'onaylandi')} className="p-2 bg-green-100 text-green-600 rounded hover:bg-green-200 transition" title="Onayla"><ThumbsUp size={16}/></button>
                                     <button onClick={() => durumGuncelle(t.id, 'reddedildi')} className="p-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition mr-2" title="Reddet"><ThumbsDown size={16}/></button>
                                   </>
                               )}
-                              
                               <button onClick={() => { setSeciliTeklif(t); setOnizlemeAcik(true); }} className="p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100" title="Görüntüle & Yazdır"><Printer size={16}/></button>
                               <button onClick={() => sil(t.id)} className="p-2 bg-red-50 text-red-500 rounded hover:bg-red-100"><Trash2 size={16}/></button>
                           </td>
@@ -232,7 +230,7 @@ export default function TekliflerSayfasi() {
         {modalAcik && (
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                 <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-                    <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
+                    <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
                         <h2 className="text-xl font-bold flex items-center gap-2"><FileText/> Yeni Teklif Oluştur</h2>
                         <button onClick={() => setModalAcik(false)}><XCircle/></button>
                     </div>
@@ -312,7 +310,7 @@ export default function TekliflerSayfasi() {
                         </div>
                     </div>
 
-                    <div className="p-4 bg-slate-100 flex justify-end gap-3">
+                    <div className="p-4 bg-slate-100 flex justify-end gap-3 shrink-0">
                         <button onClick={() => setModalAcik(false)} className="px-6 py-3 bg-white border rounded-xl font-bold text-slate-600">Vazgeç</button>
                         <button onClick={teklifKaydet} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg">Teklifi Oluştur</button>
                     </div>
@@ -321,115 +319,128 @@ export default function TekliflerSayfasi() {
         )}
       </AnimatePresence>
 
-      {/* --- MODAL 2: A4 KAĞIT ÖNİZLEME (ŞABLON MOTORU) --- */}
+      {/* --- MODAL 2: A4 KAĞIT ÖNİZLEME (ŞABLON MOTORU - DÜZELTİLMİŞ) --- */}
       <AnimatePresence>
         {onizlemeAcik && seciliTeklif && (
-            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-800/90 z-[60] flex items-center justify-center p-4 overflow-y-auto">
-                <div className="max-h-full overflow-y-auto w-full flex flex-col items-center">
+            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/90 z-[60] flex items-center justify-center p-4">
+                
+                {/* 🔥 DÜZELTME: Bu kapsayıcı artık sabit boyutta ve esnek (flex) */}
+                <div className="bg-slate-200 w-full max-w-5xl h-[95vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden relative">
                     
-                    {/* A4 KAĞIDI (YAZDIRILACAK ALAN) */}
-                    <div ref={printRef} className="bg-white w-[210mm] min-h-[297mm] p-[15mm] shadow-2xl relative text-black">
-                        
-                        {/* HEADER: LOGO VE FİRMA BİLGİSİ */}
-                        <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-8">
-                            <div>
-                                <h1 className="text-3xl font-black text-slate-800 tracking-tighter">ZM METAL</h1>
-                                <p className="text-sm font-bold text-slate-500">MAKİNA İMALAT SANAYİ VE TİCARET LİMİTED ŞİRKETİ</p>
-                            </div>
-                            <div className="text-right text-xs text-slate-600">
-                                <p>Demirci / Nilüfer / BURSA</p>
-                                <p>Tel: 0224 374 00 01</p>
-                                <p>Web: www.buvisan.com</p>
-                            </div>
-                        </div>
-
-                        {/* BELGE BAŞLIĞI */}
-                        <div className="text-center mb-8">
-                            <h2 className="text-xl font-bold uppercase border-b border-slate-300 inline-block pb-1">
-                                {seciliTeklif.template_type === 'standart' ? 'FİYAT TEKLİF FORMU' : 
-                                 seciliTeklif.template_type === 'bakim' ? 'PERİYODİK BAKIM SÖZLEŞMESİ' : 'SİPARİŞ FORMU'}
-                            </h2>
-                            <p className="text-xs text-slate-400 mt-1">Tarih: {new Date(seciliTeklif.offer_date).toLocaleDateString('tr-TR')}</p>
-                        </div>
-
-                        {/* MÜŞTERİ BİLGİLERİ KUTUSU */}
-                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8 text-sm">
-                            <div className="grid grid-cols-[100px_1fr] gap-2 mb-2">
-                                <span className="font-bold text-slate-600">Sayın:</span>
-                                <span>{seciliTeklif.customer_rep || 'Yetkili'}</span>
-                            </div>
-                            <div className="grid grid-cols-[100px_1fr] gap-2 mb-2">
-                                <span className="font-bold text-slate-600">Firma:</span>
-                                <span className="uppercase font-bold">{seciliTeklif.customer_name}</span>
-                            </div>
-                            <div className="grid grid-cols-[100px_1fr] gap-2">
-                                <span className="font-bold text-slate-600">Adres:</span>
-                                <span>{seciliTeklif.customer_address}</span>
-                            </div>
-                        </div>
-
-                        {/* TABLO */}
-                        <table className="w-full mb-8 border-collapse">
-                            <thead>
-                                <tr className="bg-slate-100 text-slate-700 text-xs uppercase border-y border-slate-300">
-                                    <th className="p-3 text-left">Açıklama / Malzeme</th>
-                                    <th className="p-3 text-center">Miktar</th>
-                                    <th className="p-3 text-right">Birim Fiyat</th>
-                                    <th className="p-3 text-right">Tutar</th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-sm">
-                                {seciliTeklif.items && seciliTeklif.items.map((item: any, i: number) => (
-                                    <tr key={i} className="border-b border-slate-100">
-                                        <td className="p-3">{item.ad}</td>
-                                        <td className="p-3 text-center">{item.adet}</td>
-                                        <td className="p-3 text-right">{Number(item.birim_fiyat).toLocaleString()} ₺</td>
-                                        <td className="p-3 text-right font-bold">{Number(item.toplam).toLocaleString()} ₺</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                            <tfoot>
-                                <tr className="border-t-2 border-slate-800">
-                                    <td colSpan={3} className="p-3 text-right font-bold uppercase text-slate-600">Genel Toplam</td>
-                                    <td className="p-3 text-right font-black text-lg">{Number(seciliTeklif.total_price).toLocaleString()} ₺</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-
-                        {/* ŞARTLAR VE NOTLAR */}
-                        <div className="mb-12">
-                            <h4 className="font-bold text-sm border-b border-slate-200 mb-2 pb-1">Notlar ve Şartlar:</h4>
-                            <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">
-                                {seciliTeklif.description || 'Bu teklif 15 gün süreyle geçerlidir. Fiyatlara KDV dahil değildir.'}
-                                {seciliTeklif.template_type === 'bakim' && `
-                                \n\n* Bakım periyotları üretici standartlarına uygundur.
-                                * Değişen parçalar ayrıca faturalandırılacaktır.
-                                * İş güvenliği kurallarına tam riayet edilecektir.`}
-                            </div>
-                        </div>
-
-                        {/* İMZA ALANI */}
-                        <div className="flex justify-between mt-auto pt-12">
-                            <div className="text-center">
-                                <p className="font-bold text-sm mb-8">Müşteri Onayı</p>
-                                <div className="border-t border-slate-400 w-32 mx-auto"></div>
-                                <p className="text-xs text-slate-400 mt-1">İmza / Kaşe</p>
-                            </div>
-                            <div className="text-center">
-                                <p className="font-bold text-sm mb-8">BUVİSAN Onayı</p>
-                                <div className="border-t border-slate-400 w-32 mx-auto"></div>
-                                <p className="text-xs text-slate-400 mt-1">İmza / Kaşe</p>
-                            </div>
-                        </div>
-
+                    {/* --- ÜST BAR (Başlık) --- */}
+                    <div className="bg-slate-800 text-white p-4 flex justify-between items-center shrink-0 z-50 shadow-md">
+                        <h3 className="font-bold flex items-center gap-2"><FileCheck/> Önizleme Modu</h3>
+                        <button onClick={() => setOnizlemeAcik(false)} className="hover:bg-slate-700 p-2 rounded-full"><X/></button>
                     </div>
 
-                    {/* AKSİYON BUTONLARI (KAĞIDIN ALTINDA) */}
-                    <div className="flex gap-4 mt-6 pb-10">
-                        <button onClick={yazdir} className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-xl hover:bg-blue-700 flex items-center gap-2 transform hover:scale-105 transition"><Printer/> Yazdır / PDF Kaydet</button>
-                        {/* 🔥 WHATSAPP BUTONU EKLENDİ 🔥 */}
-                        <button onClick={whatsappPaylas} className="bg-green-500 text-white px-8 py-3 rounded-full font-bold shadow-xl hover:bg-green-600 flex items-center gap-2 transform hover:scale-105 transition"><MessageCircle/> WhatsApp'tan At</button>
-                        <button onClick={() => setOnizlemeAcik(false)} className="bg-white text-slate-800 px-8 py-3 rounded-full font-bold shadow-xl hover:bg-slate-100 flex items-center gap-2"><XCircle/> Kapat</button>
+                    {/* --- ORTA KISIM (KAYDIRILABİLİR ALAN) --- */}
+                    {/* Burası kağıdı içerir ve sadece burası scroll olur */}
+                    <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-slate-600/50">
+                        
+                        {/* A4 KAĞIDI */}
+                        <div ref={printRef} className="bg-white w-[210mm] min-h-[297mm] p-[15mm] shadow-xl relative text-black shrink-0">
+                            
+                            {/* HEADER: LOGO VE FİRMA BİLGİSİ */}
+                            <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-8">
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-800 tracking-tighter">ZM METAL</h1>
+                                    <p className="text-sm font-bold text-slate-500">MAKİNA İMALAT SANAYİ VE TİCARET LİMİTED ŞİRKETİ</p>
+                                </div>
+                                <div className="text-right text-xs text-slate-600">
+                                    <p>Demirci / Nilüfer / BURSA</p>
+                                    <p>Tel: 0224 374 00 01</p>
+                                    <p>Web: www.buvisan.com</p>
+                                </div>
+                            </div>
+
+                            {/* BELGE BAŞLIĞI */}
+                            <div className="text-center mb-8">
+                                <h2 className="text-xl font-bold uppercase border-b border-slate-300 inline-block pb-1">
+                                    {seciliTeklif.template_type === 'standart' ? 'FİYAT TEKLİF FORMU' : 
+                                     seciliTeklif.template_type === 'bakim' ? 'PERİYODİK BAKIM SÖZLEŞMESİ' : 'SİPARİŞ FORMU'}
+                                </h2>
+                                <p className="text-xs text-slate-400 mt-1">Tarih: {new Date(seciliTeklif.offer_date).toLocaleDateString('tr-TR')}</p>
+                            </div>
+
+                            {/* MÜŞTERİ BİLGİLERİ */}
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8 text-sm">
+                                <div className="grid grid-cols-[100px_1fr] gap-2 mb-2">
+                                    <span className="font-bold text-slate-600">Sayın:</span>
+                                    <span>{seciliTeklif.customer_rep || 'Yetkili'}</span>
+                                </div>
+                                <div className="grid grid-cols-[100px_1fr] gap-2 mb-2">
+                                    <span className="font-bold text-slate-600">Firma:</span>
+                                    <span className="uppercase font-bold">{seciliTeklif.customer_name}</span>
+                                </div>
+                                <div className="grid grid-cols-[100px_1fr] gap-2">
+                                    <span className="font-bold text-slate-600">Adres:</span>
+                                    <span>{seciliTeklif.customer_address}</span>
+                                </div>
+                            </div>
+
+                            {/* TABLO */}
+                            <table className="w-full mb-8 border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-100 text-slate-700 text-xs uppercase border-y border-slate-300">
+                                        <th className="p-3 text-left">Açıklama / Malzeme</th>
+                                        <th className="p-3 text-center">Miktar</th>
+                                        <th className="p-3 text-right">Birim Fiyat</th>
+                                        <th className="p-3 text-right">Tutar</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-sm">
+                                    {seciliTeklif.items && seciliTeklif.items.map((item: any, i: number) => (
+                                        <tr key={i} className="border-b border-slate-100">
+                                            <td className="p-3">{item.ad}</td>
+                                            <td className="p-3 text-center">{item.adet}</td>
+                                            <td className="p-3 text-right">{Number(item.birim_fiyat).toLocaleString()} ₺</td>
+                                            <td className="p-3 text-right font-bold">{Number(item.toplam).toLocaleString()} ₺</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot>
+                                    <tr className="border-t-2 border-slate-800">
+                                        <td colSpan={3} className="p-3 text-right font-bold uppercase text-slate-600">Genel Toplam</td>
+                                        <td className="p-3 text-right font-black text-lg">{Number(seciliTeklif.total_price).toLocaleString()} ₺</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+
+                            {/* NOTLAR */}
+                            <div className="mb-12">
+                                <h4 className="font-bold text-sm border-b border-slate-200 mb-2 pb-1">Notlar ve Şartlar:</h4>
+                                <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">
+                                    {seciliTeklif.description || 'Bu teklif 15 gün süreyle geçerlidir. Fiyatlara KDV dahil değildir.'}
+                                </div>
+                            </div>
+
+                            {/* İMZA */}
+                            <div className="flex justify-between mt-auto pt-12 pb-8">
+                                <div className="text-center">
+                                    <p className="font-bold text-sm mb-12">Müşteri Onayı</p>
+                                    <div className="border-t border-slate-400 w-32 mx-auto"></div>
+                                    <p className="text-xs text-slate-400 mt-1">İmza / Kaşe</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="font-bold text-sm mb-12">BUVİSAN Onayı</p>
+                                    <div className="border-t border-slate-400 w-32 mx-auto"></div>
+                                    <p className="text-xs text-slate-400 mt-1">İmza / Kaşe</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* --- ALT BAR (SABİT AKSİYON BUTONLARI) --- */}
+                    <div className="bg-white border-t p-4 flex justify-center gap-4 shrink-0 z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.1)]">
+                        <button onClick={yazdir} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 flex items-center gap-2 transform active:scale-95 transition">
+                            <Printer size={20}/> Yazdır / PDF Kaydet
+                        </button>
+                        <button onClick={whatsappPaylas} className="bg-green-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-600 flex items-center gap-2 transform active:scale-95 transition">
+                            <MessageCircle size={20}/> WhatsApp'tan At
+                        </button>
+                        <button onClick={() => setOnizlemeAcik(false)} className="bg-slate-100 text-slate-700 px-6 py-3 rounded-xl font-bold shadow hover:bg-slate-200 flex items-center gap-2">
+                            <XCircle size={20}/> Kapat
+                        </button>
                     </div>
 
                 </div>
