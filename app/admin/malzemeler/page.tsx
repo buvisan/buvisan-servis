@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN GLOBAL YÖNETİM MERKEZİ 🌍
-// Versiyon: FINAL PRO (Yedekleme + Finans + Mesai Robotu 🤖)
+// Versiyon: FINAL PRO MAX (Fix: Veritabanı İsim Eşleşmesi Düzeltildi)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -32,7 +32,7 @@ export default function MalzemelerSayfasi() {
   // Modallar (Açılır Pencereler)
   const [formAcik, setFormAcik] = useState(false);
   const [showFinancialModal, setShowFinancialModal] = useState(false);
-  const [showMesaiModal, setShowMesaiModal] = useState(false); // 🔥 YENİ: MESAİ MODALI
+  const [showMesaiModal, setShowMesaiModal] = useState(false); 
   
   // Form Kontrolleri
   const [arama, setArama] = useState("");
@@ -50,12 +50,9 @@ export default function MalzemelerSayfasi() {
     kdvDahilFatura: 0, gResmiFatura: 0
   });
 
-  // 🔥 MESAİ HESAPLAMA STATE'LERİ
+  // Mesai Formu
   const [mesaiForm, setMesaiForm] = useState({
-    maas: 0,
-    saat15: 0, // Cmt + Hafta içi (1.5x)
-    saat20: 0, // Pazar + Tatil (2.0x)
-    izin: 0    // İzin saati (Kesinti)
+    maas: 0, saat15: 0, saat20: 0, izin: 0
   });
 
   // İstatistik
@@ -151,7 +148,7 @@ export default function MalzemelerSayfasi() {
   };
 
   // ==========================================================================
-  // 3. FİNANS VE YEDEKLEME SİSTEMİ
+  // 3. FİNANS VE YEDEKLEME SİSTEMİ (DÜZELTİLDİ)
   // ==========================================================================
   const finansalVeriyiGetir = async (ayKey: string) => {
     setFinansalLoading(true);
@@ -159,9 +156,13 @@ export default function MalzemelerSayfasi() {
     if (data) {
       setFinansalVeri({
         maas: data.maas, malzeme: data.malzeme, kira: data.kira, tazminat: data.tazminat,
-        yakit: data.yakit, yemek: data.yemek, mesaiYemek: data.mesai_yemek,
-        aracYipranma: data.arac_yipranma, aracSigorta: data.arac_sigorta, aracBakim: data.arac_bakim,
-        kdvDahilFatura: data.kdv_dahil_fatura, gResmiFatura: data.g_resmi_fatura
+        yakit: data.yakit, yemek: data.yemek, 
+        mesaiYemek: data.mesai_yemek, // DB'den gelen snake_case
+        aracYipranma: data.arac_yipranma, 
+        aracSigorta: data.arac_sigorta, 
+        aracBakim: data.arac_bakim,
+        kdvDahilFatura: data.kdv_dahil_fatura, 
+        gResmiFatura: data.g_resmi_fatura
       });
     } else {
       setFinansalVeri({
@@ -174,14 +175,26 @@ export default function MalzemelerSayfasi() {
 
   const finansalVeriyiKaydet = async () => {
     setFinansalLoading(true);
+    // 🔥 DÜZELTME BURADA: JavaScript isimlerini DB isimlerine eşliyoruz
     const { error } = await supabase.from('financial_records').upsert({
         month_key: seciliAy,
-        ...finansalVeri,
+        maas: finansalVeri.maas,
+        malzeme: finansalVeri.malzeme,
+        kira: finansalVeri.kira,
+        tazminat: finansalVeri.tazminat,
+        yakit: finansalVeri.yakit,
+        yemek: finansalVeri.yemek,
+        mesai_yemek: finansalVeri.mesaiYemek, // js: mesaiYemek -> db: mesai_yemek
+        arac_yipranma: finansalVeri.aracYipranma,
+        arac_sigorta: finansalVeri.aracSigorta,
+        arac_bakim: finansalVeri.aracBakim, // js: aracBakim -> db: arac_bakim
+        kdv_dahil_fatura: finansalVeri.kdvDahilFatura,
+        g_resmi_fatura: finansalVeri.gResmiFatura,
         updated_at: new Date()
     }, { onConflict: 'month_key' });
 
     if (error) alert("Hata: " + error.message);
-    else alert("✅ Veriler Buluta Kaydedildi!");
+    else alert("✅ Veriler Başarıyla Buluta Yedeklendi!");
     setFinansalLoading(false);
   };
 
@@ -251,7 +264,6 @@ export default function MalzemelerSayfasi() {
             <p className="text-slate-500 text-sm">Stok, fiyat ve kârlılık yönetimi.</p>
         </div>
         <div className="flex gap-2">
-            {/* 🔥 YENİ MESAİ BUTONU */}
             <button onClick={() => setShowMesaiModal(true)} className="bg-white border-2 border-indigo-100 text-indigo-600 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-50 transition">
                 <Calculator size={18}/> Mesai Hesapla
             </button>
@@ -291,25 +303,21 @@ export default function MalzemelerSayfasi() {
         </div>
       </div>
 
-      {/* 🚀 MESAİ HESAPLAYICI MODALI (YENİ) */}
+      {/* 🚀 MESAİ HESAPLAYICI MODALI */}
       <AnimatePresence>{showMesaiModal && (
         <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-indigo-900/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4" onClick={()=>setShowMesaiModal(false)}>
             <motion.div initial={{scale:0.95,y:20}} animate={{scale:1,y:0}} exit={{scale:0.95,y:20}} className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden" onClick={e=>e.stopPropagation()}>
-                {/* HEADER */}
                 <div className="p-6 border-b flex justify-between items-center bg-indigo-50">
                     <div className="flex items-center gap-3"><div className="p-2 bg-indigo-600 rounded-xl text-white"><Calculator size={24}/></div><div><h2 className="text-xl font-black text-slate-800">MESAİ ROBOTU</h2><p className="text-[10px] text-indigo-500 font-bold">Maaş / 225 Prensibi ile Otomatik Hesap</p></div></div>
                     <button onClick={()=>setShowMesaiModal(false)} className="p-2 bg-white rounded-full text-slate-400 hover:text-red-500"><X/></button>
                 </div>
-                {/* GÖVDE */}
                 <div className="p-8 flex flex-col md:flex-row gap-8">
-                    {/* SOL: GİRİŞLER */}
                     <div className="flex-1 space-y-4">
                         <div><label className="text-[10px] font-bold text-slate-400 uppercase">Personel Net Maaşı</label><div className="relative"><span className="absolute left-3 top-3 text-slate-400 text-xs">₺</span><input type="number" value={mesaiForm.maas} onChange={e=>setMesaiForm({...mesaiForm,maas:Number(e.target.value)})} className="w-full pl-6 p-3 border rounded-xl font-bold outline-none focus:ring-2 focus:ring-indigo-500"/></div></div>
                         <div><label className="text-[10px] font-bold text-slate-400 uppercase">Cmt + Hafta İçi Mesai (Saat)</label><div className="relative"><span className="absolute left-3 top-3 text-slate-400 text-xs"><Clock size={12}/></span><input type="number" placeholder="Örn: 10" value={mesaiForm.saat15} onChange={e=>setMesaiForm({...mesaiForm,saat15:Number(e.target.value)})} className="w-full pl-8 p-3 border rounded-xl font-bold outline-none focus:ring-2 focus:ring-blue-500"/></div><div className="text-[9px] text-blue-500 font-bold mt-1 text-right">x 1.5 Katı</div></div>
                         <div><label className="text-[10px] font-bold text-slate-400 uppercase">Pazar + Tatil Mesai (Saat)</label><div className="relative"><span className="absolute left-3 top-3 text-slate-400 text-xs"><Clock size={12}/></span><input type="number" placeholder="Örn: 5" value={mesaiForm.saat20} onChange={e=>setMesaiForm({...mesaiForm,saat20:Number(e.target.value)})} className="w-full pl-8 p-3 border rounded-xl font-bold outline-none focus:ring-2 focus:ring-orange-500"/></div><div className="text-[9px] text-orange-500 font-bold mt-1 text-right">x 2.0 Katı</div></div>
                         <div><label className="text-[10px] font-bold text-slate-400 uppercase">Kullanılan İzin (Saat)</label><div className="relative"><span className="absolute left-3 top-3 text-slate-400 text-xs text-red-500"><AlertCircle size={12}/></span><input type="number" placeholder="Örn: 8" value={mesaiForm.izin} onChange={e=>setMesaiForm({...mesaiForm,izin:Number(e.target.value)})} className="w-full pl-8 p-3 border-2 border-red-50 rounded-xl font-bold outline-none focus:ring-2 focus:ring-red-500 text-red-600"/></div><div className="text-[9px] text-red-500 font-bold mt-1 text-right">Maaştan Düşülür</div></div>
                     </div>
-                    {/* SAĞ: HESAPLAMA EKRANI */}
                     <div className="flex-1 bg-slate-50 rounded-3xl p-6 border border-slate-100 flex flex-col justify-center space-y-4">
                         {(()=>{
                             const saatlikUcret = mesaiForm.maas > 0 ? mesaiForm.maas / 225 : 0;
