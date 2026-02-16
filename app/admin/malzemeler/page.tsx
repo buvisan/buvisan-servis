@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN GLOBAL YÖNETİM MERKEZİ 🌍
-// Versiyon: ULTRA DETAY (Personel Gider Takibi + Finans + Stok)
+// Versiyon: FINAL PRO MAX (Puantaj Usulü Personel Hakediş Sistemi 📊)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -33,7 +33,7 @@ export default function MalzemelerSayfasi() {
   const [formAcik, setFormAcik] = useState(false);
   const [showFinancialModal, setShowFinancialModal] = useState(false);
   const [showMesaiModal, setShowMesaiModal] = useState(false); 
-  const [showPersonelModal, setShowPersonelModal] = useState(false); // 🔥 YENİ: PERSONEL DETAY MODALI
+  const [showPersonelModal, setShowPersonelModal] = useState(false);
 
   // Form Kontrolleri
   const [arama, setArama] = useState("");
@@ -51,7 +51,7 @@ export default function MalzemelerSayfasi() {
     kdvDahilFatura: 0, gResmiFatura: 0
   });
 
-  // 🔥 DETAYLI PERSONEL VERİLERİ (YENİ SİSTEM)
+  // 🔥 DETAYLI PERSONEL VERİLERİ (GÜNCELLENMİŞ YAPI)
   const [personelListesi, setPersonelListesi] = useState<any[]>([]);
   const [yeniPersonelAd, setYeniPersonelAd] = useState("");
 
@@ -72,7 +72,6 @@ export default function MalzemelerSayfasi() {
     verileriGetirVeAnalizEt();
   }, []);
 
-  // Ay değişince Finansal Verileri Çek
   useEffect(() => {
     if (showFinancialModal) finansalVeriyiGetir(seciliAy);
     if (showPersonelModal) personelVerisiniGetir(seciliAy);
@@ -166,7 +165,7 @@ export default function MalzemelerSayfasi() {
   };
 
   // ==========================================================================
-  // 🔥 YENİ: PERSONEL DETAY YÖNETİMİ
+  // 🔥 YENİ: PERSONEL DETAY YÖNETİMİ (GELİŞMİŞ HESAPLAMA)
   // ==========================================================================
   const personelVerisiniGetir = async (ayKey: string) => {
       setFinansalLoading(true);
@@ -175,8 +174,6 @@ export default function MalzemelerSayfasi() {
       if(data && data.personnel_data) {
           setPersonelListesi(data.personnel_data);
       } else {
-          // Eğer veri yoksa varsayılan boş liste veya geçen aydan kopyalama yapılabilir
-          // Şimdilik boş başlatıyoruz
           setPersonelListesi([]);
       }
       setFinansalLoading(false);
@@ -188,10 +185,11 @@ export default function MalzemelerSayfasi() {
           id: Date.now(), 
           ad: yeniPersonelAd, 
           maas: 0, 
-          mesai: 0, 
-          yemek: 0, 
-          prim: 0, 
-          kesinti: 0 
+          mesai50_saat: 0, // %50 Mesai Saati
+          mesai100_saat: 0, // %100 Mesai Saati
+          eksik_saat: 0, // İzin/Eksik Saati
+          servis_primi: 0, 
+          avans: 0
       }]);
       setYeniPersonelAd("");
   };
@@ -206,9 +204,24 @@ export default function MalzemelerSayfasi() {
       }
   };
 
+  // 🔥 OTOMATİK HESAPLAMA MOTORU
+  const hesapla = (p: any) => {
+      const saatUcreti = (Number(p.maas) || 0) / 225;
+      const mesai50Tutar = saatUcreti * 1.5 * (Number(p.mesai50_saat) || 0);
+      const mesai100Tutar = saatUcreti * 2.0 * (Number(p.mesai100_saat) || 0);
+      const kesintiTutar = saatUcreti * (Number(p.eksik_saat) || 0);
+      const servis = Number(p.servis_primi) || 0;
+      const avans = Number(p.avans) || 0;
+      
+      // Formül: Maaş + Mesai50 + Mesai100 + Servis - Kesinti - Avans
+      const toplamAlacak = (Number(p.maas)||0) + mesai50Tutar + mesai100Tutar + servis - kesintiTutar - avans;
+      
+      return { saatUcreti, mesai50Tutar, mesai100Tutar, kesintiTutar, toplamAlacak };
+  };
+
   const personelListesiniKaydet = async () => {
       setFinansalLoading(true);
-      const toplamGider = personelListesi.reduce((acc, p) => acc + (p.maas + p.mesai + p.yemek + p.prim - p.kesinti), 0);
+      const toplamGider = personelListesi.reduce((acc, p) => acc + hesapla(p).toplamAlacak, 0);
       
       const { error } = await supabase.from('personnel_monthly_lists').upsert({
           month_key: seciliAy,
@@ -218,11 +231,11 @@ export default function MalzemelerSayfasi() {
       }, { onConflict: 'month_key' });
 
       if (error) alert("Hata: " + error.message);
-      else alert("✅ Personel Listesi Başarıyla Kaydedildi!");
+      else alert("✅ Personel Hakediş Listesi Kaydedildi!");
       setFinansalLoading(false);
   };
 
-  const personelToplamGider = personelListesi.reduce((acc, p) => acc + (p.maas + p.mesai + p.yemek + p.prim - p.kesinti), 0);
+  const personelToplamAlacak = personelListesi.reduce((acc, p) => acc + hesapla(p).toplamAlacak, 0);
 
   // ==========================================================================
   // SİSTEM YEDEKLEME
@@ -309,23 +322,23 @@ export default function MalzemelerSayfasi() {
         </div>
       </div>
 
-      {/* 🚀 YENİ: DETAYLI PERSONEL GİDER MODALI */}
+      {/* 🚀 YENİ: DETAYLI PERSONEL GİDER MODALI (EXCEL FORMATINDA) */}
       <AnimatePresence>
         {showPersonelModal && (
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-orange-900/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
-                <motion.div initial={{scale:0.95,y:20}} animate={{scale:1,y:0}} exit={{scale:0.95,y:20}} className="bg-white w-full max-w-6xl h-[90vh] rounded-[40px] shadow-2xl overflow-hidden flex flex-col">
+                <motion.div initial={{scale:0.95,y:20}} animate={{scale:1,y:0}} exit={{scale:0.95,y:20}} className="bg-white w-full max-w-[90rem] h-[90vh] rounded-[40px] shadow-2xl overflow-hidden flex flex-col">
                     
                     {/* Header */}
                     <div className="p-6 border-b flex justify-between items-center bg-orange-50 shrink-0">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-orange-600 rounded-2xl text-white"><Users size={28}/></div>
                             <div>
-                                <h2 className="text-2xl font-black text-slate-800">PERSONEL GİDER DETAYI</h2>
+                                <h2 className="text-2xl font-black text-slate-800">PERSONEL PUANTAJ VE HAKEDİŞ</h2>
                                 <div className="flex items-center gap-2 mt-1">
                                     <select value={seciliAy} onChange={e=>setSeciliAy(e.target.value)} className="bg-white border-2 border-orange-200 text-orange-700 text-xs font-black px-4 py-1.5 rounded-full outline-none shadow-sm cursor-pointer hover:bg-orange-100">
                                         {Array.from({length:6},(_,i)=>2026+i).map(y=>["OCAK","ŞUBAT","MART","NİSAN","MAYIS","HAZİRAN","TEMMUZ","AĞUSTOS","EYLÜL","EKİM","KASIM","ARALIK"].map((a,ix)=><option key={`${y}-${ix+1}`} value={`${y}-${String(ix+1).padStart(2,'0')}`}>{a} {y}</option>))}
                                     </select>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase">{finansalLoading ? 'Yükleniyor...' : 'Kayıtlar Güncel'}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">{finansalLoading ? 'Yükleniyor...' : 'Maaş/225 Modu Aktif'}</span>
                                 </div>
                             </div>
                         </div>
@@ -341,33 +354,55 @@ export default function MalzemelerSayfasi() {
                         </div>
 
                         {/* Liste */}
-                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-6">
-                            <table className="w-full text-sm text-left">
+                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-6 overflow-x-auto">
+                            <table className="w-full text-sm text-left min-w-[1000px]">
                                 <thead className="bg-slate-100 text-slate-500 font-bold uppercase text-[10px]">
                                     <tr>
-                                        <th className="p-4 pl-6">Personel Adı</th>
-                                        <th className="p-4">Maaş (Net)</th>
-                                        <th className="p-4">Mesai Tutarı</th>
-                                        <th className="p-4">Yemek / Yol</th>
-                                        <th className="p-4">Prim / Ek</th>
-                                        <th className="p-4 text-red-500">Kesinti / Avans</th>
-                                        <th className="p-4 text-right">Toplam Hakediş</th>
+                                        <th className="p-4 pl-6 w-48">Personel</th>
+                                        <th className="p-4">Brüt Maaş</th>
+                                        <th className="p-4 bg-blue-50/50">Ek.Mesai %50 (Saat)</th>
+                                        <th className="p-4 bg-purple-50/50">Ek.Mesai %100 (Saat)</th>
+                                        <th className="p-4 bg-red-50/50">Eksik/İzin (Saat)</th>
+                                        <th className="p-4">Servis Primi</th>
+                                        <th className="p-4">Avans</th>
+                                        <th className="p-4 text-right bg-green-50/50 text-green-700 font-black">TOPLAM ALACAĞI</th>
                                         <th className="p-4 w-10"></th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {personelListesi.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400">Henüz personel eklenmedi.</td></tr>}
+                                    {personelListesi.length === 0 && <tr><td colSpan={9} className="p-8 text-center text-slate-400">Henüz personel eklenmedi.</td></tr>}
                                     {personelListesi.map(p => {
-                                        const toplam = (Number(p.maas)||0) + (Number(p.mesai)||0) + (Number(p.yemek)||0) + (Number(p.prim)||0) - (Number(p.kesinti)||0);
+                                        const h = hesapla(p);
                                         return (
-                                            <tr key={p.id} className="hover:bg-orange-50/30 transition">
-                                                <td className="p-4 pl-6 font-bold text-slate-800">{p.ad}</td>
-                                                <td className="p-4"><input type="number" placeholder="0" className="w-24 p-2 border rounded-lg font-mono text-slate-600" value={p.maas} onChange={e=>personelVeriGuncelle(p.id,'maas',Number(e.target.value))}/></td>
-                                                <td className="p-4"><input type="number" placeholder="0" className="w-24 p-2 border rounded-lg font-mono text-blue-600 bg-blue-50/50" value={p.mesai} onChange={e=>personelVeriGuncelle(p.id,'mesai',Number(e.target.value))}/></td>
-                                                <td className="p-4"><input type="number" placeholder="0" className="w-24 p-2 border rounded-lg font-mono text-slate-600" value={p.yemek} onChange={e=>personelVeriGuncelle(p.id,'yemek',Number(e.target.value))}/></td>
-                                                <td className="p-4"><input type="number" placeholder="0" className="w-24 p-2 border rounded-lg font-mono text-green-600 bg-green-50/50" value={p.prim} onChange={e=>personelVeriGuncelle(p.id,'prim',Number(e.target.value))}/></td>
-                                                <td className="p-4"><input type="number" placeholder="0" className="w-24 p-2 border rounded-lg font-mono text-red-600 bg-red-50/50" value={p.kesinti} onChange={e=>personelVeriGuncelle(p.id,'kesinti',Number(e.target.value))}/></td>
-                                                <td className="p-4 text-right font-black text-lg text-slate-800">{formatCurrency(toplam)}</td>
+                                            <tr key={p.id} className="hover:bg-orange-50/30 transition group">
+                                                <td className="p-4 pl-6 font-bold text-slate-800">
+                                                    {p.ad}
+                                                    <div className="text-[9px] text-slate-400 font-mono mt-1">Saat Ücreti: {formatCurrency(h.saatUcreti)}</div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <input type="number" className="w-28 p-2 border rounded-lg font-mono font-bold text-slate-700" value={p.maas} onChange={e=>personelVeriGuncelle(p.id,'maas',Number(e.target.value))}/>
+                                                </td>
+                                                <td className="p-4 bg-blue-50/30">
+                                                    <input type="number" placeholder="Saat" className="w-20 p-2 border rounded-lg font-mono text-blue-600 text-center" value={p.mesai50_saat} onChange={e=>personelVeriGuncelle(p.id,'mesai50_saat',Number(e.target.value))}/>
+                                                    <div className="text-[9px] text-blue-400 font-mono mt-1 text-center">+{formatCurrency(h.mesai50Tutar)}</div>
+                                                </td>
+                                                <td className="p-4 bg-purple-50/30">
+                                                    <input type="number" placeholder="Saat" className="w-20 p-2 border rounded-lg font-mono text-purple-600 text-center" value={p.mesai100_saat} onChange={e=>personelVeriGuncelle(p.id,'mesai100_saat',Number(e.target.value))}/>
+                                                    <div className="text-[9px] text-purple-400 font-mono mt-1 text-center">+{formatCurrency(h.mesai100Tutar)}</div>
+                                                </td>
+                                                <td className="p-4 bg-red-50/30">
+                                                    <input type="number" placeholder="Saat" className="w-20 p-2 border rounded-lg font-mono text-red-600 text-center" value={p.eksik_saat} onChange={e=>personelVeriGuncelle(p.id,'eksik_saat',Number(e.target.value))}/>
+                                                    <div className="text-[9px] text-red-400 font-mono mt-1 text-center">-{formatCurrency(h.kesintiTutar)}</div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <input type="number" placeholder="0" className="w-24 p-2 border rounded-lg font-mono text-slate-600" value={p.servis_primi} onChange={e=>personelVeriGuncelle(p.id,'servis_primi',Number(e.target.value))}/>
+                                                </td>
+                                                <td className="p-4">
+                                                    <input type="number" placeholder="0" className="w-24 p-2 border rounded-lg font-mono text-slate-600" value={p.avans} onChange={e=>personelVeriGuncelle(p.id,'avans',Number(e.target.value))}/>
+                                                </td>
+                                                <td className="p-4 text-right font-black text-lg text-green-700 bg-green-50/30 border-l border-green-100">
+                                                    {formatCurrency(h.toplamAlacak)}
+                                                </td>
                                                 <td className="p-4 text-center"><button onClick={()=>personelSil(p.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={18}/></button></td>
                                             </tr>
                                         )
@@ -385,8 +420,8 @@ export default function MalzemelerSayfasi() {
                                 <div className="text-xl font-bold">{personelListesi.length} Kişi</div>
                             </div>
                             <div>
-                                <div className="text-[10px] font-bold text-orange-400 uppercase">BU AYKİ TOPLAM GİDER</div>
-                                <div className="text-3xl font-black tracking-tight">{formatCurrency(personelToplamGider)}</div>
+                                <div className="text-[10px] font-bold text-orange-400 uppercase">ÖDENECEK TOPLAM TUTAR</div>
+                                <div className="text-3xl font-black tracking-tight">{formatCurrency(personelToplamAlacak)}</div>
                             </div>
                         </div>
                         <div className="flex gap-3">
