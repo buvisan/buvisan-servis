@@ -374,7 +374,7 @@ export default function AnalizSayfasi() {
                                         className="bg-white border-2 border-purple-200 text-purple-700 text-xs font-black px-3 py-1 rounded-full outline-none shadow-sm cursor-pointer hover:bg-purple-100"
                                     >
                                         {/* 2024'ten 2030'a kadar ayları oluştur */}
-                                        {Array.from({ length: 7 }, (_, i) => 2024 + i).map(yil => (
+                                        {Array.from({ length: 7 }, (_, i) => 2025 + i).map(yil => (
                                             ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"].map((ayAdi, index) => {
                                                 const ayValue = `${yil}-${String(index + 1).padStart(2, '0')}`;
                                                 return <option key={ayValue} value={ayValue}>{ayAdi} {yil}</option>;
