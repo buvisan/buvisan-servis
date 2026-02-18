@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - PRO ANALİZ MODÜLÜ 🛠️
-// Versiyon: 7.0 (Tarihçeli Personel Performans Analizi 📅)
+// Versiyon: 7.1 (Personel Temizleme + Akıllı Seçim Güncellemesi)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -19,7 +19,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import html2canvas from 'html2canvas';
 
-// 🔥 SABİT PERSONEL LİSTESİ (Burayı istediğin gibi düzenle)
+// 🔥 SABİT PERSONEL LİSTESİ
 const PERSONEL_LISTESI = [
   "VOLKAN ACAR", "HAMZA ATTAR", "VEYSEL ÇARKLI", "KERİM AKDOĞAN" , "GÖKHAN GÖK" , "BASİL HAVATİMİ"
 ];
@@ -39,11 +39,11 @@ export default function AnalizSayfasi() {
   // MODAL KONTROLLERİ
   const [seciliKayit, setSeciliKayit] = useState<any | null>(null);
   const [formAcik, setFormAcik] = useState(false);
-  const [performansAcik, setPerformansAcik] = useState(false); // Performans Modalı
+  const [performansAcik, setPerformansAcik] = useState(false); 
   const [duzenlemeId, setDuzenlemeId] = useState<string | null>(null);
 
-  // 🔥 YENİ: ANALİZ TARİHİ SEÇİMİ (Varsayılan: Bugünün Yılı-Ayı)
-  const [analizTarihi, setAnalizTarihi] = useState(new Date().toISOString().slice(0, 7)); // "2026-02" formatında
+  // ANALİZ TARİHİ
+  const [analizTarihi, setAnalizTarihi] = useState(new Date().toISOString().slice(0, 7)); 
 
   // İSTATİSTİK & GRAFİK
   const [istatistik, setIstatistik] = useState({ toplamCiro: 0, buAyCiro: 0, toplamIslem: 0, buHaftaIslem: 0, buAyIslem: 0 });
@@ -112,29 +112,20 @@ export default function AnalizSayfasi() {
   };
 
   // ==========================================================================
-  // 4. PERFORMANS ANALİZİ (GÜNCELLENMİŞ - TARİH SEÇMELİ) 🔥
+  // 4. PERFORMANS ANALİZİ
   // ==========================================================================
   const personelAnaliziYap = () => {
-      // Seçilen Tarihi Parçala (Örn: "2026-03")
       const [secilenYil, secilenAy] = analizTarihi.split('-').map(Number);
-
-      // Seçilen aya göre kayıtları filtrele
       const filtrelenmisKayitlar = kayitlar.filter(k => {
           if (!k.service_date) return false;
           const d = new Date(k.service_date);
-          // getMonth() 0-11 arası döner, o yüzden +1 ekliyoruz
           return d.getFullYear() === secilenYil && (d.getMonth() + 1) === secilenAy;
       });
 
       return PERSONEL_LISTESI.map(personel => {
-          // Personelin adının geçtiği işleri bul
           const gittigiIsler = filtrelenmisKayitlar.filter(k => k.technician && k.technician.includes(personel));
-          return {
-              ad: personel,
-              isSayisi: gittigiIsler.length,
-              detaylar: gittigiIsler
-          };
-      }).sort((a, b) => b.isSayisi - a.isSayisi); // En çok işe giden en üstte
+          return { ad: personel, isSayisi: gittigiIsler.length, detaylar: gittigiIsler };
+      }).sort((a, b) => b.isSayisi - a.isSayisi);
   };
 
   const [aktifPersonelDetay, setAktifPersonelDetay] = useState<any>(null);
@@ -150,14 +141,24 @@ export default function AnalizSayfasi() {
   };
   const malzemeSil = (id: number) => { setMalzemeListesi(malzemeListesi.filter(m => m.id !== id)); };
   
-  // Personel Seçim Mantığı
+  // 🔥 GÜNCELLENMİŞ PERSONEL SEÇİM MANTIĞI
   const personelSeciminiGuncelle = (personel: string) => {
       let yeniListe = [...secilenPersoneller];
-      if (yeniListe.includes(personel)) yeniListe = yeniListe.filter(p => p !== personel);
-      else yeniListe.push(personel);
+      // Eğer listede varsa çıkar, yoksa ekle
+      if (yeniListe.includes(personel)) {
+          yeniListe = yeniListe.filter(p => p !== personel);
+      } else {
+          yeniListe.push(personel);
+      }
       
       setSecilenPersoneller(yeniListe);
       setYeniKayit({...yeniKayit, technician: yeniListe.join(" - ")});
+  };
+
+  // 🔥 YENİ: PERSONEL SEÇİMİNİ SIFIRLA
+  const personelleriTemizle = () => {
+      setSecilenPersoneller([]);
+      setYeniKayit({...yeniKayit, technician: ""});
   };
 
   const yeniKayitAc = () => { setDuzenlemeId(null); formuSifirla(); setFormAcik(true); };
@@ -170,8 +171,11 @@ export default function AnalizSayfasi() {
   const duzenle = (e: any, kayit: any) => {
       e.stopPropagation(); setDuzenlemeId(kayit.id);
       setMalzemeListesi(kayit.materials || []);
-      const mevcutPersoneller = kayit.technician ? kayit.technician.split(" - ") : [];
+      
+      // Kayıtlı string'i array'e çevirirken boşlukları temizle (trim)
+      const mevcutPersoneller = kayit.technician ? kayit.technician.split(" - ").map((p: string) => p.trim()) : [];
       setSecilenPersoneller(mevcutPersoneller);
+      
       setYeniKayit({ ...kayit, technician: kayit.technician || '' });
       setFormAcik(true);
   };
@@ -212,14 +216,8 @@ export default function AnalizSayfasi() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 md:mb-8">
         <div><h1 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2">📊 Servis Yönetim Paneli</h1><p className="text-slate-500 text-xs md:text-sm">Finansal analiz ve servis takibi.</p></div>
         <div className="flex gap-2 w-full md:w-auto">
-            {/* EKİP PERFORMANSI BUTONU */}
-            <button onClick={() => setPerformansAcik(true)} className="flex-1 md:flex-none text-center bg-purple-600 text-white border border-purple-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-purple-700 transition flex items-center justify-center gap-2 shadow-lg shadow-purple-200">
-                <Users size={18}/> Ekip Performansı
-            </button>
-
-            <button onClick={yeniKayitAc} className="flex-1 md:flex-none text-center bg-blue-600 text-white border border-blue-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-200">
-                <Plus size={18}/> Yeni İşlem Ekle
-            </button>
+            <button onClick={() => setPerformansAcik(true)} className="flex-1 md:flex-none text-center bg-purple-600 text-white border border-purple-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-purple-700 transition flex items-center justify-center gap-2 shadow-lg shadow-purple-200"><Users size={18}/> Ekip Performansı</button>
+            <button onClick={yeniKayitAc} className="flex-1 md:flex-none text-center bg-blue-600 text-white border border-blue-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-200"><Plus size={18}/> Yeni İşlem Ekle</button>
             <Link href="/admin/malzemeler" className="flex-1 md:flex-none text-center bg-yellow-50 text-yellow-700 border border-yellow-200 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-yellow-100 transition flex items-center justify-center gap-2"><Package size={18}/> Depo</Link>
             <Link href="/admin" className="flex-1 md:flex-none text-center bg-white border border-slate-200 px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition flex items-center justify-center gap-2"><RotateCcw size={18}/> Panel</Link>
         </div>
@@ -300,6 +298,7 @@ export default function AnalizSayfasi() {
                             </div>
                         </div>
 
+                        {/* 🔥 GÜNCELLENMİŞ PERSONEL SEÇİM ALANI (TEMİZLE BUTONLU) */}
                         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Users size={12}/> Servis Ekibi (Seçiniz)</span>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -314,11 +313,25 @@ export default function AnalizSayfasi() {
                                     </button>
                                 ))}
                             </div>
-                            <div className="text-xs text-blue-600 font-bold bg-blue-50 p-2 rounded-lg border border-blue-100">
-                                Seçilen Ekip: {yeniKayit.technician || 'Kimse Seçilmedi'}
+                            
+                            {/* Seçilen Ekip Kutusu ve Silme Butonu */}
+                            <div className="flex justify-between items-center bg-blue-50 p-3 rounded-xl border border-blue-100">
+                                <span className="text-xs text-blue-700 font-bold">
+                                    {yeniKayit.technician || 'Henüz Kimse Seçilmedi'}
+                                </span>
+                                {secilenPersoneller.length > 0 && (
+                                    <button 
+                                        onClick={personelleriTemizle} 
+                                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition"
+                                        title="Seçimi Temizle"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
                             </div>
                         </div>
 
+                        {/* Malzeme Alanı */}
                         <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-200 space-y-4">
                             <span className="text-[10px] font-bold text-yellow-700 uppercase tracking-wider flex items-center gap-2"><Box size={12}/> Malzemeler</span>
                             <div className="flex flex-col md:flex-row gap-2 items-center">
@@ -351,7 +364,7 @@ export default function AnalizSayfasi() {
       </AnimatePresence>
 
       {/* =========================================================================
-          🔥 YENİ MODAL: EKİP PERFORMANS ANALİZİ (TARİHÇELİ) 🔥
+          🔥 YENİ MODAL: EKİP PERFORMANS ANALİZİ (TARİHÇELİ)
           ========================================================================= */}
       <AnimatePresence>
         {performansAcik && (
@@ -364,8 +377,6 @@ export default function AnalizSayfasi() {
                             <div className="p-3 bg-purple-600 rounded-2xl text-white"><Users size={28}/></div>
                             <div>
                                 <h2 className="text-2xl font-black text-slate-800">EKİP PERFORMANSI</h2>
-                                
-                                {/* 🔥 DİNAMİK TARİH SEÇİCİ 🔥 */}
                                 <div className="flex items-center gap-2 mt-1">
                                     <Filter size={12} className="text-purple-400"/>
                                     <select 
@@ -373,7 +384,6 @@ export default function AnalizSayfasi() {
                                         onChange={(e) => setAnalizTarihi(e.target.value)}
                                         className="bg-white border-2 border-purple-200 text-purple-700 text-xs font-black px-3 py-1 rounded-full outline-none shadow-sm cursor-pointer hover:bg-purple-100"
                                     >
-                                        {/* 2024'ten 2030'a kadar ayları oluştur */}
                                         {Array.from({ length: 7 }, (_, i) => 2025 + i).map(yil => (
                                             ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"].map((ayAdi, index) => {
                                                 const ayValue = `${yil}-${String(index + 1).padStart(2, '0')}`;
@@ -389,7 +399,6 @@ export default function AnalizSayfasi() {
 
                     {/* Gövde */}
                     <div className="flex flex-1 overflow-hidden">
-                        {/* Sol Liste (Personeller) */}
                         <div className="w-1/3 border-r border-slate-100 overflow-y-auto bg-slate-50/50 p-4 space-y-2">
                             {personelAnaliziYap().map((p, index) => (
                                 <button 
@@ -403,7 +412,6 @@ export default function AnalizSayfasi() {
                             ))}
                         </div>
 
-                        {/* Sağ Detay (Gittiği İşler) */}
                         <div className="w-2/3 p-8 overflow-y-auto bg-white">
                             {aktifPersonelDetay ? (
                                 <div className="space-y-6">
