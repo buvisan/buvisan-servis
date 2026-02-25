@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - PRO ANALİZ MODÜLÜ 🛠️
-// Versiyon: 8.5 (Form Numarası Eklendi + Saha AI Rapor Entegrasyonu)
+// Versiyon: 8.6 (Form No Kutusu Tasarım Hatası Düzeltildi)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -60,13 +60,13 @@ export default function AnalizSayfasi() {
   const [tempAdet, setTempAdet] = useState("1");
   const [tempBirimFiyat, setTempBirimFiyat] = useState(""); 
 
-  // YENİ KAYIT FORMU (🔥 form_number eklendi)
+  // YENİ KAYIT FORMU
   const [yeniKayit, setYeniKayit] = useState({
     service_date: new Date().toISOString().split('T')[0],
     customer_text: '', company_address: '', customer_rep: '',    
     crane_capacity: '', service_type: 'Servis', 
     work_hours: '', description: '', 
-    price: '', technician: '', form_number: '' // YENİ
+    price: '', technician: '', form_number: '' // Form numarası alanı
   });
 
   const [secilenPersoneller, setSecilenPersoneller] = useState<string[]>([]);
@@ -76,7 +76,6 @@ export default function AnalizSayfasi() {
   // ==========================================================================
   useEffect(() => { 
       tumVerileriGetir(); 
-      // 10 saniyede bir yeni saha raporu kontrolü
       const interval = setInterval(() => { sesliRaporlariGetir(); }, 10000);
       return () => clearInterval(interval);
   }, []);
@@ -242,7 +241,7 @@ export default function AnalizSayfasi() {
   const sil = async (e: any, id: string) => { e.stopPropagation(); if(confirm("Silmek istediğine emin misin?")) { await supabase.from('completed_services').delete().eq('id', id); tumVerileriGetir(); if (seciliKayit?.id === id) setSeciliKayit(null); }};
   const raporuSil = async (id: string) => { if(confirm("Saha raporunu çöpe at?")) { await supabase.from('field_reports').update({ status: 'reddedildi' }).eq('id', id); sesliRaporlariGetir(); }};
 
-  const filtrelenmisKayitlar = kayitlar.filter(i => !aramaMetni || (i.customer_text?.toLowerCase()||'').includes(aramaMetni.toLowerCase()));
+  const filtrelenmisKayitlar = kayitlar.filter(i => !aramaMetni || (i.customer_text?.toLowerCase()||'').includes(aramaMetni.toLowerCase()) || (i.form_number||'').includes(aramaMetni));
 
   if (yukleniyor && kayitlar.length === 0) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-600 w-10 h-10"/></div>;
 
@@ -284,7 +283,7 @@ export default function AnalizSayfasi() {
             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
                 <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="flex items-center gap-3"><div className="bg-blue-50 p-2 rounded-lg text-blue-600"><FileText size={20}/></div><div><h3 className="font-bold text-slate-800 flex items-center gap-2">Son İşlemler <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">{filtrelenmisKayitlar.length} Kayıt</span></h3><p className="text-xs text-slate-400">Detayları görmek için satıra tıklayın.</p></div></div>
-                    <div className="relative w-full md:w-64 group"><Search className="absolute left-3 top-3 text-slate-400 w-4 h-4"/><input type="text" placeholder="Ara: Müşteri, Teknisyen..." value={aramaMetni} onChange={(e) => setAramaMetni(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-100 transition"/>{aramaMetni && <button onClick={() => setAramaMetni("")} className="absolute right-3 top-3 text-slate-400 hover:text-red-500"><X size={14}/></button>}</div>
+                    <div className="relative w-full md:w-64 group"><Search className="absolute left-3 top-3 text-slate-400 w-4 h-4"/><input type="text" placeholder="Ara: Müşteri, Form No..." value={aramaMetni} onChange={(e) => setAramaMetni(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-100 transition"/>{aramaMetni && <button onClick={() => setAramaMetni("")} className="absolute right-3 top-3 text-slate-400 hover:text-red-500"><X size={14}/></button>}</div>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left whitespace-nowrap md:whitespace-normal">
@@ -369,7 +368,7 @@ export default function AnalizSayfasi() {
       </AnimatePresence>
 
       {/* =========================================================================
-          🔥 MODAL: FORM (YENİ EKLEME VE DÜZENLEME PENCERESİ)
+          🔥 MODAL: FORM (YENİ EKLEME VE DÜZENLEME PENCERESİ) - FORM NO EKLENDİ
           ========================================================================= */}
       <AnimatePresence>
         {formAcik && (
@@ -396,13 +395,23 @@ export default function AnalizSayfasi() {
                             <div className="space-y-4">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Wrench size={12}/> İşlem Detayları</span>
                                 <div className="flex gap-2">
-                                    {/* 🔥 YENİ: FORM NUMARASI GİRİŞ ALANI 🔥 */}
-                                    <input type="text" placeholder="Form No (Örn: 5424)" value={yeniKayit.form_number} onChange={e => setYeniKayit({...yeniKayit, form_number: e.target.value})} className="w-1/3 p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs font-bold text-blue-700 placeholder:text-blue-300"/>
                                     
-                                    <select value={yeniKayit.service_type} onChange={e => setYeniKayit({...yeniKayit, service_type: e.target.value})} className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold"><option>Servis</option><option>Periyodik Bakım</option><option>Garanti</option><option>Montaj</option><option>Diğer</option></select>
-                                    <input type="text" placeholder="Kapasite" value={yeniKayit.crane_capacity} onChange={e => setYeniKayit({...yeniKayit, crane_capacity: e.target.value})} className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs"/>
+                                    {/* 🔥 DÜZELTİLMİŞ FORM NUMARASI KUTUSU (shrink-0 ile ezilmesi engellendi) 🔥 */}
+                                    <div className="relative w-32 shrink-0">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Form No" 
+                                            value={yeniKayit.form_number} 
+                                            onChange={e => setYeniKayit({...yeniKayit, form_number: e.target.value})} 
+                                            className="w-full pl-8 p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs font-bold text-blue-700 placeholder:text-blue-400/50 outline-none focus:ring-2 focus:ring-blue-400 transition"
+                                        />
+                                        <FileText size={14} className="absolute left-2.5 top-3.5 text-blue-400"/>
+                                    </div>
+                                    
+                                    <select value={yeniKayit.service_type} onChange={e => setYeniKayit({...yeniKayit, service_type: e.target.value})} className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:ring-2 focus:ring-slate-300 transition"><option>Servis</option><option>Periyodik Bakım</option><option>Garanti</option><option>Montaj</option><option>Diğer</option></select>
+                                    <input type="text" placeholder="Kapasite" value={yeniKayit.crane_capacity} onChange={e => setYeniKayit({...yeniKayit, crane_capacity: e.target.value})} className="w-24 shrink-0 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-slate-300 transition"/>
                                 </div>
-                                <textarea rows={4} placeholder="Yapılan işlemi detaylıca yazın..." value={yeniKayit.description} onChange={e => setYeniKayit({...yeniKayit, description: e.target.value})} className={`w-full p-3 rounded-xl border text-sm resize-none ${aktifRaporId ? 'border-cyan-300 bg-cyan-50/30' : 'bg-slate-50 border-slate-200'}`}/>
+                                <textarea rows={4} placeholder="Yapılan işlemi detaylıca yazın..." value={yeniKayit.description} onChange={e => setYeniKayit({...yeniKayit, description: e.target.value})} className={`w-full p-3 rounded-xl border text-sm resize-none outline-none focus:ring-2 focus:ring-slate-300 transition ${aktifRaporId ? 'border-cyan-300 bg-cyan-50/30 focus:ring-cyan-400' : 'bg-slate-50 border-slate-200'}`}/>
                             </div>
                         </div>
 
@@ -480,7 +489,7 @@ export default function AnalizSayfasi() {
                                         onChange={(e) => setAnalizTarihi(e.target.value)}
                                         className="bg-white border-2 border-purple-200 text-purple-700 text-xs font-black px-3 py-1 rounded-full outline-none shadow-sm cursor-pointer hover:bg-purple-100"
                                     >
-                                        {Array.from({ length: 7 }, (_, i) => 2025 + i).map(yil => (
+                                        {Array.from({ length: 7 }, (_, i) => 2024 + i).map(yil => (
                                             ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"].map((ayAdi, index) => {
                                                 const ayValue = `${yil}-${String(index + 1).padStart(2, '0')}`;
                                                 return <option key={ayValue} value={ayValue}>{ayAdi} {yil}</option>;
@@ -556,9 +565,7 @@ export default function AnalizSayfasi() {
         )}
       </AnimatePresence>
 
-      {/* =========================================================================
-          🔥 DETAY MODALI (POP-UP PENCERE) - Kırmızı yuvarlaklı kısım güncellendi
-          ========================================================================= */}
+      {/* DETAY MODALI (POP-UP PENCERE) */}
       <AnimatePresence>
         {seciliKayit && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setSeciliKayit(null)}>
