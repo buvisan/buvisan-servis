@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - PRO ANALİZ MODÜLÜ 🛠️
-// Versiyon: 8.0 (Saha Sesli Rapor Entegrasyonu & Akıllı Asistan 🤖)
+// Versiyon: 8.5 (Form Numarası Eklendi + Saha AI Rapor Entegrasyonu)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -27,10 +27,9 @@ const PERSONEL_LISTESI = [
 
 export default function AnalizSayfasi() {
   
-  // 1. Ekran görüntüsü referansı
   const modalRef = useRef<HTMLDivElement>(null);
   
-  // 2. State Yönetimi
+  // STATE YÖNETİMİ
   const [indiriliyor, setIndiriliyor] = useState(false);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [kayitlar, setKayitlar] = useState<any[]>([]);
@@ -43,10 +42,10 @@ export default function AnalizSayfasi() {
   const [performansAcik, setPerformansAcik] = useState(false); 
   const [duzenlemeId, setDuzenlemeId] = useState<string | null>(null);
 
-  // 🔥 YENİ: SESLİ RAPOR STATE'LERİ 🔥
+  // SAHA SESLİ RAPOR KONTROLLERİ
   const [sesliRaporlar, setSesliRaporlar] = useState<any[]>([]);
   const [raporModalAcik, setRaporModalAcik] = useState(false);
-  const [aktifRaporId, setAktifRaporId] = useState<string | null>(null); // Forma çevrilen raporun ID'si
+  const [aktifRaporId, setAktifRaporId] = useState<string | null>(null); 
 
   // ANALİZ TARİHİ
   const [analizTarihi, setAnalizTarihi] = useState(new Date().toISOString().slice(0, 7)); 
@@ -55,30 +54,29 @@ export default function AnalizSayfasi() {
   const [istatistik, setIstatistik] = useState({ toplamCiro: 0, buAyCiro: 0, toplamIslem: 0, buHaftaIslem: 0, buAyIslem: 0 });
   const [grafikVerisi, setGrafikVerisi] = useState<any[]>([]);
 
-  // MALZEME & FORM
+  // MALZEME YÖNETİMİ
   const [malzemeListesi, setMalzemeListesi] = useState<{id: number, ad: string, adet: number, birim_fiyat: number, toplam_fiyat: number}[]>([]);
   const [secilenMalzemeId, setSecilenMalzemeId] = useState(""); 
   const [tempAdet, setTempAdet] = useState("1");
   const [tempBirimFiyat, setTempBirimFiyat] = useState(""); 
 
-  // YENİ KAYIT FORMU
+  // YENİ KAYIT FORMU (🔥 form_number eklendi)
   const [yeniKayit, setYeniKayit] = useState({
     service_date: new Date().toISOString().split('T')[0],
     customer_text: '', company_address: '', customer_rep: '',    
     crane_capacity: '', service_type: 'Servis', 
     work_hours: '', description: '', 
-    price: '', technician: ''
+    price: '', technician: '', form_number: '' // YENİ
   });
 
-  // ÇOKLU SEÇİM İÇİN GEÇİCİ STATE
   const [secilenPersoneller, setSecilenPersoneller] = useState<string[]>([]);
 
   // ==========================================================================
-  // 2. VERİ ÇEKME
+  // VERİ ÇEKME & CANLI RAPOR KONTROLÜ
   // ==========================================================================
   useEffect(() => { 
       tumVerileriGetir(); 
-      // Her 10 saniyede bir yeni saha raporu var mı diye kontrol et (Canlı hissi verir)
+      // 10 saniyede bir yeni saha raporu kontrolü
       const interval = setInterval(() => { sesliRaporlariGetir(); }, 10000);
       return () => clearInterval(interval);
   }, []);
@@ -89,19 +87,18 @@ export default function AnalizSayfasi() {
         if (servisData) { setKayitlar(servisData); hesaplamalariYap(servisData); }
         const { data: stokData } = await supabase.from('materials').select('*').order('name', { ascending: true });
         if (stokData) setStokMalzemeleri(stokData);
-        await sesliRaporlariGetir(); // İlk açılışta raporları da çek
+        await sesliRaporlariGetir();
     } catch (error) { console.error("Veri hatası", error); } 
     finally { setYukleniyor(false); }
   };
 
-  // 🔥 YENİ: SAHA RAPORLARINI ÇEKME FONKSİYONU
   const sesliRaporlariGetir = async () => {
       const { data } = await supabase.from('field_reports').select('*').eq('status', 'bekliyor').order('created_at', { ascending: false });
       if (data) setSesliRaporlar(data);
   };
 
   // ==========================================================================
-  // 3. HESAPLAMALAR
+  // HESAPLAMALAR
   // ==========================================================================
   const hesaplamalariYap = (data: any[]) => {
     const bugun = new Date();
@@ -129,9 +126,6 @@ export default function AnalizSayfasi() {
     setGrafikVerisi(Object.keys(musteriAnalizi).map(key => ({ name: key, tutar: musteriAnalizi[key] })).sort((a, b) => b.tutar - a.tutar).slice(0, 5));
   };
 
-  // ==========================================================================
-  // 4. PERFORMANS ANALİZİ
-  // ==========================================================================
   const personelAnaliziYap = () => {
       const [secilenYil, secilenAy] = analizTarihi.split('-').map(Number);
       const filtrelenmisKayitlar = kayitlar.filter(k => {
@@ -149,7 +143,7 @@ export default function AnalizSayfasi() {
   const [aktifPersonelDetay, setAktifPersonelDetay] = useState<any>(null);
 
   // ==========================================================================
-  // 5. FORM & MALZEME İŞLEMLERİ
+  // FORM İŞLEMLERİ
   // ==========================================================================
   const malzemeEkle = () => {
       if(!secilenMalzemeId || !tempBirimFiyat || !tempAdet) return alert("Bilgileri kontrol edin.");
@@ -177,7 +171,7 @@ export default function AnalizSayfasi() {
   const formuSifirla = () => {
       setMalzemeListesi([]);
       setSecilenPersoneller([]);
-      setYeniKayit({ service_date: new Date().toISOString().split('T')[0], customer_text: '', company_address: '', customer_rep: '', crane_capacity: '', service_type: 'Servis', work_hours: '', description: '', price: '', technician: '' });
+      setYeniKayit({ service_date: new Date().toISOString().split('T')[0], customer_text: '', company_address: '', customer_rep: '', crane_capacity: '', service_type: 'Servis', work_hours: '', description: '', price: '', technician: '', form_number: '' });
   };
 
   const duzenle = (e: any, kayit: any) => {
@@ -185,41 +179,35 @@ export default function AnalizSayfasi() {
       setMalzemeListesi(kayit.materials || []);
       const mevcutPersoneller = kayit.technician ? kayit.technician.split(" - ").map((p: string) => p.trim()) : [];
       setSecilenPersoneller(mevcutPersoneller);
-      setYeniKayit({ ...kayit, technician: kayit.technician || '' });
+      setYeniKayit({ ...kayit, technician: kayit.technician || '', form_number: kayit.form_number || '' });
       setFormAcik(true);
   };
 
-  // 🔥 YENİ: SESLİ RAPORU SİHİRLİ FORMA ÇEVİRME 🔥
+  // 🔥 SESLİ RAPORU SİHİRLİ FORMA ÇEVİRME 🔥
   const raporaDonustur = (rapor: any) => {
       setDuzenlemeId(null);
       formuSifirla();
       
-      // Akıllı Müşteri Tahmini (Cümle içinde geçen eski müşteriyi bulur)
       let tahminMusteri = "";
       const kelimeler = rapor.audio_text.toLowerCase();
       const benzersizMusteriler = Array.from(new Set(kayitlar.map(k => k.customer_text).filter(Boolean)));
       for(const musteri of benzersizMusteriler) {
-          if (kelimeler.includes(String(musteri).toLowerCase())) { 
-              tahminMusteri = String(musteri); 
-              break; 
-          }
+          if (kelimeler.includes(String(musteri).toLowerCase())) { tahminMusteri = String(musteri); break; }
       }
 
-      setAktifRaporId(rapor.id); // Kaydederken bu raporu 'onaylandi' yapacağız
-      
+      setAktifRaporId(rapor.id); 
       setYeniKayit({
           ...yeniKayit,
           customer_text: tahminMusteri,
           technician: rapor.technician_name,
-          description: `🎙️ SAHA SES KAYDI:\n"${rapor.audio_text}"\n\n--- Lütfen yukarıdaki ses kaydına göre malzeme ve fiyat bilgisini tamamlayın ---`
+          description: `🎙️ SAHA SES KAYDI:\n"${rapor.audio_text}"\n\n--- Lütfen yukarıdaki ses kaydına göre diğer bilgileri tamamlayın ---`
       });
       
       setSecilenPersoneller([rapor.technician_name]);
-      setRaporModalAcik(false); // Rapor listesini kapat
-      setFormAcik(true); // Formu aç
+      setRaporModalAcik(false); 
+      setFormAcik(true); 
   };
 
-  // 🔥 GÜNCELLENMİŞ KAYDETME FONKSİYONU
   const kaydetVeyaGuncelle = async () => {
     if (!yeniKayit.customer_text || !yeniKayit.price) return alert("Müşteri ve Fiyat zorunludur.");
     setYukleniyor(true);
@@ -230,20 +218,13 @@ export default function AnalizSayfasi() {
         error = (await supabase.from('completed_services').update(veriPaketi).eq('id', duzenlemeId)).error;
     } else {
         error = (await supabase.from('completed_services').insert([veriPaketi])).error;
-        // Eğer bu kayıt bir saha raporundan geldiyse, raporu havuzdan düş (Onayla)
         if (!error && aktifRaporId) {
             await supabase.from('field_reports').update({ status: 'onaylandi' }).eq('id', aktifRaporId);
         }
     }
     
     if (error) alert("Hata: " + error.message);
-    else { 
-        alert(duzenlemeId ? "Güncellendi! ✅" : "Kaydedildi! ✅"); 
-        setFormAcik(false); 
-        formuSifirla(); 
-        setAktifRaporId(null);
-        tumVerileriGetir(); // Verileri ve raporları yenile
-    }
+    else { alert(duzenlemeId ? "Güncellendi! ✅" : "Kaydedildi! ✅"); setFormAcik(false); formuSifirla(); setAktifRaporId(null); tumVerileriGetir(); }
     setYukleniyor(false);
   };
 
@@ -273,17 +254,9 @@ export default function AnalizSayfasi() {
         <div><h1 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2">📊 Servis Yönetim Paneli</h1><p className="text-slate-500 text-xs md:text-sm">Finansal analiz ve servis takibi.</p></div>
         <div className="flex gap-2 w-full md:w-auto flex-wrap">
             
-            {/* 🔥 YENİ BUTON: GELEN SAHA RAPORLARI */}
-            <button 
-                onClick={() => setRaporModalAcik(true)} 
-                className="relative text-center bg-cyan-600 text-white border border-cyan-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-cyan-700 transition flex items-center justify-center gap-2 shadow-lg shadow-cyan-200"
-            >
+            <button onClick={() => setRaporModalAcik(true)} className="relative text-center bg-cyan-600 text-white border border-cyan-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-cyan-700 transition flex items-center justify-center gap-2 shadow-lg shadow-cyan-200">
                 <Mic size={18}/> Saha Raporları
-                {sesliRaporlar.length > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-6 h-6 flex items-center justify-center rounded-full animate-bounce shadow-lg shadow-red-500/50 border-2 border-white">
-                        {sesliRaporlar.length}
-                    </span>
-                )}
+                {sesliRaporlar.length > 0 && (<span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-6 h-6 flex items-center justify-center rounded-full animate-bounce shadow-lg shadow-red-500/50 border-2 border-white">{sesliRaporlar.length}</span>)}
             </button>
 
             <button onClick={() => setPerformansAcik(true)} className="flex-1 md:flex-none text-center bg-purple-600 text-white border border-purple-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-purple-700 transition flex items-center justify-center gap-2 shadow-lg shadow-purple-200"><Users size={18}/> Ekip Performansı</button>
@@ -320,7 +293,13 @@ export default function AnalizSayfasi() {
                             {filtrelenmisKayitlar.map((item) => (
                                 <tr key={item.id} onClick={() => setSeciliKayit(item)} className="transition-all duration-200 cursor-pointer group hover:bg-blue-50/50">
                                     <td className="p-4 pl-6 font-mono text-slate-500 text-xs">{new Date(item.service_date).toLocaleDateString('tr-TR')}</td>
-                                    <td className="p-4"><div className="font-bold text-slate-800 text-sm">{item.customer_text}</div><div className="text-[10px] text-slate-400">{item.customer_rep}</div></td>
+                                    <td className="p-4">
+                                        <div className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                            {item.customer_text} 
+                                            {item.form_number && <span className="text-[9px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded font-mono">No: {item.form_number}</span>}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400">{item.customer_rep}</div>
+                                    </td>
                                     <td className="p-4 text-slate-600 text-xs hidden md:table-cell max-w-[200px] truncate">{item.description}</td>
                                     <td className="p-4 font-black text-green-600 text-sm">{Number(item.price).toLocaleString('tr-TR')} ₺</td>
                                     <td className="p-4 text-right pr-6"><div className="flex justify-end gap-2"><button onClick={(e) => duzenle(e, item)} className="p-2 text-blue-400 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition"><Edit2 size={16}/></button><button onClick={(e) => sil(e, item.id)} className="p-2 text-red-400 bg-red-50 rounded-lg hover:bg-red-600 hover:text-white transition"><Trash2 size={16}/></button></div></td>
@@ -334,7 +313,7 @@ export default function AnalizSayfasi() {
       </div>
 
       {/* =========================================================================
-          🔥 YENİ MODAL: GELEN SAHA RAPORLARI (SESLİ ASİSTAN)
+          🔥 MODAL: SAHA RAPORLARI
           ========================================================================= */}
       <AnimatePresence>
         {raporModalAcik && (
@@ -417,10 +396,13 @@ export default function AnalizSayfasi() {
                             <div className="space-y-4">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Wrench size={12}/> İşlem Detayları</span>
                                 <div className="flex gap-2">
+                                    {/* 🔥 YENİ: FORM NUMARASI GİRİŞ ALANI 🔥 */}
+                                    <input type="text" placeholder="Form No (Örn: 5424)" value={yeniKayit.form_number} onChange={e => setYeniKayit({...yeniKayit, form_number: e.target.value})} className="w-1/3 p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs font-bold text-blue-700 placeholder:text-blue-300"/>
+                                    
                                     <select value={yeniKayit.service_type} onChange={e => setYeniKayit({...yeniKayit, service_type: e.target.value})} className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold"><option>Servis</option><option>Periyodik Bakım</option><option>Garanti</option><option>Montaj</option><option>Diğer</option></select>
                                     <input type="text" placeholder="Kapasite" value={yeniKayit.crane_capacity} onChange={e => setYeniKayit({...yeniKayit, crane_capacity: e.target.value})} className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs"/>
                                 </div>
-                                <textarea rows={4} placeholder="Yapılan işlemi detaylıca yazın..." value={yeniKayit.description} onChange={e => setYeniKayit({...yeniKayit, description: e.target.value})} className={`w-full p-3 bg-slate-50 rounded-xl border text-sm resize-none ${aktifRaporId ? 'border-cyan-300 bg-cyan-50/30' : 'border-slate-200'}`}/>
+                                <textarea rows={4} placeholder="Yapılan işlemi detaylıca yazın..." value={yeniKayit.description} onChange={e => setYeniKayit({...yeniKayit, description: e.target.value})} className={`w-full p-3 rounded-xl border text-sm resize-none ${aktifRaporId ? 'border-cyan-300 bg-cyan-50/30' : 'bg-slate-50 border-slate-200'}`}/>
                             </div>
                         </div>
 
@@ -438,7 +420,6 @@ export default function AnalizSayfasi() {
                                     </button>
                                 ))}
                             </div>
-                            
                             <div className="flex justify-between items-center bg-blue-50 p-3 rounded-xl border border-blue-100">
                                 <span className="text-xs text-blue-700 font-bold">
                                     {yeniKayit.technician || 'Henüz Kimse Seçilmedi'}
@@ -499,7 +480,7 @@ export default function AnalizSayfasi() {
                                         onChange={(e) => setAnalizTarihi(e.target.value)}
                                         className="bg-white border-2 border-purple-200 text-purple-700 text-xs font-black px-3 py-1 rounded-full outline-none shadow-sm cursor-pointer hover:bg-purple-100"
                                     >
-                                        {Array.from({ length: 7 }, (_, i) => 2024 + i).map(yil => (
+                                        {Array.from({ length: 7 }, (_, i) => 2025 + i).map(yil => (
                                             ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"].map((ayAdi, index) => {
                                                 const ayValue = `${yil}-${String(index + 1).padStart(2, '0')}`;
                                                 return <option key={ayValue} value={ayValue}>{ayAdi} {yil}</option>;
@@ -542,7 +523,10 @@ export default function AnalizSayfasi() {
                                             {aktifPersonelDetay.detaylar.map((is: any) => (
                                                 <div key={is.id} className="p-4 rounded-2xl border border-slate-100 hover:bg-purple-50 transition group flex justify-between items-center">
                                                     <div>
-                                                        <div className="font-bold text-slate-800">{is.customer_text}</div>
+                                                        <div className="font-bold text-slate-800 flex items-center gap-2">
+                                                            {is.customer_text}
+                                                            {is.form_number && <span className="text-[9px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded font-mono">No: {is.form_number}</span>}
+                                                        </div>
                                                         <div className="text-xs text-slate-400 mt-1 flex items-center gap-2"><Calendar size={12}/> {new Date(is.service_date).toLocaleDateString('tr-TR')}</div>
                                                     </div>
                                                     <div className="text-right">
@@ -572,8 +556,90 @@ export default function AnalizSayfasi() {
         )}
       </AnimatePresence>
 
-      {/* Detay Modalı */}
-      <AnimatePresence>{seciliKayit && (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setSeciliKayit(null)}><motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-[95%] md:w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}><div className="bg-slate-900 text-white p-6 flex justify-between items-start shrink-0"><div><div className="flex items-center gap-3 mb-2"><h2 className="text-2xl font-bold">{seciliKayit.customer_text}</h2><span className="text-xs font-bold px-3 py-1 rounded-full bg-white/10">{seciliKayit.service_type}</span></div><div className="flex gap-4 text-slate-400 text-xs"><span className="flex items-center gap-1"><MapPin size={14}/> {seciliKayit.company_address}</span><span className="flex items-center gap-1"><User size={14}/> {seciliKayit.customer_rep}</span></div></div><button onClick={() => setSeciliKayit(null)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><X size={24}/></button></div><div className="p-6 space-y-6 overflow-y-auto"><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="p-4 bg-slate-50 rounded-2xl border border-slate-100"><div className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2"><Wrench size={14}/> Teknik</div><div className="space-y-2 text-sm text-slate-700"><div className="flex justify-between border-b pb-1"><span>Kapasite:</span> <b>{seciliKayit.crane_capacity}</b></div><div className="flex justify-between border-b pb-1"><span>Süre:</span> <b>{seciliKayit.work_hours} Saat</b></div><div className="flex justify-between"><span>Ekip:</span> <b>{seciliKayit.technician}</b></div></div></div><div className="p-4 bg-green-50 rounded-2xl border border-green-100 flex flex-col justify-center"><div className="text-xs font-bold text-green-600 uppercase mb-2 flex items-center gap-2"><DollarSign size={14}/> Tutar</div><div className="text-3xl font-black text-green-700">{Number(seciliKayit.price).toLocaleString('tr-TR')} ₺</div><div className="text-xs text-green-600/70 mt-1">{new Date(seciliKayit.service_date).toLocaleDateString('tr-TR')}</div></div></div><div><h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><FileText size={18}/> Detay</h3><div className="bg-slate-50 p-5 rounded-2xl text-sm text-slate-600">{seciliKayit.description}</div></div>{seciliKayit.materials && Array.isArray(seciliKayit.materials) && seciliKayit.materials.length > 0 && (<div><h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Box size={18} className="text-yellow-600"/> Kullanılan Malzemeler</h3><div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm"><table className="w-full text-sm"><thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200"><tr><th className="p-3 text-left pl-4">Malzeme</th><th className="p-3 text-center">Adet</th><th className="p-3 text-right">Birim</th><th className="p-3 text-right pr-4">Toplam</th></tr></thead><tbody className="divide-y divide-slate-100 bg-white">{seciliKayit.materials.map((m: any, i: number) => (<tr key={i}><td className="p-3 pl-4 text-slate-700 font-medium">{m.ad}</td><td className="p-3 text-center text-slate-500">{m.adet}</td><td className="p-3 text-right text-slate-400 text-xs">{Number(m.birim_fiyat).toLocaleString()} ₺</td><td className="p-3 pr-4 text-right font-bold text-slate-900">{Number(m.toplam_fiyat).toLocaleString()} ₺</td></tr>))}<tr className="bg-yellow-50"><td colSpan={3} className="p-3 pl-4 font-bold text-yellow-800 text-right uppercase text-xs">Genel Toplam</td><td className="p-3 pr-4 text-right font-black text-yellow-800">{seciliKayit.materials.reduce((a:any, b:any) => a + Number(b.toplam_fiyat), 0).toLocaleString()} ₺</td></tr></tbody></table></div></div>)}</div><div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0"><button onClick={(e) => { setSeciliKayit(null); duzenle(e, seciliKayit); }} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition flex items-center gap-2 shadow-lg text-sm"><Edit2 size={16}/> Düzenle</button><button onClick={() => setSeciliKayit(null)} className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition text-sm">Kapat</button></div></motion.div></motion.div>)}</AnimatePresence>
+      {/* =========================================================================
+          🔥 DETAY MODALI (POP-UP PENCERE) - Kırmızı yuvarlaklı kısım güncellendi
+          ========================================================================= */}
+      <AnimatePresence>
+        {seciliKayit && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setSeciliKayit(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-[95%] md:w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              
+              <div className="bg-slate-900 text-white p-6 flex justify-between items-start shrink-0">
+                  <div>
+                      <div className="flex items-center gap-3 mb-2">
+                          <h2 className="text-2xl font-bold">{seciliKayit.customer_text}</h2>
+                          <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/10">{seciliKayit.service_type}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-4 text-slate-400 text-xs mt-1">
+                          <span className="flex items-center gap-1"><MapPin size={14}/> {seciliKayit.company_address || 'Adres Girilmedi'}</span>
+                          <span className="flex items-center gap-1"><User size={14}/> {seciliKayit.customer_rep || 'Yetkili Girilmedi'}</span>
+                          
+                          {/* 🔥 İŞTE İSTEDİĞİN FORM NUMARASI KISMI (Kırmızı Yuvarlağın Yeri) 🔥 */}
+                          {seciliKayit.form_number && (
+                              <span className="flex items-center gap-1 text-blue-300 font-bold bg-blue-500/20 px-2.5 py-1 rounded-md border border-blue-500/30">
+                                  <FileText size={14}/> Form No: {seciliKayit.form_number}
+                              </span>
+                          )}
+                      </div>
+                  </div>
+                  <button onClick={() => setSeciliKayit(null)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><X size={24}/></button>
+              </div>
+
+              <div className="p-6 space-y-6 overflow-y-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2"><Wrench size={14}/> Teknik</div>
+                          <div className="space-y-2 text-sm text-slate-700">
+                              <div className="flex justify-between border-b pb-1"><span>Kapasite:</span> <b>{seciliKayit.crane_capacity}</b></div>
+                              <div className="flex justify-between border-b pb-1"><span>Süre:</span> <b>{seciliKayit.work_hours} Saat</b></div>
+                              <div className="flex justify-between"><span>Ekip:</span> <b>{seciliKayit.technician}</b></div>
+                          </div>
+                      </div>
+                      <div className="p-4 bg-green-50 rounded-2xl border border-green-100 flex flex-col justify-center">
+                          <div className="text-xs font-bold text-green-600 uppercase mb-2 flex items-center gap-2"><DollarSign size={14}/> Tutar</div>
+                          <div className="text-3xl font-black text-green-700">{Number(seciliKayit.price).toLocaleString('tr-TR')} ₺</div>
+                          <div className="text-xs text-green-600/70 mt-1">{new Date(seciliKayit.service_date).toLocaleDateString('tr-TR')}</div>
+                      </div>
+                  </div>
+                  
+                  <div>
+                      <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><FileText size={18}/> Detay</h3>
+                      <div className="bg-slate-50 p-5 rounded-2xl text-sm text-slate-600 whitespace-pre-line">{seciliKayit.description}</div>
+                  </div>
+
+                  {seciliKayit.materials && Array.isArray(seciliKayit.materials) && seciliKayit.materials.length > 0 && (
+                      <div>
+                          <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Box size={18} className="text-yellow-600"/> Kullanılan Malzemeler</h3>
+                          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                              <table className="w-full text-sm">
+                                  <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200"><tr><th className="p-3 text-left pl-4">Malzeme</th><th className="p-3 text-center">Adet</th><th className="p-3 text-right">Birim</th><th className="p-3 text-right pr-4">Toplam</th></tr></thead>
+                                  <tbody className="divide-y divide-slate-100 bg-white">
+                                      {seciliKayit.materials.map((m: any, i: number) => (
+                                          <tr key={i}>
+                                              <td className="p-3 pl-4 text-slate-700 font-medium">{m.ad}</td>
+                                              <td className="p-3 text-center text-slate-500">{m.adet}</td>
+                                              <td className="p-3 text-right text-slate-400 text-xs">{Number(m.birim_fiyat).toLocaleString()} ₺</td>
+                                              <td className="p-3 pr-4 text-right font-bold text-slate-900">{Number(m.toplam_fiyat).toLocaleString()} ₺</td>
+                                          </tr>
+                                      ))}
+                                      <tr className="bg-yellow-50">
+                                          <td colSpan={3} className="p-3 pl-4 font-bold text-yellow-800 text-right uppercase text-xs">Genel Toplam</td>
+                                          <td className="p-3 pr-4 text-right font-black text-yellow-800">{seciliKayit.materials.reduce((a:any, b:any) => a + Number(b.toplam_fiyat), 0).toLocaleString()} ₺</td>
+                                      </tr>
+                                  </tbody>
+                              </table>
+                          </div>
+                      </div>
+                  )}
+              </div>
+              <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
+                  <button onClick={(e) => { setSeciliKayit(null); duzenle(e, seciliKayit); }} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition flex items-center gap-2 shadow-lg text-sm"><Edit2 size={16}/> Düzenle</button>
+                  <button onClick={() => setSeciliKayit(null)} className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition text-sm">Kapat</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
