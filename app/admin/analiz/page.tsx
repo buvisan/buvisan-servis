@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - PRO ANALİZ MODÜLÜ 🛠️
-// Versiyon: 8.6 (Form No Kutusu Tasarım Hatası Düzeltildi)
+// Versiyon: 8.8 (Olay Yeri Kamerası ve Kanıt Görüntüleme Eklendi 📸)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -11,7 +11,7 @@ import {
   Loader2, Plus, TrendingUp, DollarSign, Calendar, Save, Trash2, 
   Briefcase, User, MapPin, Clock, Wrench, FileText, X, Box, Edit2, RotateCcw, 
   Package, Search, AlertCircle, Download, Users, CheckSquare, Square, Filter,
-  Mic, BellRing, Sparkles, CheckCircle2
+  Mic, BellRing, Sparkles, CheckCircle2, Camera
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
@@ -66,7 +66,7 @@ export default function AnalizSayfasi() {
     customer_text: '', company_address: '', customer_rep: '',    
     crane_capacity: '', service_type: 'Servis', 
     work_hours: '', description: '', 
-    price: '', technician: '', form_number: '' // Form numarası alanı
+    price: '', technician: '', form_number: ''
   });
 
   const [secilenPersoneller, setSecilenPersoneller] = useState<string[]>([]);
@@ -182,24 +182,29 @@ export default function AnalizSayfasi() {
       setFormAcik(true);
   };
 
-  // 🔥 SESLİ RAPORU SİHİRLİ FORMA ÇEVİRME 🔥
+  // 🔥 YENİ: FOTOĞRAFLI SAHA RAPORUNU FORMA ÇEVİRME
   const raporaDonustur = (rapor: any) => {
       setDuzenlemeId(null);
       formuSifirla();
       
-      let tahminMusteri = "";
-      const kelimeler = rapor.audio_text.toLowerCase();
-      const benzersizMusteriler = Array.from(new Set(kayitlar.map(k => k.customer_text).filter(Boolean)));
-      for(const musteri of benzersizMusteriler) {
-          if (kelimeler.includes(String(musteri).toLowerCase())) { tahminMusteri = String(musteri); break; }
+      let tahminMusteri = rapor.company_name || "";
+      if(!tahminMusteri) {
+          const kelimeler = rapor.audio_text.toLowerCase();
+          const benzersizMusteriler = Array.from(new Set(kayitlar.map(k => k.customer_text).filter(Boolean)));
+          for(const musteri of benzersizMusteriler) {
+              if (kelimeler.includes(String(musteri).toLowerCase())) { tahminMusteri = String(musteri); break; }
+          }
       }
 
       setAktifRaporId(rapor.id); 
       setYeniKayit({
           ...yeniKayit,
           customer_text: tahminMusteri,
+          form_number: rapor.form_number || "",
+          work_hours: rapor.work_hours ? String(rapor.work_hours) : "",
           technician: rapor.technician_name,
-          description: `🎙️ SAHA SES KAYDI:\n"${rapor.audio_text}"\n\n--- Lütfen yukarıdaki ses kaydına göre diğer bilgileri tamamlayın ---`
+          // Fotoğraf varsa kalıcı olarak kanıt linkini açıklamaya ekliyoruz
+          description: `🎙️ SAHA SES KAYDI:\n"${rapor.audio_text}"\n\n${rapor.image_url ? `📸 FOTOĞRAF KANITI EKLENDİ: ${rapor.image_url}\n\n` : ''}--- Lütfen yukarıdaki bilgilere göre eksikleri tamamlayın ---`
       });
       
       setSecilenPersoneller([rapor.technician_name]);
@@ -312,7 +317,7 @@ export default function AnalizSayfasi() {
       </div>
 
       {/* =========================================================================
-          🔥 MODAL: SAHA RAPORLARI
+          🔥 MODAL: SAHA RAPORLARI (FOTOĞRAF GÖSTERİMİ EKLENDİ)
           ========================================================================= */}
       <AnimatePresence>
         {raporModalAcik && (
@@ -323,7 +328,7 @@ export default function AnalizSayfasi() {
                             <div className="p-3 bg-cyan-600 rounded-2xl text-white shadow-lg shadow-cyan-200"><BellRing size={28} className={sesliRaporlar.length > 0 ? "animate-pulse" : ""}/></div>
                             <div>
                                 <h2 className="text-2xl font-black text-slate-800">SAHA BİLDİRİMLERİ</h2>
-                                <p className="text-xs font-bold text-cyan-600 uppercase tracking-widest">Sahadan gelen sesli kayıtlar</p>
+                                <p className="text-xs font-bold text-cyan-600 uppercase tracking-widest">Sahadan gelen sesli ve fotoğraflı kayıtlar</p>
                             </div>
                         </div>
                         <button onClick={() => setRaporModalAcik(false)} className="p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition"><X size={24}/></button>
@@ -339,19 +344,36 @@ export default function AnalizSayfasi() {
                             sesliRaporlar.map(rapor => (
                                 <div key={rapor.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition">
                                     <div className="flex justify-between items-start mb-3 border-b border-slate-100 pb-3">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-3">
                                             <div className="bg-slate-100 p-2 rounded-lg text-slate-500"><User size={16}/></div>
                                             <div>
                                                 <h4 className="font-bold text-slate-800">{rapor.technician_name}</h4>
-                                                <p className="text-[10px] text-slate-400">{new Date(rapor.created_at).toLocaleString('tr-TR')}</p>
+                                                <div className="text-[10px] text-slate-400 flex items-center gap-2 flex-wrap mt-1">
+                                                    <span>{new Date(rapor.created_at).toLocaleString('tr-TR')}</span>
+                                                    {rapor.company_name && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold border border-slate-200">{rapor.company_name}</span>}
+                                                    {rapor.form_number && <span className="bg-blue-50 text-blue-500 px-2 py-0.5 rounded font-mono border border-blue-100">No: {rapor.form_number}</span>}
+                                                    {rapor.work_hours > 0 && <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-bold border border-emerald-100">{rapor.work_hours} Saat</span>}
+                                                </div>
                                             </div>
                                         </div>
                                         <span className="bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-1 rounded uppercase flex items-center gap-1"><Clock size={10}/> Bekliyor</span>
                                     </div>
+                                    
                                     <div className="bg-slate-50 p-4 rounded-xl text-slate-600 text-sm italic mb-4 border-l-4 border-cyan-400 relative">
                                         <Mic size={16} className="absolute right-3 top-3 text-slate-300"/>
                                         "{rapor.audio_text}"
                                     </div>
+
+                                    {/* 🔥 YENİ: EĞER FOTOĞRAF VARSA GÖSTER 🔥 */}
+                                    {rapor.image_url && (
+                                        <div className="mb-4 border border-slate-200 rounded-xl p-2 bg-slate-50">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-2 flex items-center gap-1 ml-1"><Camera size={12}/> Olay Yeri / Form Fotoğrafı</p>
+                                            <a href={rapor.image_url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg">
+                                                <img src={rapor.image_url} alt="Kanıt Fotoğrafı" className="w-full h-48 object-cover hover:scale-105 transition duration-300" />
+                                            </a>
+                                        </div>
+                                    )}
+
                                     <div className="flex gap-2">
                                         <button onClick={() => raporaDonustur(rapor)} className="flex-1 bg-cyan-600 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-cyan-700 transition shadow-lg shadow-cyan-200">
                                             <Sparkles size={16}/> Sihirli Forma Çevir
@@ -368,7 +390,7 @@ export default function AnalizSayfasi() {
       </AnimatePresence>
 
       {/* =========================================================================
-          🔥 MODAL: FORM (YENİ EKLEME VE DÜZENLEME PENCERESİ) - FORM NO EKLENDİ
+          🔥 MODAL: FORM (YENİ EKLEME VE DÜZENLEME PENCERESİ)
           ========================================================================= */}
       <AnimatePresence>
         {formAcik && (
@@ -395,19 +417,10 @@ export default function AnalizSayfasi() {
                             <div className="space-y-4">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Wrench size={12}/> İşlem Detayları</span>
                                 <div className="flex gap-2">
-                                    
-                                    {/* 🔥 DÜZELTİLMİŞ FORM NUMARASI KUTUSU (shrink-0 ile ezilmesi engellendi) 🔥 */}
                                     <div className="relative w-32 shrink-0">
-                                        <input 
-                                            type="text" 
-                                            placeholder="Form No" 
-                                            value={yeniKayit.form_number} 
-                                            onChange={e => setYeniKayit({...yeniKayit, form_number: e.target.value})} 
-                                            className="w-full pl-8 p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs font-bold text-blue-700 placeholder:text-blue-400/50 outline-none focus:ring-2 focus:ring-blue-400 transition"
-                                        />
+                                        <input type="text" placeholder="Form No" value={yeniKayit.form_number} onChange={e => setYeniKayit({...yeniKayit, form_number: e.target.value})} className="w-full pl-8 p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs font-bold text-blue-700 placeholder:text-blue-400/50 outline-none focus:ring-2 focus:ring-blue-400 transition"/>
                                         <FileText size={14} className="absolute left-2.5 top-3.5 text-blue-400"/>
                                     </div>
-                                    
                                     <select value={yeniKayit.service_type} onChange={e => setYeniKayit({...yeniKayit, service_type: e.target.value})} className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:ring-2 focus:ring-slate-300 transition"><option>Servis</option><option>Periyodik Bakım</option><option>Garanti</option><option>Montaj</option><option>Diğer</option></select>
                                     <input type="text" placeholder="Kapasite" value={yeniKayit.crane_capacity} onChange={e => setYeniKayit({...yeniKayit, crane_capacity: e.target.value})} className="w-24 shrink-0 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-slate-300 transition"/>
                                 </div>
@@ -565,7 +578,7 @@ export default function AnalizSayfasi() {
         )}
       </AnimatePresence>
 
-      {/* DETAY MODALI (POP-UP PENCERE) */}
+      {/* DETAY MODALI */}
       <AnimatePresence>
         {seciliKayit && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setSeciliKayit(null)}>
@@ -580,8 +593,6 @@ export default function AnalizSayfasi() {
                       <div className="flex flex-wrap items-center gap-4 text-slate-400 text-xs mt-1">
                           <span className="flex items-center gap-1"><MapPin size={14}/> {seciliKayit.company_address || 'Adres Girilmedi'}</span>
                           <span className="flex items-center gap-1"><User size={14}/> {seciliKayit.customer_rep || 'Yetkili Girilmedi'}</span>
-                          
-                          {/* 🔥 İŞTE İSTEDİĞİN FORM NUMARASI KISMI (Kırmızı Yuvarlağın Yeri) 🔥 */}
                           {seciliKayit.form_number && (
                               <span className="flex items-center gap-1 text-blue-300 font-bold bg-blue-500/20 px-2.5 py-1 rounded-md border border-blue-500/30">
                                   <FileText size={14}/> Form No: {seciliKayit.form_number}
