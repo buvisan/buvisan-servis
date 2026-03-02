@@ -1,7 +1,7 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN SAHA ASİSTANI 🎙️ V3.0 (Olay Yeri Kamerası Eklendi 📸)
+// BUVISAN SAHA ASİSTANI 🎙️ V4.0 (Çoklu Fotoğraf - Max 3 Adet 📸)
 // ----------------------------------------------------------------------------
 
 import { useState, useEffect, useRef } from 'react';
@@ -22,13 +22,13 @@ export default function SahaAsistani() {
   const [formNo, setFormNo] = useState("");
   const [calismaSaati, setCalismaSaati] = useState("");
 
-  // 🔥 YENİ: KAMERA VE FOTOĞRAF STATE'LERİ
-  const [fotoDosya, setFotoDosya] = useState<File | null>(null);
-  const [fotoOnizleme, setFotoOnizleme] = useState<string | null>(null);
+  // 🔥 ÇOKLU FOTOĞRAF STATE'LERİ 🔥
+  const [fotoDosyalar, setFotoDosyalar] = useState<File[]>([]);
+  const [fotoOnizlemeler, setFotoOnizlemeler] = useState<string[]>([]);
   const dosyaInputRef = useRef<HTMLInputElement>(null);
 
   const [gonderiliyor, setGonderiliyor] = useState(false);
-  const [yuklemeMesaji, setYuklemeMesaji] = useState(""); // Fotoğraf yüklenirken bilgi verir
+  const [yuklemeMesaji, setYuklemeMesaji] = useState("");
   const [basarili, setBasarili] = useState(false);
 
   const recognitionRef = useRef<any>(null);
@@ -75,19 +75,25 @@ export default function SahaAsistani() {
     }
   };
 
-  // 🔥 FOTOĞRAF SEÇME FONKSİYONU
+  // 🔥 ÇOKLU FOTOĞRAF SEÇME FONKSİYONU
   const fotoSecildi = (e: any) => {
-      const file = e.target.files[0];
-      if (file) {
-          setFotoDosya(file);
-          setFotoOnizleme(URL.createObjectURL(file));
+      const files = Array.from(e.target.files) as File[];
+      if (fotoDosyalar.length + files.length > 3) {
+          alert("Usta en fazla 3 adet fotoğraf yükleyebilirsin!");
+          return;
       }
+      const yeniDosyalar = [...fotoDosyalar, ...files].slice(0, 3);
+      setFotoDosyalar(yeniDosyalar);
+      
+      const onizlemeler = yeniDosyalar.map(file => URL.createObjectURL(file));
+      setFotoOnizlemeler(onizlemeler);
+      
+      if (dosyaInputRef.current) dosyaInputRef.current.value = ''; // Inputu sıfırla ki aynı resmi tekrar seçebilsin
   };
 
-  const fotoSil = () => {
-      setFotoDosya(null);
-      setFotoOnizleme(null);
-      if (dosyaInputRef.current) dosyaInputRef.current.value = '';
+  const fotoSil = (index: number) => {
+      setFotoDosyalar(prev => prev.filter((_, i) => i !== index));
+      setFotoOnizlemeler(prev => prev.filter((_, i) => i !== index));
   };
 
   const merkezeGonder = async () => {
@@ -95,28 +101,28 @@ export default function SahaAsistani() {
     if (!firmaAdi) return alert("Lütfen gidilen firmayı yaz usta.");
     
     setGonderiliyor(true);
-    let imageUrl = null;
+    let yuklenenResimUrlleri: string[] = [];
 
-    // 🔥 EĞER FOTOĞRAF VARSA ÖNCE ONU SUPABASE STORAGE'A YÜKLE
-    if (fotoDosya) {
-        setYuklemeMesaji("Fotoğraf Yükleniyor...");
-        const dosyaUzantisi = fotoDosya.name.split('.').pop();
-        const rastgeleIsim = `${Date.now()}-${Math.random().toString(36).substring(7)}.${dosyaUzantisi}`;
+    // 🔥 BÜTÜN FOTOĞRAFLARI SIRAYLA YÜKLE
+    if (fotoDosyalar.length > 0) {
+        setYuklemeMesaji(`Fotoğraflar Yükleniyor... (0/${fotoDosyalar.length})`);
         
-        const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('saha_raporlari')
-            .upload(rastgeleIsim, fotoDosya);
+        for (let i = 0; i < fotoDosyalar.length; i++) {
+            const dosya = fotoDosyalar[i];
+            const dosyaUzantisi = dosya.name.split('.').pop();
+            const rastgeleIsim = `${Date.now()}-${Math.random().toString(36).substring(7)}.${dosyaUzantisi}`;
+            
+            setYuklemeMesaji(`Fotoğraflar Yükleniyor... (${i+1}/${fotoDosyalar.length})`);
+            
+            const { error: uploadError } = await supabase.storage
+                .from('saha_raporlari')
+                .upload(rastgeleIsim, dosya);
 
-        if (uploadError) {
-            alert("Fotoğraf yüklenemedi: " + uploadError.message);
-            setGonderiliyor(false);
-            setYuklemeMesaji("");
-            return;
+            if (!uploadError) {
+                const { data } = supabase.storage.from('saha_raporlari').getPublicUrl(rastgeleIsim);
+                yuklenenResimUrlleri.push(data.publicUrl);
+            }
         }
-
-        // Yüklenen fotoğrafın herkese açık linkini al
-        const { data: publicUrlData } = supabase.storage.from('saha_raporlari').getPublicUrl(rastgeleIsim);
-        imageUrl = publicUrlData.publicUrl;
     }
 
     setYuklemeMesaji("Rapor Merkeze İletiliyor...");
@@ -128,7 +134,7 @@ export default function SahaAsistani() {
         form_number: formNo,
         work_hours: calismaSaati ? Number(calismaSaati) : 0,
         audio_text: konusulanMetin,
-        image_url: imageUrl, // 🔥 Fotoğraf linkini veritabanına ekle
+        image_urls: yuklenenResimUrlleri, // 🔥 ARTIK ARRAY (DİZİ) OLARAK KAYDEDİYORUZ
         status: 'bekliyor'
       }
     ]);
@@ -143,7 +149,7 @@ export default function SahaAsistani() {
       setTimeout(() => {
         setBasarili(false); setKayitDurumu('bekliyor'); setKonusulanMetin("");
         setFirmaAdi(""); setFormNo(""); setCalismaSaati(""); eskiMetinRef.current = "";
-        fotoSil(); // Ekranı temizle
+        setFotoDosyalar([]); setFotoOnizlemeler([]); // Resimleri sıfırla
       }, 3000);
     }
   };
@@ -156,7 +162,7 @@ export default function SahaAsistani() {
         <div className="text-center mb-8 relative z-10">
           <div className="w-16 h-1 bg-blue-500 mx-auto rounded-full mb-6"></div>
           <h1 className="text-3xl font-black text-white tracking-tight">SAHA TERMİNALİ</h1>
-          <p className="text-blue-400 font-bold text-xs mt-2 uppercase tracking-widest bg-blue-900/30 inline-block px-3 py-1 rounded-full border border-blue-800/50">Akıllı Raporlama v3.0</p>
+          <p className="text-blue-400 font-bold text-xs mt-2 uppercase tracking-widest bg-blue-900/30 inline-block px-3 py-1 rounded-full border border-blue-800/50">Akıllı Raporlama v4.0</p>
         </div>
 
         <AnimatePresence mode="wait">
@@ -178,29 +184,33 @@ export default function SahaAsistani() {
                   </div>
               </div>
 
-              {/* 🔥 YENİ: OLAY YERİ KAMERASI KISMI 🔥 */}
+              {/* 🔥 ÇOKLU FOTOĞRAF GALERİSİ 🔥 */}
               <div className="bg-slate-900/50 p-4 rounded-3xl border border-slate-700">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2 mb-2 ml-1"><Camera size={14}/> Kanıt / Form Fotoğrafı</label>
+                  <div className="flex justify-between items-center mb-2 ml-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2"><Camera size={14}/> Kanıt / Form (Max 3)</label>
+                      <span className="text-[10px] font-bold text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded-full">{fotoOnizlemeler.length}/3</span>
+                  </div>
                   
-                  {/* Gizli dosya seçici (capture="environment" telefonda direkt arka kamerayı açmayı dener) */}
-                  <input type="file" accept="image/*" capture="environment" ref={dosyaInputRef} onChange={fotoSecildi} className="hidden" />
+                  {/* Çoklu resim seçici */}
+                  <input type="file" accept="image/*" multiple ref={dosyaInputRef} onChange={fotoSecildi} className="hidden" />
                   
-                  {!fotoOnizleme ? (
-                      <button onClick={() => dosyaInputRef.current?.click()} className="w-full py-4 border-2 border-dashed border-slate-600 rounded-2xl text-slate-400 font-bold hover:bg-slate-800 hover:border-blue-500 hover:text-blue-400 transition flex flex-col items-center gap-2">
-                          <ImageIcon size={24} />
-                          <span>Fotoğraf Çek veya Yükle</span>
-                      </button>
-                  ) : (
-                      <div className="relative rounded-2xl overflow-hidden border border-slate-600">
-                          <img src={fotoOnizleme} alt="Kanıt" className="w-full h-40 object-cover opacity-80" />
-                          <button onClick={fotoSil} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-xl shadow-lg hover:bg-red-600 transition">
-                              <Trash2 size={16}/>
-                          </button>
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 to-transparent p-3 pt-10">
-                              <span className="text-xs font-bold text-white flex items-center gap-1"><CheckCircle2 size={14} className="text-emerald-400"/> Eklendi</span>
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                      {fotoOnizlemeler.map((url, index) => (
+                          <div key={index} className="relative rounded-xl overflow-hidden border border-slate-600 aspect-square group">
+                              <img src={url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" />
+                              <button onClick={() => fotoSil(index)} className="absolute top-1 right-1 bg-red-500/90 text-white p-1 rounded-lg shadow-lg hover:bg-red-500 transition">
+                                  <Trash2 size={14}/>
+                              </button>
                           </div>
-                      </div>
-                  )}
+                      ))}
+                      
+                      {fotoOnizlemeler.length < 3 && (
+                          <button onClick={() => dosyaInputRef.current?.click()} className="aspect-square border-2 border-dashed border-slate-600 rounded-xl text-slate-400 font-bold hover:bg-slate-800 hover:border-blue-500 hover:text-blue-400 transition flex flex-col items-center justify-center gap-1">
+                              <ImageIcon size={20} />
+                              <span className="text-[9px] text-center px-1">Ekle</span>
+                          </button>
+                      )}
+                  </div>
               </div>
 
               {/* Sesli Not Alanı */}

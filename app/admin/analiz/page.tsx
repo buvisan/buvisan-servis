@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - PRO ANALİZ MODÜLÜ 🛠️
-// Versiyon: 8.8 (Olay Yeri Kamerası ve Kanıt Görüntüleme Eklendi 📸)
+// Versiyon: 9.0 (Çoklu Fotoğraf ve Kalıcı Olay Yeri Arşivi 📸)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -11,7 +11,7 @@ import {
   Loader2, Plus, TrendingUp, DollarSign, Calendar, Save, Trash2, 
   Briefcase, User, MapPin, Clock, Wrench, FileText, X, Box, Edit2, RotateCcw, 
   Package, Search, AlertCircle, Download, Users, CheckSquare, Square, Filter,
-  Mic, BellRing, Sparkles, CheckCircle2, Camera
+  Mic, BellRing, Sparkles, CheckCircle2, Camera, Image as ImageIcon
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
@@ -60,13 +60,13 @@ export default function AnalizSayfasi() {
   const [tempAdet, setTempAdet] = useState("1");
   const [tempBirimFiyat, setTempBirimFiyat] = useState(""); 
 
-  // YENİ KAYIT FORMU
+  // YENİ KAYIT FORMU (image_urls eklendi)
   const [yeniKayit, setYeniKayit] = useState({
     service_date: new Date().toISOString().split('T')[0],
     customer_text: '', company_address: '', customer_rep: '',    
     crane_capacity: '', service_type: 'Servis', 
     work_hours: '', description: '', 
-    price: '', technician: '', form_number: ''
+    price: '', technician: '', form_number: '', image_urls: [] as string[]
   });
 
   const [secilenPersoneller, setSecilenPersoneller] = useState<string[]>([]);
@@ -170,7 +170,7 @@ export default function AnalizSayfasi() {
   const formuSifirla = () => {
       setMalzemeListesi([]);
       setSecilenPersoneller([]);
-      setYeniKayit({ service_date: new Date().toISOString().split('T')[0], customer_text: '', company_address: '', customer_rep: '', crane_capacity: '', service_type: 'Servis', work_hours: '', description: '', price: '', technician: '', form_number: '' });
+      setYeniKayit({ service_date: new Date().toISOString().split('T')[0], customer_text: '', company_address: '', customer_rep: '', crane_capacity: '', service_type: 'Servis', work_hours: '', description: '', price: '', technician: '', form_number: '', image_urls: [] });
   };
 
   const duzenle = (e: any, kayit: any) => {
@@ -178,11 +178,11 @@ export default function AnalizSayfasi() {
       setMalzemeListesi(kayit.materials || []);
       const mevcutPersoneller = kayit.technician ? kayit.technician.split(" - ").map((p: string) => p.trim()) : [];
       setSecilenPersoneller(mevcutPersoneller);
-      setYeniKayit({ ...kayit, technician: kayit.technician || '', form_number: kayit.form_number || '' });
+      setYeniKayit({ ...kayit, technician: kayit.technician || '', form_number: kayit.form_number || '', image_urls: kayit.image_urls || [] });
       setFormAcik(true);
   };
 
-  // 🔥 YENİ: FOTOĞRAFLI SAHA RAPORUNU FORMA ÇEVİRME
+  // 🔥 ÇOKLU FOTOĞRAFLI SAHA RAPORUNU FORMA ÇEVİRME 🔥
   const raporaDonustur = (rapor: any) => {
       setDuzenlemeId(null);
       formuSifirla();
@@ -196,6 +196,9 @@ export default function AnalizSayfasi() {
           }
       }
 
+      // Eski sürümde 'image_url' (tekil) gelmiş olabilir, yeni sürümde 'image_urls' (dizi) geliyor. Hepsini yakalayalım.
+      const resimler = rapor.image_urls || (rapor.image_url ? [rapor.image_url] : []);
+
       setAktifRaporId(rapor.id); 
       setYeniKayit({
           ...yeniKayit,
@@ -203,8 +206,8 @@ export default function AnalizSayfasi() {
           form_number: rapor.form_number || "",
           work_hours: rapor.work_hours ? String(rapor.work_hours) : "",
           technician: rapor.technician_name,
-          // Fotoğraf varsa kalıcı olarak kanıt linkini açıklamaya ekliyoruz
-          description: `🎙️ SAHA SES KAYDI:\n"${rapor.audio_text}"\n\n${rapor.image_url ? `📸 FOTOĞRAF KANITI EKLENDİ: ${rapor.image_url}\n\n` : ''}--- Lütfen yukarıdaki bilgilere göre eksikleri tamamlayın ---`
+          image_urls: resimler, // 🔥 Fotoğrafları kalıcı olarak yeni kayda devrediyoruz
+          description: `🎙️ SAHA SES KAYDI:\n"${rapor.audio_text}"\n\n--- Lütfen yukarıdaki bilgilere göre eksikleri tamamlayın ---`
       });
       
       setSecilenPersoneller([rapor.technician_name]);
@@ -215,7 +218,14 @@ export default function AnalizSayfasi() {
   const kaydetVeyaGuncelle = async () => {
     if (!yeniKayit.customer_text || !yeniKayit.price) return alert("Müşteri ve Fiyat zorunludur.");
     setYukleniyor(true);
-    const veriPaketi = { ...yeniKayit, work_hours: yeniKayit.work_hours ? Number(yeniKayit.work_hours) : 0, materials: malzemeListesi };
+    
+    // image_urls dizisini de veritabanına kaydediyoruz
+    const veriPaketi = { 
+        ...yeniKayit, 
+        work_hours: yeniKayit.work_hours ? Number(yeniKayit.work_hours) : 0, 
+        materials: malzemeListesi,
+        image_urls: yeniKayit.image_urls 
+    };
     
     let error;
     if (duzenlemeId) {
@@ -301,6 +311,9 @@ export default function AnalizSayfasi() {
                                         <div className="font-bold text-slate-800 text-sm flex items-center gap-2">
                                             {item.customer_text} 
                                             {item.form_number && <span className="text-[9px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded font-mono">No: {item.form_number}</span>}
+                                            
+                                            {/* 🔥 Listede Fotoğraf İkonu (Eğer varsa) */}
+                                            {item.image_urls && item.image_urls.length > 0 && <ImageIcon size={14} className="text-blue-400" title="Fotoğraflı Kayıt"/>}
                                         </div>
                                         <div className="text-[10px] text-slate-400">{item.customer_rep}</div>
                                     </td>
@@ -317,7 +330,7 @@ export default function AnalizSayfasi() {
       </div>
 
       {/* =========================================================================
-          🔥 MODAL: SAHA RAPORLARI (FOTOĞRAF GÖSTERİMİ EKLENDİ)
+          🔥 MODAL: SAHA RAPORLARI (GELEN ÇOKLU FOTOĞRAFLARI GÖSTERİR)
           ========================================================================= */}
       <AnimatePresence>
         {raporModalAcik && (
@@ -341,7 +354,11 @@ export default function AnalizSayfasi() {
                                 <p className="font-bold">Sahadan bekleyen rapor yok, her şey temiz!</p>
                             </div>
                         ) : (
-                            sesliRaporlar.map(rapor => (
+                            sesliRaporlar.map(rapor => {
+                                // Eski 'image_url' (string) ve yeni 'image_urls' (array) yapılarını birleştir
+                                const resimDizisi = rapor.image_urls ? rapor.image_urls : (rapor.image_url ? [rapor.image_url] : []);
+                                
+                                return (
                                 <div key={rapor.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition">
                                     <div className="flex justify-between items-start mb-3 border-b border-slate-100 pb-3">
                                         <div className="flex items-center gap-3">
@@ -364,24 +381,28 @@ export default function AnalizSayfasi() {
                                         "{rapor.audio_text}"
                                     </div>
 
-                                    {/* 🔥 YENİ: EĞER FOTOĞRAF VARSA GÖSTER 🔥 */}
-                                    {rapor.image_url && (
-                                        <div className="mb-4 border border-slate-200 rounded-xl p-2 bg-slate-50">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-2 flex items-center gap-1 ml-1"><Camera size={12}/> Olay Yeri / Form Fotoğrafı</p>
-                                            <a href={rapor.image_url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg">
-                                                <img src={rapor.image_url} alt="Kanıt Fotoğrafı" className="w-full h-48 object-cover hover:scale-105 transition duration-300" />
-                                            </a>
+                                    {/* 🔥 SAHADAN GELEN ÇOKLU FOTOĞRAFLARI GÖSTER 🔥 */}
+                                    {resimDizisi.length > 0 && (
+                                        <div className="mb-4 border border-slate-200 rounded-xl p-3 bg-slate-50">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 flex items-center gap-1 ml-1"><Camera size={12}/> Olay Yeri Fotoğrafları</p>
+                                            <div className="flex gap-3 overflow-x-auto pb-2">
+                                                {resimDizisi.map((url: string, index: number) => (
+                                                    <a href={url} target="_blank" rel="noreferrer" key={index} className="shrink-0 w-32 h-32 block overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+                                                        <img src={url} alt={`Kanıt ${index+1}`} className="w-full h-full object-cover hover:scale-105 transition duration-300" />
+                                                    </a>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
 
-                                    <div className="flex gap-2">
-                                        <button onClick={() => raporaDonustur(rapor)} className="flex-1 bg-cyan-600 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-cyan-700 transition shadow-lg shadow-cyan-200">
-                                            <Sparkles size={16}/> Sihirli Forma Çevir
+                                    <div className="flex gap-2 mt-4">
+                                        <button onClick={() => raporaDonustur(rapor)} className="flex-1 bg-cyan-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-cyan-700 transition shadow-lg shadow-cyan-200">
+                                            <Sparkles size={16}/> Forma Çevir ve İşle
                                         </button>
-                                        <button onClick={() => raporuSil(rapor.id)} className="bg-white border border-slate-200 text-red-500 p-2.5 rounded-xl hover:bg-red-50 transition"><Trash2 size={16}/></button>
+                                        <button onClick={() => raporuSil(rapor.id)} className="bg-white border border-slate-200 text-red-500 p-3 rounded-xl hover:bg-red-50 transition"><Trash2 size={16}/></button>
                                     </div>
                                 </div>
-                            ))
+                            )})
                         )}
                     </div>
                 </motion.div>
@@ -399,7 +420,7 @@ export default function AnalizSayfasi() {
                     <div className={`p-6 flex justify-between items-center shrink-0 ${duzenlemeId ? 'bg-orange-50 border-b border-orange-100' : aktifRaporId ? 'bg-cyan-50 border-b border-cyan-100' : 'bg-blue-50 border-b border-blue-100'}`}>
                         <h2 className={`text-xl font-bold flex items-center gap-3 ${duzenlemeId ? 'text-orange-700' : aktifRaporId ? 'text-cyan-700' : 'text-blue-700'}`}>
                             {duzenlemeId ? <Edit2 className="w-6 h-6"/> : aktifRaporId ? <Sparkles className="w-6 h-6"/> : <Plus className="w-6 h-6"/>}
-                            {duzenlemeId ? 'Kayıt Düzenle' : aktifRaporId ? 'AI Destekli Kayıt Oluştur' : 'Yeni İşlem Ekle'}
+                            {duzenlemeId ? 'Kayıt Düzenle' : aktifRaporId ? 'Saha Kaydını İşle' : 'Yeni İşlem Ekle'}
                         </h2>
                         <button onClick={() => setFormAcik(false)} className="bg-white/50 hover:bg-white p-2 rounded-full transition"><X size={24} className="text-slate-500"/></button>
                     </div>
@@ -428,27 +449,33 @@ export default function AnalizSayfasi() {
                             </div>
                         </div>
 
+                        {/* 🔥 FORMA ÇEVİRİRKEN FOTOĞRAFLARI KÜÇÜK GÖSTER */}
+                        {yeniKayit.image_urls && yeniKayit.image_urls.length > 0 && (
+                            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-2"><Camera size={12}/> Ekli Fotoğraflar ({yeniKayit.image_urls.length})</span>
+                                <div className="flex gap-2">
+                                    {yeniKayit.image_urls.map((url, i) => (
+                                        <a href={url} target="_blank" rel="noreferrer" key={i}>
+                                            <img src={url} className="w-16 h-16 object-cover rounded-lg border border-slate-300 shadow-sm hover:scale-105 transition" />
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Users size={12}/> Servis Ekibi (Seçiniz)</span>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                                 {PERSONEL_LISTESI.map((personel) => (
-                                    <button 
-                                        key={personel} 
-                                        onClick={() => personelSeciminiGuncelle(personel)}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition border ${secilenPersoneller.includes(personel) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
-                                    >
+                                    <button key={personel} onClick={() => personelSeciminiGuncelle(personel)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition border ${secilenPersoneller.includes(personel) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
                                         {secilenPersoneller.includes(personel) ? <CheckSquare size={14}/> : <Square size={14}/>}
                                         {personel}
                                     </button>
                                 ))}
                             </div>
                             <div className="flex justify-between items-center bg-blue-50 p-3 rounded-xl border border-blue-100">
-                                <span className="text-xs text-blue-700 font-bold">
-                                    {yeniKayit.technician || 'Henüz Kimse Seçilmedi'}
-                                </span>
-                                {secilenPersoneller.length > 0 && (
-                                    <button onClick={personelleriTemizle} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition" title="Seçimi Temizle"><Trash2 size={16} /></button>
-                                )}
+                                <span className="text-xs text-blue-700 font-bold">{yeniKayit.technician || 'Henüz Kimse Seçilmedi'}</span>
+                                {secilenPersoneller.length > 0 && (<button onClick={personelleriTemizle} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition" title="Seçimi Temizle"><Trash2 size={16} /></button>)}
                             </div>
                         </div>
 
@@ -484,7 +511,7 @@ export default function AnalizSayfasi() {
       </AnimatePresence>
 
       {/* =========================================================================
-          🔥 EKİP PERFORMANS ANALİZİ (TARİHÇELİ)
+          🔥 EKİP PERFORMANS ANALİZİ
           ========================================================================= */}
       <AnimatePresence>
         {performansAcik && (
@@ -497,11 +524,7 @@ export default function AnalizSayfasi() {
                                 <h2 className="text-2xl font-black text-slate-800">EKİP PERFORMANSI</h2>
                                 <div className="flex items-center gap-2 mt-1">
                                     <Filter size={12} className="text-purple-400"/>
-                                    <select 
-                                        value={analizTarihi} 
-                                        onChange={(e) => setAnalizTarihi(e.target.value)}
-                                        className="bg-white border-2 border-purple-200 text-purple-700 text-xs font-black px-3 py-1 rounded-full outline-none shadow-sm cursor-pointer hover:bg-purple-100"
-                                    >
+                                    <select value={analizTarihi} onChange={(e) => setAnalizTarihi(e.target.value)} className="bg-white border-2 border-purple-200 text-purple-700 text-xs font-black px-3 py-1 rounded-full outline-none shadow-sm cursor-pointer hover:bg-purple-100">
                                         {Array.from({ length: 7 }, (_, i) => 2024 + i).map(yil => (
                                             ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"].map((ayAdi, index) => {
                                                 const ayValue = `${yil}-${String(index + 1).padStart(2, '0')}`;
@@ -514,21 +537,15 @@ export default function AnalizSayfasi() {
                         </div>
                         <button onClick={() => setPerformansAcik(false)} className="p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition"><X size={24}/></button>
                     </div>
-
                     <div className="flex flex-1 overflow-hidden">
                         <div className="w-1/3 border-r border-slate-100 overflow-y-auto bg-slate-50/50 p-4 space-y-2">
                             {personelAnaliziYap().map((p, index) => (
-                                <button 
-                                    key={index} 
-                                    onClick={() => setAktifPersonelDetay(p)}
-                                    className={`w-full p-4 rounded-2xl flex justify-between items-center transition border ${aktifPersonelDetay?.ad === p.ad ? 'bg-purple-600 text-white shadow-lg shadow-purple-200 border-purple-600' : 'bg-white text-slate-600 hover:bg-white border-slate-200 hover:border-purple-200'}`}
-                                >
+                                <button key={index} onClick={() => setAktifPersonelDetay(p)} className={`w-full p-4 rounded-2xl flex justify-between items-center transition border ${aktifPersonelDetay?.ad === p.ad ? 'bg-purple-600 text-white shadow-lg shadow-purple-200 border-purple-600' : 'bg-white text-slate-600 hover:bg-white border-slate-200 hover:border-purple-200'}`}>
                                     <div className="font-bold text-sm">{p.ad}</div>
                                     <div className={`text-xs font-black px-3 py-1 rounded-full ${aktifPersonelDetay?.ad === p.ad ? 'bg-white/20' : 'bg-slate-100 text-slate-500'}`}>{p.isSayisi} İş</div>
                                 </button>
                             ))}
                         </div>
-
                         <div className="w-2/3 p-8 overflow-y-auto bg-white">
                             {aktifPersonelDetay ? (
                                 <div className="space-y-6">
@@ -539,7 +556,6 @@ export default function AnalizSayfasi() {
                                         </div>
                                         <div className="text-4xl font-black text-purple-600">{aktifPersonelDetay.isSayisi}</div>
                                     </div>
-
                                     {aktifPersonelDetay.detaylar.length > 0 ? (
                                         <div className="grid gap-3">
                                             {aktifPersonelDetay.detaylar.map((is: any) => (
@@ -558,19 +574,9 @@ export default function AnalizSayfasi() {
                                                 </div>
                                             ))}
                                         </div>
-                                    ) : (
-                                        <div className="text-center py-20 text-slate-400">
-                                            <div className="flex justify-center mb-4"><Package size={48} className="opacity-20"/></div>
-                                            <p>Bu ay için kayıt bulunamadı.</p>
-                                        </div>
-                                    )}
+                                    ) : (<div className="text-center py-20 text-slate-400"><div className="flex justify-center mb-4"><Package size={48} className="opacity-20"/></div><p>Bu ay için kayıt bulunamadı.</p></div>)}
                                 </div>
-                            ) : (
-                                <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                                    <Users size={64} className="opacity-10 mb-4"/>
-                                    <p className="font-medium">Detaylarını görmek için soldan bir personel seçin.</p>
-                                </div>
-                            )}
+                            ) : (<div className="h-full flex flex-col items-center justify-center text-slate-400"><Users size={64} className="opacity-10 mb-4"/><p className="font-medium">Detaylarını görmek için soldan bir personel seçin.</p></div>)}
                         </div>
                     </div>
                 </motion.div>
@@ -578,7 +584,9 @@ export default function AnalizSayfasi() {
         )}
       </AnimatePresence>
 
-      {/* DETAY MODALI */}
+      {/* =========================================================================
+          🔥 DETAY MODALI (KALICI FOTOĞRAF ARŞİVİ GÖSTERİMİ) 🔥
+          ========================================================================= */}
       <AnimatePresence>
         {seciliKayit && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setSeciliKayit(null)}>
@@ -624,6 +632,20 @@ export default function AnalizSayfasi() {
                       <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><FileText size={18}/> Detay</h3>
                       <div className="bg-slate-50 p-5 rounded-2xl text-sm text-slate-600 whitespace-pre-line">{seciliKayit.description}</div>
                   </div>
+
+                  {/* 🔥 İŞTE BURASI: YILLAR SONRA BİLE AÇIP BAKABİLECEĞİN KALICI FOTOĞRAF GALERİSİ 🔥 */}
+                  {seciliKayit.image_urls && seciliKayit.image_urls.length > 0 && (
+                      <div>
+                          <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Camera size={18} className="text-blue-600"/> Olay Yeri / Form Fotoğrafları</h3>
+                          <div className="flex gap-4 overflow-x-auto pb-2">
+                              {seciliKayit.image_urls.map((url: string, i: number) => (
+                                  <a href={url} target="_blank" rel="noreferrer" key={i} className="shrink-0 block">
+                                      <img src={url} alt={`Kanıt ${i+1}`} className="w-48 h-32 object-cover rounded-xl border border-slate-200 shadow-sm hover:scale-105 transition duration-300" />
+                                  </a>
+                              ))}
+                          </div>
+                      </div>
+                  )}
 
                   {seciliKayit.materials && Array.isArray(seciliKayit.materials) && seciliKayit.materials.length > 0 && (
                       <div>
