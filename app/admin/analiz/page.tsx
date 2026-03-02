@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - PRO ANALİZ MODÜLÜ 🛠️
-// Versiyon: 9.0 (Çoklu Fotoğraf ve Kalıcı Olay Yeri Arşivi 📸)
+// Versiyon: 9.1 (TypeScript Title Hatası Giderildi ✔️)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -60,7 +60,7 @@ export default function AnalizSayfasi() {
   const [tempAdet, setTempAdet] = useState("1");
   const [tempBirimFiyat, setTempBirimFiyat] = useState(""); 
 
-  // YENİ KAYIT FORMU (image_urls eklendi)
+  // YENİ KAYIT FORMU 
   const [yeniKayit, setYeniKayit] = useState({
     service_date: new Date().toISOString().split('T')[0],
     customer_text: '', company_address: '', customer_rep: '',    
@@ -196,8 +196,7 @@ export default function AnalizSayfasi() {
           }
       }
 
-      // Eski sürümde 'image_url' (tekil) gelmiş olabilir, yeni sürümde 'image_urls' (dizi) geliyor. Hepsini yakalayalım.
-      const resimler = rapor.image_urls || (rapor.image_url ? [rapor.image_url] : []);
+      const resimler = rapor.image_urls ? rapor.image_urls : (rapor.image_url ? [rapor.image_url] : []);
 
       setAktifRaporId(rapor.id); 
       setYeniKayit({
@@ -206,8 +205,8 @@ export default function AnalizSayfasi() {
           form_number: rapor.form_number || "",
           work_hours: rapor.work_hours ? String(rapor.work_hours) : "",
           technician: rapor.technician_name,
-          image_urls: resimler, // 🔥 Fotoğrafları kalıcı olarak yeni kayda devrediyoruz
-          description: `🎙️ SAHA SES KAYDI:\n"${rapor.audio_text}"\n\n--- Lütfen yukarıdaki bilgilere göre eksikleri tamamlayın ---`
+          image_urls: resimler,
+          description: `🎙️ SAHA SES KAYDI:\n"${rapor.audio_text}"\n\n${resimler.length > 0 ? `📸 ${resimler.length} FOTOĞRAF KANITI SİSTEMDE MEVCUT\n\n` : ''}--- Lütfen yukarıdaki bilgilere göre eksikleri tamamlayın ---`
       });
       
       setSecilenPersoneller([rapor.technician_name]);
@@ -219,7 +218,6 @@ export default function AnalizSayfasi() {
     if (!yeniKayit.customer_text || !yeniKayit.price) return alert("Müşteri ve Fiyat zorunludur.");
     setYukleniyor(true);
     
-    // image_urls dizisini de veritabanına kaydediyoruz
     const veriPaketi = { 
         ...yeniKayit, 
         work_hours: yeniKayit.work_hours ? Number(yeniKayit.work_hours) : 0, 
@@ -312,8 +310,12 @@ export default function AnalizSayfasi() {
                                             {item.customer_text} 
                                             {item.form_number && <span className="text-[9px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded font-mono">No: {item.form_number}</span>}
                                             
-                                            {/* 🔥 Listede Fotoğraf İkonu (Eğer varsa) */}
-                                            {item.image_urls && item.image_urls.length > 0 && <ImageIcon size={14} className="text-blue-400" title="Fotoğraflı Kayıt"/>}
+                                            {/* 🔥 DÜZELTME BURADA: title HTML prop'u için span kullanıyoruz */}
+                                            {item.image_urls && item.image_urls.length > 0 && (
+                                                <span title="Fotoğraflı Kayıt" className="flex items-center">
+                                                    <ImageIcon size={14} className="text-blue-400" />
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="text-[10px] text-slate-400">{item.customer_rep}</div>
                                     </td>
@@ -330,7 +332,7 @@ export default function AnalizSayfasi() {
       </div>
 
       {/* =========================================================================
-          🔥 MODAL: SAHA RAPORLARI (GELEN ÇOKLU FOTOĞRAFLARI GÖSTERİR)
+          🔥 MODAL: SAHA RAPORLARI
           ========================================================================= */}
       <AnimatePresence>
         {raporModalAcik && (
@@ -355,7 +357,6 @@ export default function AnalizSayfasi() {
                             </div>
                         ) : (
                             sesliRaporlar.map(rapor => {
-                                // Eski 'image_url' (string) ve yeni 'image_urls' (array) yapılarını birleştir
                                 const resimDizisi = rapor.image_urls ? rapor.image_urls : (rapor.image_url ? [rapor.image_url] : []);
                                 
                                 return (
@@ -381,7 +382,6 @@ export default function AnalizSayfasi() {
                                         "{rapor.audio_text}"
                                     </div>
 
-                                    {/* 🔥 SAHADAN GELEN ÇOKLU FOTOĞRAFLARI GÖSTER 🔥 */}
                                     {resimDizisi.length > 0 && (
                                         <div className="mb-4 border border-slate-200 rounded-xl p-3 bg-slate-50">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 flex items-center gap-1 ml-1"><Camera size={12}/> Olay Yeri Fotoğrafları</p>
@@ -449,25 +449,15 @@ export default function AnalizSayfasi() {
                             </div>
                         </div>
 
-                        {/* 🔥 FORMA ÇEVİRİRKEN FOTOĞRAFLARI KÜÇÜK GÖSTER */}
-                        {yeniKayit.image_urls && yeniKayit.image_urls.length > 0 && (
-                            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-2"><Camera size={12}/> Ekli Fotoğraflar ({yeniKayit.image_urls.length})</span>
-                                <div className="flex gap-2">
-                                    {yeniKayit.image_urls.map((url, i) => (
-                                        <a href={url} target="_blank" rel="noreferrer" key={i}>
-                                            <img src={url} className="w-16 h-16 object-cover rounded-lg border border-slate-300 shadow-sm hover:scale-105 transition" />
-                                        </a>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Users size={12}/> Servis Ekibi (Seçiniz)</span>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                                 {PERSONEL_LISTESI.map((personel) => (
-                                    <button key={personel} onClick={() => personelSeciminiGuncelle(personel)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition border ${secilenPersoneller.includes(personel) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+                                    <button 
+                                        key={personel} 
+                                        onClick={() => personelSeciminiGuncelle(personel)}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition border ${secilenPersoneller.includes(personel) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                                    >
                                         {secilenPersoneller.includes(personel) ? <CheckSquare size={14}/> : <Square size={14}/>}
                                         {personel}
                                     </button>
@@ -511,7 +501,7 @@ export default function AnalizSayfasi() {
       </AnimatePresence>
 
       {/* =========================================================================
-          🔥 EKİP PERFORMANS ANALİZİ
+          🔥 EKİP PERFORMANS ANALİZİ 
           ========================================================================= */}
       <AnimatePresence>
         {performansAcik && (
@@ -585,7 +575,7 @@ export default function AnalizSayfasi() {
       </AnimatePresence>
 
       {/* =========================================================================
-          🔥 DETAY MODALI (KALICI FOTOĞRAF ARŞİVİ GÖSTERİMİ) 🔥
+          🔥 DETAY MODALI (POP-UP PENCERE) 
           ========================================================================= */}
       <AnimatePresence>
         {seciliKayit && (
