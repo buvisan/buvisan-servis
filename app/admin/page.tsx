@@ -1,7 +1,7 @@
 "use client";
 // --------------------------------------------------------
-// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V3.0 🛠️
-// (Gelişmiş Manuel İş Emri + Aciliyet Sistemi + Ekip Atama)
+// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V3.1 🛠️
+// (Manuel İş Emrinde Çoklu Ekip Seçimi Eklendi 👥)
 // --------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -13,7 +13,7 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, Loader2
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2
 } from 'lucide-react';
 
 // 🔥 SABİT PERSONEL LİSTESİ
@@ -33,6 +33,11 @@ export default function AdminPanel() {
 
   // 🔥 GELİŞMİŞ MANUEL ARIZA KAYDI STATE'LERİ 🔥
   const [manuelFormAcik, setManuelFormAcik] = useState(false);
+  const [kaydediliyor, setKaydediliyor] = useState(false);
+  
+  // ÇOKLU SEÇİM İÇİN GEÇİCİ STATE
+  const [secilenManuelPersoneller, setSecilenManuelPersoneller] = useState<string[]>([]);
+  
   const [manuelKayit, setManuelKayit] = useState({
       firma_adi: '',
       yetkili: '',
@@ -43,7 +48,6 @@ export default function AdminPanel() {
       ekip: '',
       sorun: ''
   });
-  const [kaydediliyor, setKaydediliyor] = useState(false);
 
   // --- SAYFA YÜKLENİRKEN --
   useEffect(() => { guvenlikVeVeri(); }, []);
@@ -79,7 +83,20 @@ export default function AdminPanel() {
     if (!error) guvenlikVeVeri(); else alert("Güncelleme hatası: " + error.message);
   }
 
-  // 🔥 GELİŞMİŞ MANUEL ARIZA KAYDETME FONKSİYONU 🔥
+  // 🔥 ÇOKLU PERSONEL SEÇİM FONKSİYONU 🔥
+  const manuelPersonelSeciminiGuncelle = (personel: string) => {
+      let yeniListe = [...secilenManuelPersoneller];
+      if (yeniListe.includes(personel)) {
+          yeniListe = yeniListe.filter(p => p !== personel);
+      } else {
+          yeniListe.push(personel);
+      }
+      
+      setSecilenManuelPersoneller(yeniListe);
+      setManuelKayit({...manuelKayit, ekip: yeniListe.join(" - ")});
+  };
+
+  // 🔥 MANUEL ARIZA KAYDETME FONKSİYONU 🔥
   async function manuelArizaKaydet() {
       if(!manuelKayit.firma_adi || !manuelKayit.sorun) {
           alert("Lütfen en azından Firma Adı ve Sorun alanlarını doldurun.");
@@ -108,6 +125,7 @@ export default function AdminPanel() {
           alert("Kaydedilemedi: " + error.message);
       } else {
           setManuelFormAcik(false);
+          setSecilenManuelPersoneller([]); // Personel listesini sıfırla
           setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '' });
           guvenlikVeVeri(); // Listeyi yenile
       }
@@ -172,7 +190,7 @@ export default function AdminPanel() {
             <div className="hidden md:flex bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex-col justify-center items-center text-center">
                 <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4"><LayoutDashboard size={32}/></div>
                 <h3 className="text-slate-800 font-bold text-lg">Yönetim Paneli</h3>
-                <p className="text-slate-400 text-xs mt-1">v3.0 Aktif</p>
+                <p className="text-slate-400 text-xs mt-1">v3.1 Aktif</p>
                 <div className="mt-4 w-full h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 w-2/3 rounded-full"></div></div>
             </div>
         </div>
@@ -308,7 +326,7 @@ export default function AdminPanel() {
                           )}
                       </div>
                     </div>
-                    
+                    {/* CHAT ALANI ENTEGRASYONU */}
                     <AnimatePresence>
                         {aktifChatId === kayit.id && !kayit.manual_customer_name && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-6 border-t pt-4 overflow-hidden">
@@ -329,7 +347,7 @@ export default function AdminPanel() {
           ========================================================================= */}
       <AnimatePresence>
         {manuelFormAcik && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setManuelFormAcik(false)}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto" onClick={() => { setManuelFormAcik(false); setSecilenManuelPersoneller([]); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '' }); }}>
                 <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-full max-w-3xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col my-auto" onClick={e => e.stopPropagation()}>
                     
                     {/* Modal Başlık */}
@@ -342,7 +360,7 @@ export default function AdminPanel() {
                                 <p className="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1">Saha Ekiplerine Yönlendir</p>
                             </div>
                         </div>
-                        <button onClick={() => setManuelFormAcik(false)} className="text-slate-400 hover:text-white bg-slate-800 hover:bg-red-500 p-2.5 rounded-full transition relative z-10"><X size={20}/></button>
+                        <button onClick={() => { setManuelFormAcik(false); setSecilenManuelPersoneller([]); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '' }); }} className="text-slate-400 hover:text-white bg-slate-800 hover:bg-red-500 p-2.5 rounded-full transition relative z-10"><X size={20}/></button>
                     </div>
 
                     {/* Form İçeriği */}
@@ -355,7 +373,7 @@ export default function AdminPanel() {
                                 <input type="text" placeholder="Örn: Togg Fabrikası" value={manuelKayit.firma_adi} onChange={e => setManuelKayit({...manuelKayit, firma_adi: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
                             </div>
                             <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><User size={12}/> Yetkili Kişi</label>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><User size={12}/> Yetkili Kişi (Opsiyonel)</label>
                                 <input type="text" placeholder="Örn: Ahmet Bey" value={manuelKayit.yetkili} onChange={e => setManuelKayit({...manuelKayit, yetkili: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
                             </div>
                             <div>
@@ -387,24 +405,46 @@ export default function AdminPanel() {
                             </div>
                         </div>
 
-                        {/* Ekip Atama */}
-                        <div>
-                            <label className="text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Truck size={12}/> Operasyona Yönlendirilecek Ekip</label>
-                            <select value={manuelKayit.ekip} onChange={e => setManuelKayit({...manuelKayit, ekip: e.target.value})} className="w-full p-4 bg-blue-50 border border-blue-200 rounded-2xl text-sm font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm cursor-pointer">
-                                <option value="">Sahadaki Ekibi Seçin (Opsiyonel)</option>
-                                {PERSONEL_LISTESI.map(isim => <option key={isim} value={isim}>{isim}</option>)}
-                            </select>
+                        {/* 🔥 GÜNCELLENMİŞ ÇOKLU EKİP ATAMA ALANI 🔥 */}
+                        <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-3">
+                            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-2"><Truck size={12}/> Operasyona Yönlendirilecek Ekip (Seçiniz)</span>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                {PERSONEL_LISTESI.map((personel) => (
+                                    <button
+                                        key={personel}
+                                        onClick={() => manuelPersonelSeciminiGuncelle(personel)}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition border ${secilenManuelPersoneller.includes(personel) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                                    >
+                                        {secilenManuelPersoneller.includes(personel) ? <CheckSquare size={14}/> : <Square size={14}/>}
+                                        {personel}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200">
+                                <span className="text-xs text-blue-700 font-bold">
+                                    {manuelKayit.ekip || 'Henüz Kimse Seçilmedi'}
+                                </span>
+                                {secilenManuelPersoneller.length > 0 && (
+                                    <button 
+                                        onClick={() => { setSecilenManuelPersoneller([]); setManuelKayit({...manuelKayit, ekip: ''}); }} 
+                                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition" 
+                                        title="Seçimi Temizle"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {/* Sorun Detayı */}
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertCircle size={12}/> Arıza Detayı / Müşteri Bildirimi <span className="text-red-500">*</span></label>
-                            <textarea rows={4} placeholder="Müşterinin telefonda bildirdiği sorunu buraya detaylıca yazın..." value={manuelKayit.sorun} onChange={e => setManuelKayit({...manuelKayit, sorun: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm leading-relaxed"/>
+                            <textarea rows={4} placeholder="Müşterinin telefonda bildirdiği sorunu buraya detaylıca yazın... Bu bilgi sahaya iş emri olarak düşecek." value={manuelKayit.sorun} onChange={e => setManuelKayit({...manuelKayit, sorun: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm leading-relaxed"/>
                         </div>
                     </div>
 
                     <div className="p-6 border-t border-slate-200 bg-white flex justify-end gap-3 shrink-0">
-                        <button onClick={() => setManuelFormAcik(false)} className="px-6 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition text-sm">İptal</button>
+                        <button onClick={() => { setManuelFormAcik(false); setSecilenManuelPersoneller([]); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '' }); }} className="px-6 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition text-sm">İptal</button>
                         <button onClick={manuelArizaKaydet} disabled={kaydediliyor} className="px-8 py-3.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 flex items-center gap-2 text-sm active:scale-95">
                             {kaydediliyor ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>}
                             {kaydediliyor ? 'Kaydediliyor...' : 'İş Emrini Sisteme Gönder'}
