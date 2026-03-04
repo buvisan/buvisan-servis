@@ -1,7 +1,7 @@
 "use client";
 // --------------------------------------------------------
-// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V2.2 🛠️
-// (Manuel Arıza Kaydı / İş Emri Özelliği Eklendi 📝)
+// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V3.0 🛠️
+// (Gelişmiş Manuel İş Emri + Aciliyet Sistemi + Ekip Atama)
 // --------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -12,8 +12,14 @@ import ChatAlani from '@/components/ChatAlani';
 import { 
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
-  Package, FileText, TrendingUp, User, Building2, Save, X, Loader2
+  Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
+  AlertTriangle, Truck, Settings, Loader2
 } from 'lucide-react';
+
+// 🔥 SABİT PERSONEL LİSTESİ
+const PERSONEL_LISTESI = [
+  "VOLKAN ACAR", "HAMZA ATTAR", "VEYSEL ÇARKLI", "KERİM AKDOĞAN" , "GÖKHAN GÖK" , "BASİL HAVATİMİ" , "BURHAN KANDEMİR" , "OKAN ARAN" , "ADEM ACAR"
+];
 
 export default function AdminPanel() {
   const router = useRouter();
@@ -25,12 +31,16 @@ export default function AdminPanel() {
   const [erisimIzni, setErisimIzni] = useState(false);
   const [istatistikler, setIstatistikler] = useState({ bekleyen: 0, cozulen: 0, toplam: 0 });
 
-  // 🔥 YENİ: MANUEL ARIZA KAYDI STATE'LERİ 🔥
+  // 🔥 GELİŞMİŞ MANUEL ARIZA KAYDI STATE'LERİ 🔥
   const [manuelFormAcik, setManuelFormAcik] = useState(false);
   const [manuelKayit, setManuelKayit] = useState({
       firma_adi: '',
       yetkili: '',
+      telefon: '',
       adres: '',
+      vinc_bilgisi: '',
+      aciliyet: 'Normal', // Normal, Yüksek, Kritik (Makine Durdu)
+      ekip: '',
       sorun: ''
   });
   const [kaydediliyor, setKaydediliyor] = useState(false);
@@ -69,7 +79,7 @@ export default function AdminPanel() {
     if (!error) guvenlikVeVeri(); else alert("Güncelleme hatası: " + error.message);
   }
 
-  // 🔥 YENİ: MANUEL ARIZA KAYDETME FONKSİYONU 🔥
+  // 🔥 GELİŞMİŞ MANUEL ARIZA KAYDETME FONKSİYONU 🔥
   async function manuelArizaKaydet() {
       if(!manuelKayit.firma_adi || !manuelKayit.sorun) {
           alert("Lütfen en azından Firma Adı ve Sorun alanlarını doldurun.");
@@ -78,19 +88,17 @@ export default function AdminPanel() {
 
       setKaydediliyor(true);
 
-      // Gerçekten QR okutmuş gibi service_tickets tablosuna manuel kayıt ekliyoruz
-      // (cranes tablosunda olmadığı için cranes_id null olacak, müşteri adını manuel tutmak için manual_customer_name gibi bir yapı kullanabiliriz)
-      
       const { error } = await supabase.from('service_tickets').insert([
           {
               description: manuelKayit.sorun,
               status: 'bekliyor',
-              // Normalde vinç ID'sine bağlıyorduk. Manuel kayıtlarda vincin sistemde kayıtlı olmama ihtimaline karşı 
-              // description içine veya ayrı sütunlara ekleyebiliriz. Şimdilik her şeyi description içine şık bir formatta gömüyoruz
-              // ki "Son Bildirimler" ekranı hatasız çalışsın.
               manual_customer_name: manuelKayit.firma_adi,
               manual_customer_rep: manuelKayit.yetkili,
-              manual_location: manuelKayit.adres
+              manual_phone: manuelKayit.telefon,
+              manual_location: manuelKayit.adres,
+              manual_crane_info: manuelKayit.vinc_bilgisi,
+              priority: manuelKayit.aciliyet,
+              assigned_team: manuelKayit.ekip
           }
       ]);
 
@@ -100,12 +108,11 @@ export default function AdminPanel() {
           alert("Kaydedilemedi: " + error.message);
       } else {
           setManuelFormAcik(false);
-          setManuelKayit({ firma_adi: '', yetkili: '', adres: '', sorun: '' });
+          setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '' });
           guvenlikVeVeri(); // Listeyi yenile
       }
   }
 
-  // --- ÇIKIŞ ---
   async function cikisYap() {
     await supabase.auth.signOut();
     router.push('/login');
@@ -165,7 +172,7 @@ export default function AdminPanel() {
             <div className="hidden md:flex bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex-col justify-center items-center text-center">
                 <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4"><LayoutDashboard size={32}/></div>
                 <h3 className="text-slate-800 font-bold text-lg">Yönetim Paneli</h3>
-                <p className="text-slate-400 text-xs mt-1">v2.2 Aktif</p>
+                <p className="text-slate-400 text-xs mt-1">v3.0 Aktif</p>
                 <div className="mt-4 w-full h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 w-2/3 rounded-full"></div></div>
             </div>
         </div>
@@ -175,11 +182,11 @@ export default function AdminPanel() {
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><div className="w-1 h-6 bg-slate-800 rounded-full"></div> Operasyonlar</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                 
-                {/* 🔥 YENİ: MANUEL ARIZA GİRİŞİ BUTONU 🔥 */}
+                {/* MANUEL ARIZA GİRİŞİ BUTONU */}
                 <motion.button whileHover={{ y: -3 }} onClick={() => setManuelFormAcik(true)} className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-md border border-slate-700 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
-                    <div className="absolute -right-4 -bottom-4 opacity-10"><Wrench size={80}/></div>
+                    <div className="absolute -right-4 -bottom-4 opacity-10"><Settings size={80}/></div>
                     <div className="bg-white/10 text-white w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-white/20 transition-colors relative z-10"><Plus size={20}/></div>
-                    <div className="relative z-10"><h3 className="font-bold text-white text-sm">Arıza Ekle</h3><p className="text-[10px] text-slate-400">Manuel iş emri</p></div>
+                    <div className="relative z-10"><h3 className="font-bold text-white text-sm">İş Emri Ekle</h3><p className="text-[10px] text-slate-400">Manuel arıza kaydı</p></div>
                 </motion.button>
 
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/yeni-vinc')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
@@ -219,57 +226,89 @@ export default function AdminPanel() {
                   <h3 className="text-lg font-bold text-slate-700">Tertemiz!</h3><p className="text-slate-400 text-sm mt-1">Bekleyen iş emri bulunmuyor.</p>
                 </div>
               ) : (
-                bildirimler.map((kayit) => (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={kayit.id} className={`bg-white p-6 rounded-3xl shadow-sm border hover:shadow-md transition-all relative overflow-hidden ${kayit.status === 'tamamlandi' ? 'border-slate-100 border-l-[6px] border-l-green-500' : 'border-slate-100 border-l-[6px] border-l-red-500 bg-red-50/10'}`}>
+                bildirimler.map((kayit) => {
+                  const isKritik = kayit.priority === 'Kritik (Makine Durdu)';
+                  
+                  return (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={kayit.id} 
+                    className={`bg-white p-6 rounded-3xl shadow-sm border hover:shadow-md transition-all relative overflow-hidden 
+                    ${kayit.status === 'tamamlandi' ? 'border-slate-100 border-l-[6px] border-l-green-500 opacity-60' : 
+                      isKritik ? 'border-red-300 border-l-[6px] border-l-red-600 shadow-red-100 bg-red-50/20' : 'border-slate-100 border-l-[6px] border-l-orange-400'}`}>
+                    
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                       <div className="flex-1 space-y-3 w-full">
+                        
+                        {/* ROZETLER */}
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className={`px-3 py-1 text-[10px] font-bold rounded-full flex items-center gap-1 shadow-sm border ${kayit.status === 'tamamlandi' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200 animate-pulse'}`}>
+                            <span className={`px-3 py-1 text-[10px] font-bold rounded-full flex items-center gap-1 shadow-sm border ${kayit.status === 'tamamlandi' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-orange-100 text-orange-700 border-orange-200 animate-pulse'}`}>
                                 {kayit.status === 'tamamlandi' ? <CheckCircle2 className="w-3 h-3"/> : <Clock className="w-3 h-3"/>}
                                 {kayit.status === 'tamamlandi' ? 'ÇÖZÜLDÜ' : 'BEKLİYOR'}
                             </span>
                             <span className="text-slate-400 text-[10px] font-bold font-mono bg-slate-100 px-3 py-1 rounded-full flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(kayit.created_at).toLocaleString('tr-TR', { day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' })}</span>
                             
-                            {/* Manuel Kayıt Rozeti */}
-                            {kayit.manual_customer_name && (
-                                <span className="bg-slate-800 text-white text-[9px] font-bold px-2 py-1 rounded-full flex items-center gap-1"><Wrench size={10}/> Manuel Kayıt</span>
+                            {/* Kritik Rozeti */}
+                            {isKritik && kayit.status !== 'tamamlandi' && (
+                                <span className="bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 animate-bounce shadow-lg shadow-red-500/50">
+                                    <AlertTriangle className="w-3 h-3"/> MAKİNE DURDU!
+                                </span>
+                            )}
+
+                            {/* Ekip Atama Rozeti */}
+                            {kayit.assigned_team && (
+                                <span className="bg-blue-50 text-blue-600 border border-blue-200 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                                    <Truck className="w-3 h-3"/> Ekip: {kayit.assigned_team}
+                                </span>
                             )}
                         </div>
+
+                        {/* MÜŞTERİ BİLGİLERİ */}
                         <div>
-                          {/* QR ile gelenlerde cranes.customer_name var, manuel gelenlerde manual_customer_name var */}
                           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                               {kayit.cranes?.customer_name || kayit.manual_customer_name || "Bilinmeyen Müşteri"}
                           </h3>
-                          <div className="flex items-center gap-2 text-slate-500 text-xs mt-1">
-                              <MapPin className="w-3 h-3 text-blue-500" />
-                              <span>{kayit.cranes?.location_address || kayit.manual_location || "Adres Belirtilmemiş"}</span>
-                              {kayit.cranes?.model_name && (
-                                  <>
-                                      <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                      <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">{kayit.cranes.model_name}</span>
-                                  </>
+                          <div className="flex flex-wrap items-center gap-3 text-slate-500 text-xs mt-1">
+                              <div className="flex items-center gap-1"><MapPin className="w-3 h-3 text-blue-500" /> <span>{kayit.cranes?.location_address || kayit.manual_location || "Adres Belirtilmemiş"}</span></div>
+                              
+                              {/* Telefon (Tıklanabilir) */}
+                              {kayit.manual_phone && (
+                                  <a href={`tel:${kayit.manual_phone}`} className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded hover:bg-emerald-100 transition">
+                                      <Phone className="w-3 h-3" /> {kayit.manual_phone}
+                                  </a>
                               )}
+                              
+                              {(kayit.cranes?.model_name || kayit.manual_crane_info) && (
+                                  <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                      {kayit.cranes?.model_name || kayit.manual_crane_info}
+                                  </span>
+                              )}
+
                               {kayit.manual_customer_rep && (
-                                  <>
-                                      <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                      <span className="font-semibold text-slate-700"><User size={12} className="inline mr-1"/>{kayit.manual_customer_rep}</span>
-                                  </>
+                                  <span className="font-semibold text-slate-500"><User size={12} className="inline mr-1"/>{kayit.manual_customer_rep}</span>
                               )}
                           </div>
                         </div>
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-slate-700 text-sm relative"><Wrench className="w-6 h-6 text-slate-200 absolute top-2 right-2" /><span className="font-bold text-slate-900 block mb-1 text-xs uppercase">Sorun:</span> {kayit.description}</div>
+
+                        {/* SORUN DETAYI */}
+                        <div className={`p-4 rounded-xl border text-sm relative ${isKritik && kayit.status !== 'tamamlandi' ? 'bg-red-50 border-red-100 text-red-900' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
+                            <Wrench className={`w-6 h-6 absolute top-2 right-2 ${isKritik ? 'text-red-200' : 'text-slate-200'}`} />
+                            <span className="font-bold block mb-1 text-xs uppercase">Sorun / Arıza Detayı:</span> 
+                            <p className="whitespace-pre-line">{kayit.description}</p>
+                        </div>
+                        
                         {kayit.media_url && (<div className="pt-2"><a href={kayit.media_url} target="_blank" className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-100 transition border border-blue-100"><Camera className="w-3 h-3" /> Fotoğrafı Görüntüle</a></div>)}
                       </div>
+
+                      {/* İŞLEM BUTONLARI */}
                       <div className="w-full md:w-auto flex flex-col gap-2 min-w-[200px]">
                           {kayit.status !== 'tamamlandi' && (<button onClick={() => durumuGuncelle(kayit.id, 'tamamlandi')} className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-green-200 transition-all flex items-center justify-center gap-2 text-sm"><CheckCircle2 className="w-4 h-4" /> <span>Çözüldü İşaretle</span></button>)}
                           
-                          {/* Chat butonunu sadece QR ile gelenlerde göster (Manuel kayıtta müşteri uygulamada olmadığı için chat yapamaz) */}
+                          {/* QR ile gelenlerde müşteri chat açılsın */}
                           {!kayit.manual_customer_name && (
                               <button onClick={() => setAktifChatId(aktifChatId === kayit.id ? null : kayit.id)} className="w-full bg-white border border-slate-200 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm hover:bg-slate-50 transition flex items-center justify-center gap-2"><span>💬 {aktifChatId === kayit.id ? 'Sohbeti Kapat' : 'Müşteriyle Mesajlaş'}</span></button>
                           )}
                       </div>
                     </div>
-                    {/* CHAT ALANI ENTEGRASYONU */}
+                    
                     <AnimatePresence>
                         {aktifChatId === kayit.id && !kayit.manual_customer_name && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-6 border-t pt-4 overflow-hidden">
@@ -278,7 +317,7 @@ export default function AdminPanel() {
                         )}
                     </AnimatePresence>
                   </motion.div>
-                ))
+                )})
               )}
             </div>
         </div>
@@ -286,52 +325,89 @@ export default function AdminPanel() {
       </div>
 
       {/* =========================================================================
-          🔥 MODAL: MANUEL ARIZA GİRİŞ FORMU
+          🔥 MODAL: GELİŞMİŞ MANUEL ARIZA GİRİŞ FORMU 🔥
           ========================================================================= */}
       <AnimatePresence>
         {manuelFormAcik && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setManuelFormAcik(false)}>
-                <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setManuelFormAcik(false)}>
+                <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-full max-w-3xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col my-auto" onClick={e => e.stopPropagation()}>
                     
-                    <div className="p-6 bg-slate-900 text-white flex justify-between items-center border-b border-slate-800">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-slate-800 rounded-lg text-blue-400"><Wrench size={20}/></div>
+                    {/* Modal Başlık */}
+                    <div className="p-6 md:p-8 bg-slate-900 text-white flex justify-between items-center relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-8 opacity-5"><Settings size={100}/></div>
+                        <div className="flex items-center gap-4 relative z-10">
+                            <div className="p-3 bg-blue-500/20 rounded-2xl text-blue-400 border border-blue-500/30"><Wrench size={24}/></div>
                             <div>
-                                <h2 className="text-xl font-bold">Manuel Arıza Ekle</h2>
-                                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Sisteme İş Emri Oluştur</p>
+                                <h2 className="text-2xl font-black tracking-tight">Yeni İş Emri Oluştur</h2>
+                                <p className="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1">Saha Ekiplerine Yönlendir</p>
                             </div>
                         </div>
-                        <button onClick={() => setManuelFormAcik(false)} className="text-slate-400 hover:text-white bg-slate-800 hover:bg-red-500 p-2 rounded-full transition"><X size={20}/></button>
+                        <button onClick={() => setManuelFormAcik(false)} className="text-slate-400 hover:text-white bg-slate-800 hover:bg-red-500 p-2.5 rounded-full transition relative z-10"><X size={20}/></button>
                     </div>
 
-                    <div className="p-6 space-y-4 bg-slate-50">
-                        <div>
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Building2 size={12}/> Firma / Müşteri Adı <span className="text-red-500">*</span></label>
-                            <input type="text" placeholder="Örn: Togg Fabrikası" value={manuelKayit.firma_adi} onChange={e => setManuelKayit({...manuelKayit, firma_adi: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
-                        </div>
+                    {/* Form İçeriği */}
+                    <div className="p-6 md:p-8 space-y-6 bg-slate-50">
                         
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><User size={12}/> Yetkili Kişi (Opsiyonel)</label>
-                                <input type="text" placeholder="Örn: Ahmet Bey" value={manuelKayit.yetkili} onChange={e => setManuelKayit({...manuelKayit, yetkili: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
+                        {/* Müşteri Temel Bilgiler */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Building2 size={12}/> Firma / Müşteri Adı <span className="text-red-500">*</span></label>
+                                <input type="text" placeholder="Örn: Togg Fabrikası" value={manuelKayit.firma_adi} onChange={e => setManuelKayit({...manuelKayit, firma_adi: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
                             </div>
                             <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><MapPin size={12}/> Lokasyon (Opsiyonel)</label>
-                                <input type="text" placeholder="Örn: İnegöl OSB" value={manuelKayit.adres} onChange={e => setManuelKayit({...manuelKayit, adres: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><User size={12}/> Yetkili Kişi</label>
+                                <input type="text" placeholder="Örn: Ahmet Bey" value={manuelKayit.yetkili} onChange={e => setManuelKayit({...manuelKayit, yetkili: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Phone size={12}/> İletişim Numarası</label>
+                                <input type="text" placeholder="Örn: 0532 123 45 67" value={manuelKayit.telefon} onChange={e => setManuelKayit({...manuelKayit, telefon: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><MapPin size={12}/> Açık Adres / Lokasyon</label>
+                                <input type="text" placeholder="Örn: İnegöl OSB, 1. Cadde" value={manuelKayit.adres} onChange={e => setManuelKayit({...manuelKayit, adres: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
                             </div>
                         </div>
 
+                        <div className="h-px w-full bg-slate-200 my-2"></div>
+
+                        {/* İş ve Vinç Detayları */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="md:col-span-2">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Settings size={12}/> Makine / Vinç Bilgisi</label>
+                                <input type="text" placeholder="Örn: 10 Ton Çift Kiriş Gezer Köprülü" value={manuelKayit.vinc_bilgisi} onChange={e => setManuelKayit({...manuelKayit, vinc_bilgisi: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertTriangle size={12}/> Aciliyet</label>
+                                <select value={manuelKayit.aciliyet} onChange={e => setManuelKayit({...manuelKayit, aciliyet: e.target.value})} className={`w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm cursor-pointer ${manuelKayit.aciliyet === 'Kritik (Makine Durdu)' ? 'text-red-600 bg-red-50 border-red-200' : ''}`}>
+                                    <option value="Düşük">Düşük (Müsaitlikte)</option>
+                                    <option value="Normal">Normal (Planlı)</option>
+                                    <option value="Yüksek">Yüksek (Aynı Gün)</option>
+                                    <option value="Kritik (Makine Durdu)">🚨 KRİTİK (MAKİNE DURDU)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Ekip Atama */}
                         <div>
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertCircle size={12}/> Arıza / İş Detayı <span className="text-red-500">*</span></label>
-                            <textarea rows={4} placeholder="Müşterinin bildirdiği sorunu buraya yazın... Bu bilgi sahaya iş emri olarak düşecek." value={manuelKayit.sorun} onChange={e => setManuelKayit({...manuelKayit, sorun: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-xl text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
+                            <label className="text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Truck size={12}/> Operasyona Yönlendirilecek Ekip</label>
+                            <select value={manuelKayit.ekip} onChange={e => setManuelKayit({...manuelKayit, ekip: e.target.value})} className="w-full p-4 bg-blue-50 border border-blue-200 rounded-2xl text-sm font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm cursor-pointer">
+                                <option value="">Sahadaki Ekibi Seçin (Opsiyonel)</option>
+                                {PERSONEL_LISTESI.map(isim => <option key={isim} value={isim}>{isim}</option>)}
+                            </select>
+                        </div>
+
+                        {/* Sorun Detayı */}
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertCircle size={12}/> Arıza Detayı / Müşteri Bildirimi <span className="text-red-500">*</span></label>
+                            <textarea rows={4} placeholder="Müşterinin telefonda bildirdiği sorunu buraya detaylıca yazın..." value={manuelKayit.sorun} onChange={e => setManuelKayit({...manuelKayit, sorun: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm leading-relaxed"/>
                         </div>
                     </div>
 
-                    <div className="p-5 border-t border-slate-200 bg-white flex justify-end gap-3">
-                        <button onClick={() => setManuelFormAcik(false)} className="px-6 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition text-sm">İptal</button>
-                        <button onClick={manuelArizaKaydet} disabled={kaydediliyor} className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 flex items-center gap-2 text-sm">
-                            {kaydediliyor ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>}
-                            {kaydediliyor ? 'Kaydediliyor...' : 'İş Emri Oluştur'}
+                    <div className="p-6 border-t border-slate-200 bg-white flex justify-end gap-3 shrink-0">
+                        <button onClick={() => setManuelFormAcik(false)} className="px-6 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition text-sm">İptal</button>
+                        <button onClick={manuelArizaKaydet} disabled={kaydediliyor} className="px-8 py-3.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 flex items-center gap-2 text-sm active:scale-95">
+                            {kaydediliyor ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>}
+                            {kaydediliyor ? 'Kaydediliyor...' : 'İş Emrini Sisteme Gönder'}
                         </button>
                     </div>
 
