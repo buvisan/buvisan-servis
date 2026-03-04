@@ -12,7 +12,7 @@ import ChatAlani from '@/components/ChatAlani';
 import { 
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
-  Package, FileText, TrendingUp, User, Building2, Save, X
+  Package, FileText, TrendingUp, User, Building2, Save, X, Loader2
 } from 'lucide-react';
 
 export default function AdminPanel() {
