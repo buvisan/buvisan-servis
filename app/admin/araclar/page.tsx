@@ -1,8 +1,8 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN FİLO YÖNETİM MERKEZİ 🏎️ V2.0 
-// (Tip Hataları Düzeltildi - Tam Stabil Sürüm ✔️)
+// BUVISAN FİLO YÖNETİM MERKEZİ 🏎️ V3.0 
+// (Yakıt Analizi, Detaylı Bakım ve Ceza Arşivi Tam Sürüm ⛽)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -10,33 +10,36 @@ import { supabase } from '@/lib/supabaseClient';
 import { 
   Car, ShieldAlert, Wrench, Calendar, Plus, X, Edit2, Trash2, Loader2, 
   Map, Key, Radio, Disc, AlertTriangle, CheckCircle2, FileText, FileWarning, 
-  Settings, Banknote, BarChart3, UserCheck, User, Save, Activity
+  Settings, Banknote, BarChart3, UserCheck, Fuel, MapPin, Save, Activity, User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function FiloYonetimEkrani() {
   const [araclar, setAraclar] = useState<any[]>([]);
   const [tumCezalar, setTumCezalar] = useState<any[]>([]);
+  const [tumYakitlar, setTumYakitlar] = useState<any[]>([]); // 🔥 TÜM YAKITLAR
   const [yukleniyor, setYukleniyor] = useState(true);
   
   // MODALLAR
   const [formAcik, setFormAcik] = useState(false);
   const [sicilModaliAcik, setSicilModaliAcik] = useState(false);
   const [cezaRaporuAcik, setCezaRaporuAcik] = useState(false);
+  const [yakitRaporuAcik, setYakitRaporuAcik] = useState(false); // 🔥 YAKIT RAPORU MODALI
 
   const [duzenlemeId, setDuzenlemeId] = useState<string | null>(null);
   const [kaydediliyor, setKaydediliyor] = useState(false);
 
   // SEÇİLİ ARAÇ SİCİLİ İÇİN
   const [aktifArac, setAktifArac] = useState<any | null>(null);
-  const [aktifTab, setAktifTab] = useState<'cezalar' | 'bakimlar'>('cezalar');
+  const [aktifTab, setAktifTab] = useState<'cezalar' | 'bakimlar' | 'yakit'>('cezalar'); // 🔥 YAKIT TABI EKLENDİ
   const [aracCezalari, setAracCezalari] = useState<any[]>([]);
   const [aracBakimlari, setAracBakimlari] = useState<any[]>([]);
+  const [aracYakitlari, setAracYakitlari] = useState<any[]>([]); // 🔥 ARACA ÖZEL YAKITLAR
 
   // İstatistikler
-  const [istatistikler, setIstatistikler] = useState({ toplam: 0, acilMuayene: 0, acilSigorta: 0 });
+  const [istatistikler, setIstatistikler] = useState({ toplam: 0, acilMuayene: 0, acilSigorta: 0, buAyYakit: 0 });
 
-  // Yeni Kayıt Formu State'i
+  // Yeni Kayıt Formu State'leri
   const [yeniArac, setYeniArac] = useState({
     plate: '', vehicle_name: '', model_year: '', has_arvento: false,
     insurance_date: '', casco_date: '', inspection_date: '', 
@@ -47,19 +50,32 @@ export default function FiloYonetimEkrani() {
 
   // Sicil Kayıt Formları
   const [yeniCeza, setYeniCeza] = useState({ driver_name: '', fine_date: '', fine_type: 'Hız İhlali', amount: '', description: '' });
-  const [yeniBakim, setYeniBakim] = useState({ maintenance_date: '', maintenance_type: 'Tamir / Onarım', amount: '', description: '' });
+  const [yeniBakim, setYeniBakim] = useState({ maintenance_date: '', maintenance_type: 'Tamir / Onarım', amount: '', description: '', service_location: '' }); // Servis yeri eklendi
+  const [yeniYakit, setYeniYakit] = useState({ fuel_date: '', amount: '', description: '' }); // Yakıt formu eklendi
 
   useEffect(() => { verileriGetir(); }, []);
 
   const verileriGetir = async () => {
     setYukleniyor(true);
     
-    // Araçları Çek
     const { data: aracData } = await supabase.from('fleet_vehicles').select('*').order('plate', { ascending: true });
-    
-    // Tüm Cezaları Çek (Raporlama için)
     const { data: cezaData } = await supabase.from('fleet_fines').select('*, fleet_vehicles(plate)');
+    const { data: yakitData } = await supabase.from('fleet_fuel').select('*, fleet_vehicles(plate)');
     
+    let guncelAyYakit = 0;
+    const suAnkiAy = new Date().getMonth();
+    const suAnkiYil = new Date().getFullYear();
+
+    if (yakitData) {
+        setTumYakitlar(yakitData);
+        yakitData.forEach(y => {
+            const yTarih = new Date(y.fuel_date);
+            if (yTarih.getMonth() === suAnkiAy && yTarih.getFullYear() === suAnkiYil) {
+                guncelAyYakit += Number(y.amount);
+            }
+        });
+    }
+
     if (aracData) {
       setAraclar(aracData);
       let acilM = 0, acilS = 0;
@@ -67,22 +83,23 @@ export default function FiloYonetimEkrani() {
           if (kalanGunHesapla(arac.inspection_date) !== null && kalanGunHesapla(arac.inspection_date)! <= 30) acilM++;
           if (kalanGunHesapla(arac.insurance_date) !== null && kalanGunHesapla(arac.insurance_date)! <= 30) acilS++;
       });
-      setIstatistikler({ toplam: aracData.length, acilMuayene: acilM, acilSigorta: acilS });
+      setIstatistikler({ toplam: aracData.length, acilMuayene: acilM, acilSigorta: acilS, buAyYakit: guncelAyYakit });
     }
 
-    if (cezaData) {
-        setTumCezalar(cezaData);
-    }
+    if (cezaData) setTumCezalar(cezaData);
     
     setYukleniyor(false);
   };
 
-  // SİCİL VERİLERİNİ GETİR
+  // 🔥 SİCİL VERİLERİNİ GETİR
   const sicilGetir = async (arac_id: string) => {
       const { data: cezalar } = await supabase.from('fleet_fines').select('*').eq('vehicle_id', arac_id).order('fine_date', { ascending: false });
       const { data: bakimlar } = await supabase.from('fleet_maintenance').select('*').eq('vehicle_id', arac_id).order('maintenance_date', { ascending: false });
+      const { data: yakitlar } = await supabase.from('fleet_fuel').select('*').eq('vehicle_id', arac_id).order('fuel_date', { ascending: false });
+      
       if (cezalar) setAracCezalari(cezalar);
       if (bakimlar) setAracBakimlari(bakimlar);
+      if (yakitlar) setAracYakitlari(yakitlar);
   };
 
   const sicilAc = (arac: any) => {
@@ -92,7 +109,7 @@ export default function FiloYonetimEkrani() {
       setSicilModaliAcik(true);
   };
 
-  // SİCİL KAYIT FONKSİYONLARI
+  // 🔥 SİCİL KAYIT FONKSİYONLARI
   const cezaKaydet = async () => {
       if(!yeniCeza.amount || !yeniCeza.fine_date || !yeniCeza.driver_name) return alert("Sürücü, Tarih ve Tutar zorunludur!");
       const veri = { ...yeniCeza, vehicle_id: aktifArac.id, amount: Number(yeniCeza.amount) };
@@ -102,11 +119,19 @@ export default function FiloYonetimEkrani() {
   };
 
   const bakimKaydet = async () => {
-      if(!yeniBakim.maintenance_date || !yeniBakim.description) return alert("Tarih ve Açıklama zorunludur!");
+      if(!yeniBakim.maintenance_date || !yeniBakim.description || !yeniBakim.service_location) return alert("Tarih, Servis Yeri ve Açıklama zorunludur!");
       const veri = { ...yeniBakim, vehicle_id: aktifArac.id, amount: yeniBakim.amount ? Number(yeniBakim.amount) : 0 };
       const { error } = await supabase.from('fleet_maintenance').insert([veri]);
       if(error) alert("Hata: " + error.message);
-      else { alert("İşlem kaydedildi."); setYeniBakim({ maintenance_date: '', maintenance_type: 'Tamir / Onarım', amount: '', description: '' }); sicilGetir(aktifArac.id); }
+      else { alert("İşlem kaydedildi."); setYeniBakim({ maintenance_date: '', maintenance_type: 'Tamir / Onarım', amount: '', description: '', service_location: '' }); sicilGetir(aktifArac.id); }
+  };
+
+  const yakitKaydet = async () => {
+      if(!yeniYakit.fuel_date || !yeniYakit.amount) return alert("Tarih ve Tutar zorunludur!");
+      const veri = { ...yeniYakit, vehicle_id: aktifArac.id, amount: Number(yeniYakit.amount) };
+      const { error } = await supabase.from('fleet_fuel').insert([veri]);
+      if(error) alert("Hata: " + error.message);
+      else { alert("Yakıt eklendi."); setYeniYakit({ fuel_date: '', amount: '', description: '' }); sicilGetir(aktifArac.id); verileriGetir(); }
   };
 
   const kayitSil = async (tablo: string, id: string) => {
@@ -117,17 +142,35 @@ export default function FiloYonetimEkrani() {
       }
   };
 
-  // ŞOFÖR CEZA LİDER TABLOSU
+  // 🔥 ŞOFÖR CEZA ANALİZİ
   const soforCezaAnalizi = () => {
       const analiz: any = {};
       tumCezalar.forEach(c => {
           const sofor = c.driver_name || 'Bilinmiyor';
-          if (!analiz[sofor]) analiz[sofor] = { toplamTutar: 0, cezaSayisi: 0, detaylar: [] };
+          if (!analiz[sofor]) analiz[sofor] = { toplamTutar: 0, cezaSayisi: 0 };
           analiz[sofor].toplamTutar += Number(c.amount);
           analiz[sofor].cezaSayisi += 1;
-          analiz[sofor].detaylar.push(c);
       });
       return Object.keys(analiz).map(isim => ({ isim, ...analiz[isim] })).sort((a, b) => b.toplamTutar - a.toplamTutar);
+  };
+
+  // 🔥 ARAÇ YAKIT ANALİZİ (RAPOR İÇİN)
+  const aracYakitAnalizi = () => {
+      const analiz: any = {};
+      const suAnkiYil = new Date().getFullYear();
+      
+      tumYakitlar.forEach(y => {
+          const plaka = y.fleet_vehicles?.plate || 'Bilinmeyen Plaka';
+          const yil = new Date(y.fuel_date).getFullYear();
+          if (yil !== suAnkiYil) return; // Sadece bu yılı analiz et
+          
+          const ay = new Date(y.fuel_date).getMonth();
+          if (!analiz[plaka]) analiz[plaka] = { yillikToplam: 0, aylar: Array(12).fill(0) };
+          
+          analiz[plaka].yillikToplam += Number(y.amount);
+          analiz[plaka].aylar[ay] += Number(y.amount);
+      });
+      return Object.keys(analiz).map(plaka => ({ plaka, ...analiz[plaka] })).sort((a, b) => b.yillikToplam - a.yillikToplam);
   };
 
   // AKILLI TARİH HESAPLAYICI
@@ -159,14 +202,7 @@ export default function FiloYonetimEkrani() {
   const kaydetVeyaGuncelle = async () => {
       if (!yeniArac.plate || !yeniArac.vehicle_name) return alert("Plaka ve Araç Adı zorunludur!");
       setKaydediliyor(true);
-
-      const veriPaketi = {
-          ...yeniArac,
-          current_km: yeniArac.current_km ? Number(yeniArac.current_km) : 0,
-          next_oil_km: yeniArac.next_oil_km ? Number(yeniArac.next_oil_km) : 0,
-          insurance_date: yeniArac.insurance_date || null, casco_date: yeniArac.casco_date || null, inspection_date: yeniArac.inspection_date || null, route_permit_date: yeniArac.route_permit_date || null,
-      };
-
+      const veriPaketi = { ...yeniArac, current_km: yeniArac.current_km ? Number(yeniArac.current_km) : 0, next_oil_km: yeniArac.next_oil_km ? Number(yeniArac.next_oil_km) : 0, insurance_date: yeniArac.insurance_date || null, casco_date: yeniArac.casco_date || null, inspection_date: yeniArac.inspection_date || null, route_permit_date: yeniArac.route_permit_date || null };
       let error;
       if (duzenlemeId) error = (await supabase.from('fleet_vehicles').update(veriPaketi).eq('id', duzenlemeId)).error;
       else error = (await supabase.from('fleet_vehicles').insert([veriPaketi])).error;
@@ -177,7 +213,7 @@ export default function FiloYonetimEkrani() {
   };
 
   const sil = async (id: string, plaka: string) => {
-      if (confirm(`${plaka} plakalı aracı ve TÜM GEÇMİŞİNİ (Cezalar, Bakımlar) silmek istediğine emin misin?`)) {
+      if (confirm(`${plaka} plakalı aracı ve TÜM GEÇMİŞİNİ (Cezalar, Bakımlar, Yakıt) silmek istediğine emin misin?`)) {
           await supabase.from('fleet_vehicles').delete().eq('id', id);
           verileriGetir();
       }
@@ -194,10 +230,13 @@ export default function FiloYonetimEkrani() {
             <div className="bg-slate-900 p-3 rounded-2xl text-white shadow-lg"><Car size={28}/></div>
             <div>
                 <h1 className="text-2xl font-black text-slate-800 tracking-tight">Araç Filosu & Sicil</h1>
-                <p className="text-slate-500 text-sm font-medium">Vize, Ceza, Lastik ve Bakım Merkezi</p>
+                <p className="text-slate-500 text-sm font-medium">Vize, Ceza, Lastik, Bakım ve Yakıt Merkezi</p>
             </div>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex gap-2 w-full md:w-auto flex-wrap">
+            <button onClick={() => setYakitRaporuAcik(true)} className="flex-1 md:flex-none bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95">
+                <Fuel size={20}/> Yakıt Analizi
+            </button>
             <button onClick={() => setCezaRaporuAcik(true)} className="flex-1 md:flex-none bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95">
                 <BarChart3 size={20}/> Şoför Ceza Analizi
             </button>
@@ -208,18 +247,21 @@ export default function FiloYonetimEkrani() {
       </div>
 
       {/* İSTATİSTİKLER */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
               <p className="text-xs font-bold text-slate-400 uppercase">Toplam Araç</p><p className="text-3xl font-black text-slate-800 mt-1">{istatistikler.toplam}</p>
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
-              <p className="text-xs font-bold text-slate-400 uppercase">Acil Muayene Bekleyen</p><p className={`text-3xl font-black mt-1 ${istatistikler.acilMuayene > 0 ? 'text-red-600 animate-pulse' : 'text-emerald-600'}`}>{istatistikler.acilMuayene}</p>
-          </div>
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
-              <p className="text-xs font-bold text-slate-400 uppercase">Acil Sigorta Bekleyen</p><p className={`text-3xl font-black mt-1 ${istatistikler.acilSigorta > 0 ? 'text-red-600 animate-pulse' : 'text-emerald-600'}`}>{istatistikler.acilSigorta}</p>
+              <p className="text-xs font-bold text-slate-400 uppercase">Muayene / Sigorta Sorunlu</p>
+              <p className={`text-3xl font-black mt-1 ${(istatistikler.acilMuayene + istatistikler.acilSigorta) > 0 ? 'text-red-600 animate-pulse' : 'text-emerald-600'}`}>
+                  {istatistikler.acilMuayene + istatistikler.acilSigorta}
+              </p>
           </div>
           <div className="bg-gradient-to-br from-red-500 to-red-700 p-5 rounded-2xl shadow-md text-white flex flex-col justify-center">
-              <p className="text-xs font-bold text-red-200 uppercase">Toplam Kesilen Ceza</p><p className="text-3xl font-black mt-1">{tumCezalar.reduce((a, b) => a + Number(b.amount), 0).toLocaleString()} ₺</p>
+              <p className="text-xs font-bold text-red-200 uppercase">Toplam Ceza (Genel)</p><p className="text-3xl font-black mt-1">{tumCezalar.reduce((a, b) => a + Number(b.amount), 0).toLocaleString()} ₺</p>
+          </div>
+          <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-5 rounded-2xl shadow-md text-white flex flex-col justify-center">
+              <p className="text-xs font-bold text-orange-100 uppercase">Bu Ayki Mazot Gideri</p><p className="text-3xl font-black mt-1">{istatistikler.buAyYakit.toLocaleString()} ₺</p>
           </div>
       </div>
 
@@ -231,7 +273,6 @@ export default function FiloYonetimEkrani() {
               const kaskoGun = kalanGunHesapla(arac.casco_date);
               const izinGun = kalanGunHesapla(arac.route_permit_date);
 
-              // 🔥 İŞTE BURADAKİ ETİKET DÜZELTİLDİ (motion.div) 🔥
               return (
                   <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={arac.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl transition-all overflow-hidden flex flex-col relative group">
                       
@@ -274,12 +315,6 @@ export default function FiloYonetimEkrani() {
                                   {sigortaGun === null ? 'Girilmemiş' : sigortaGun < 0 ? 'SÜRESİ GEÇTİ!' : sigortaGun + ' Gün Kaldı'}
                               </div>
                           </div>
-                          <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-500 flex items-center gap-2"><ShieldAlert size={14} className="opacity-50"/> Kasko</span>
-                              <div className={`text-xs font-bold px-3 py-1 rounded-full border ${kaskoGun === null ? 'bg-slate-100 text-slate-400 border-slate-200' : durumRengi(kaskoGun)}`}>
-                                  {kaskoGun === null ? 'YOK' : kaskoGun < 0 ? 'SÜRESİ GEÇTİ!' : kaskoGun + ' Gün Kaldı'}
-                              </div>
-                          </div>
                           
                           <div className="h-px w-full bg-slate-100 my-2"></div>
 
@@ -299,7 +334,7 @@ export default function FiloYonetimEkrani() {
                           {/* SİCİL BUTONU (ALT KISIMDA SABİT) */}
                           <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-white via-white to-transparent">
                               <button onClick={() => sicilAc(arac)} className="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg">
-                                  <FileWarning size={16}/> Araç Sicili & Geçmişi
+                                  <FileWarning size={16}/> Araç Sicili & Yakıt Geçmişi
                               </button>
                           </div>
                       </div>
@@ -310,12 +345,12 @@ export default function FiloYonetimEkrani() {
       </div>
 
       {/* =========================================================================
-          🔥 MODAL: ARAÇ SİCİLİ VE GEÇMİŞİ (CEZALAR / BAKIMLAR)
+          🔥 MODAL: ARAÇ SİCİLİ VE GEÇMİŞİ (CEZALAR / BAKIMLAR / YAKIT)
           ========================================================================= */}
       <AnimatePresence>
         {sicilModaliAcik && aktifArac && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setSicilModaliAcik(false)}>
-                <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-slate-50 w-full max-w-4xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col my-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-slate-50 w-full max-w-5xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col my-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
                     
                     {/* Header */}
                     <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
@@ -332,10 +367,14 @@ export default function FiloYonetimEkrani() {
                     {/* Tab Menüsü */}
                     <div className="flex bg-white border-b border-slate-200 shrink-0">
                         <button onClick={() => setAktifTab('cezalar')} className={`flex-1 py-4 font-bold text-sm flex items-center justify-center gap-2 transition border-b-2 ${aktifTab === 'cezalar' ? 'border-red-500 text-red-600 bg-red-50/50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}>
-                            <FileWarning size={18}/> Ceza ve İhlaller ({aracCezalari.length})
+                            <FileWarning size={18}/> Cezalar ({aracCezalari.length})
                         </button>
                         <button onClick={() => setAktifTab('bakimlar')} className={`flex-1 py-4 font-bold text-sm flex items-center justify-center gap-2 transition border-b-2 ${aktifTab === 'bakimlar' ? 'border-blue-500 text-blue-600 bg-blue-50/50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}>
-                            <Settings size={18}/> Tamir & Lastik Değişimi ({aracBakimlari.length})
+                            <Settings size={18}/> Bakım & Lastik ({aracBakimlari.length})
+                        </button>
+                        {/* 🔥 YENİ: YAKIT TABI */}
+                        <button onClick={() => setAktifTab('yakit')} className={`flex-1 py-4 font-bold text-sm flex items-center justify-center gap-2 transition border-b-2 ${aktifTab === 'yakit' ? 'border-orange-500 text-orange-600 bg-orange-50/50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}>
+                            <Fuel size={18}/> Yakıt Giderleri ({aracYakitlari.length})
                         </button>
                     </div>
 
@@ -344,9 +383,8 @@ export default function FiloYonetimEkrani() {
                         
                         {/* 🔴 CEZALAR TABI */}
                         {aktifTab === 'cezalar' && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {/* Ceza Ekleme Formu */}
-                                <div className="md:col-span-1 bg-white p-5 rounded-2xl border border-red-100 shadow-sm space-y-4 h-fit">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div className="lg:col-span-1 bg-white p-5 rounded-2xl border border-red-100 shadow-sm space-y-4 h-fit">
                                     <h3 className="font-bold text-red-600 text-sm flex items-center gap-2 border-b border-red-50 pb-2"><Plus size={16}/> Yeni Ceza Ekle</h3>
                                     <div><label className="text-[10px] font-bold text-slate-500 uppercase">Tarih</label><input type="date" value={yeniCeza.fine_date} onChange={e => setYeniCeza({...yeniCeza, fine_date: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-red-400"/></div>
                                     <div><label className="text-[10px] font-bold text-slate-500 uppercase">Zimmetli Şoför</label><input type="text" placeholder="Kimin üzerine?" value={yeniCeza.driver_name} onChange={e => setYeniCeza({...yeniCeza, driver_name: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-red-400"/></div>
@@ -355,9 +393,7 @@ export default function FiloYonetimEkrani() {
                                     <div><label className="text-[10px] font-bold text-slate-500 uppercase">Açıklama</label><textarea rows={2} placeholder="Nerede yemiş?" value={yeniCeza.description} onChange={e => setYeniCeza({...yeniCeza, description: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs resize-none outline-none focus:border-red-400"/></div>
                                     <button onClick={cezaKaydet} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-red-200 transition text-sm">Sicile İşle</button>
                                 </div>
-                                
-                                {/* Ceza Geçmişi Listesi */}
-                                <div className="md:col-span-2 space-y-3">
+                                <div className="lg:col-span-2 space-y-3">
                                     {aracCezalari.length === 0 ? (
                                         <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center text-slate-400 flex flex-col items-center"><CheckCircle2 size={48} className="text-emerald-400 mb-2 opacity-50"/><p className="font-bold">Bu araca ait ceza kaydı bulunmuyor.</p></div>
                                     ) : (
@@ -383,19 +419,17 @@ export default function FiloYonetimEkrani() {
 
                         {/* 🔵 BAKIMLAR TABI */}
                         {aktifTab === 'bakimlar' && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {/* Bakım Ekleme Formu */}
-                                <div className="md:col-span-1 bg-white p-5 rounded-2xl border border-blue-100 shadow-sm space-y-4 h-fit">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div className="lg:col-span-1 bg-white p-5 rounded-2xl border border-blue-100 shadow-sm space-y-4 h-fit">
                                     <h3 className="font-bold text-blue-600 text-sm flex items-center gap-2 border-b border-blue-50 pb-2"><Plus size={16}/> Yeni İşlem Ekle</h3>
                                     <div><label className="text-[10px] font-bold text-slate-500 uppercase">Tarih</label><input type="date" value={yeniBakim.maintenance_date} onChange={e => setYeniBakim({...yeniBakim, maintenance_date: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-blue-400"/></div>
+                                    <div><label className="text-[10px] font-bold text-slate-500 uppercase">Servis Yeri / Usta</label><input type="text" placeholder="Örn: Bosch Car Service" value={yeniBakim.service_location} onChange={e => setYeniBakim({...yeniBakim, service_location: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400"/></div>
                                     <div><label className="text-[10px] font-bold text-slate-500 uppercase">İşlem Türü</label><select value={yeniBakim.maintenance_type} onChange={e => setYeniBakim({...yeniBakim, maintenance_type: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400"><option>Tamir / Onarım</option><option>Lastik Değişimi</option><option>Periyodik Bakım (Yağ vs)</option><option>Kaza / Hasar</option></select></div>
                                     <div className="relative"><label className="text-[10px] font-bold text-slate-500 uppercase">Maliyet (₺)</label><input type="number" placeholder="0" value={yeniBakim.amount} onChange={e => setYeniBakim({...yeniBakim, amount: e.target.value})} className="w-full p-2.5 pl-8 bg-slate-50 border border-slate-200 rounded-lg text-sm font-black text-blue-600 outline-none focus:border-blue-400"/><span className="absolute left-3 top-[26px] text-slate-400 text-sm">₺</span></div>
                                     <div><label className="text-[10px] font-bold text-slate-500 uppercase">Yapılan İşlem Detayı</label><textarea rows={3} placeholder="Balatalar değişti, 4 adet kışlık takıldı..." value={yeniBakim.description} onChange={e => setYeniBakim({...yeniBakim, description: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs resize-none outline-none focus:border-blue-400"/></div>
                                     <button onClick={bakimKaydet} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-200 transition text-sm">Arşive Ekle</button>
                                 </div>
-                                
-                                {/* Bakım Geçmişi Listesi */}
-                                <div className="md:col-span-2 space-y-3">
+                                <div className="lg:col-span-2 space-y-3">
                                     {aracBakimlari.length === 0 ? (
                                         <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center text-slate-400 flex flex-col items-center"><Settings size={48} className="text-blue-200 mb-2 opacity-50"/><p className="font-bold">Bu araca ait geçmiş işlem bulunmuyor.</p></div>
                                     ) : (
@@ -405,12 +439,64 @@ export default function FiloYonetimEkrani() {
                                                     <div className="bg-blue-50 text-blue-500 p-3 rounded-xl"><Wrench size={20}/></div>
                                                     <div>
                                                         <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">{bakim.maintenance_type} <span className="bg-slate-100 text-slate-500 text-[9px] px-2 py-0.5 rounded-full">{new Date(bakim.maintenance_date).toLocaleDateString('tr-TR')}</span></h4>
-                                                        <p className="text-xs text-slate-500 mt-0.5 max-w-sm">{bakim.description}</p>
+                                                        <div className="text-xs text-slate-500 mt-1 space-y-0.5">
+                                                            <p><MapPin size={12} className="inline mr-1 text-blue-400"/> {bakim.service_location || 'Belirtilmemiş'}</p>
+                                                            <p className="text-slate-400">{bakim.description}</p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-4">
                                                     <span className="font-black text-slate-700">{Number(bakim.amount).toLocaleString()} ₺</span>
                                                     <button onClick={() => kayitSil('fleet_maintenance', bakim.id)} className="text-slate-300 hover:text-red-500 transition"><Trash2 size={16}/></button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 🟠 YAKIT TABI */}
+                        {aktifTab === 'yakit' && (
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Yakıt Ekleme Formu */}
+                                <div className="lg:col-span-1 space-y-4">
+                                    <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-5 rounded-2xl text-white shadow-md">
+                                        <p className="text-xs font-bold text-orange-100 uppercase opacity-90">Bu Ayki ({new Date().toLocaleString('tr-TR', {month:'long'})}) Toplam</p>
+                                        <p className="text-3xl font-black mt-1">
+                                            {aracYakitlari.filter(y => new Date(y.fuel_date).getMonth() === new Date().getMonth() && new Date(y.fuel_date).getFullYear() === new Date().getFullYear()).reduce((a,b)=>a+Number(b.amount),0).toLocaleString()} ₺
+                                        </p>
+                                        <div className="h-px bg-white/20 my-3"></div>
+                                        <p className="text-[10px] font-bold text-orange-100 uppercase opacity-90">Bu Yılki Toplam</p>
+                                        <p className="text-lg font-bold">{aracYakitlari.filter(y => new Date(y.fuel_date).getFullYear() === new Date().getFullYear()).reduce((a,b)=>a+Number(b.amount),0).toLocaleString()} ₺</p>
+                                    </div>
+
+                                    <div className="bg-white p-5 rounded-2xl border border-orange-100 shadow-sm space-y-4">
+                                        <h3 className="font-bold text-orange-600 text-sm flex items-center gap-2 border-b border-orange-50 pb-2"><Plus size={16}/> Yakıt Ekle</h3>
+                                        <div><label className="text-[10px] font-bold text-slate-500 uppercase">Tarih</label><input type="date" value={yeniYakit.fuel_date} onChange={e => setYeniYakit({...yeniYakit, fuel_date: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-orange-400"/></div>
+                                        <div className="relative"><label className="text-[10px] font-bold text-slate-500 uppercase">Tutar (₺)</label><input type="number" placeholder="0" value={yeniYakit.amount} onChange={e => setYeniYakit({...yeniYakit, amount: e.target.value})} className="w-full p-2.5 pl-8 bg-slate-50 border border-slate-200 rounded-lg text-sm font-black text-orange-600 outline-none focus:border-orange-400"/><span className="absolute left-3 top-[26px] text-slate-400 text-sm">₺</span></div>
+                                        <div><label className="text-[10px] font-bold text-slate-500 uppercase">İstasyon / Açıklama</label><input type="text" placeholder="Örn: Shell" value={yeniYakit.description} onChange={e => setYeniYakit({...yeniYakit, description: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-orange-400"/></div>
+                                        <button onClick={yakitKaydet} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-200 transition text-sm">Kaydet</button>
+                                    </div>
+                                </div>
+                                
+                                {/* Yakıt Geçmişi Listesi */}
+                                <div className="lg:col-span-2 space-y-3">
+                                    {aracYakitlari.length === 0 ? (
+                                        <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center text-slate-400 flex flex-col items-center"><Fuel size={48} className="text-orange-200 mb-2 opacity-50"/><p className="font-bold">Bu araca ait yakıt kaydı bulunmuyor.</p></div>
+                                    ) : (
+                                        aracYakitlari.map(yakit => (
+                                            <div key={yakit.id} className="bg-white p-4 rounded-2xl border border-orange-100 shadow-sm flex items-center justify-between">
+                                                <div className="flex gap-4 items-center">
+                                                    <div className="bg-orange-50 text-orange-500 p-3 rounded-xl"><Fuel size={20}/></div>
+                                                    <div>
+                                                        <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">{new Date(yakit.fuel_date).toLocaleDateString('tr-TR')}</h4>
+                                                        {yakit.description && <p className="text-xs text-slate-500 mt-0.5">{yakit.description}</p>}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <span className="font-black text-orange-600">{Number(yakit.amount).toLocaleString()} ₺</span>
+                                                    <button onClick={() => kayitSil('fleet_fuel', yakit.id)} className="text-slate-300 hover:text-red-500 transition"><Trash2 size={16}/></button>
                                                 </div>
                                             </div>
                                         ))
@@ -426,24 +512,16 @@ export default function FiloYonetimEkrani() {
       </AnimatePresence>
 
       {/* =========================================================================
-          🔥 MODAL: ŞOFÖR CEZA RAPORU (LİDERLİK TABLOSU) 🔥
+          🔥 MODAL: ŞOFÖR CEZA RAPORU 
           ========================================================================= */}
       <AnimatePresence>
         {cezaRaporuAcik && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setCezaRaporuAcik(false)}>
                 <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-                    
                     <div className="p-6 bg-gradient-to-r from-red-600 to-red-800 text-white flex justify-between items-center shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-white/20 p-3 rounded-xl"><BarChart3 size={24}/></div>
-                            <div>
-                                <h2 className="text-2xl font-black">Şoför Ceza Analizi</h2>
-                                <p className="text-red-200 text-xs font-bold uppercase tracking-widest">En Çok Ceza Yiyen Personeller</p>
-                            </div>
-                        </div>
+                        <div className="flex items-center gap-3"><div className="bg-white/20 p-3 rounded-xl"><BarChart3 size={24}/></div><div><h2 className="text-2xl font-black">Şoför Ceza Analizi</h2><p className="text-red-200 text-xs font-bold uppercase tracking-widest">En Çok Ceza Yiyen Personeller</p></div></div>
                         <button onClick={() => setCezaRaporuAcik(false)} className="bg-black/20 hover:bg-black/40 p-2 rounded-full transition"><X size={20}/></button>
                     </div>
-
                     <div className="p-6 overflow-y-auto max-h-[60vh] bg-slate-50">
                         {tumCezalar.length === 0 ? (
                             <div className="text-center py-10 text-slate-400 font-bold">Sistemde hiç ceza kaydı yok. Harika!</div>
@@ -452,22 +530,73 @@ export default function FiloYonetimEkrani() {
                                 {soforCezaAnalizi().map((sofor: any, index: number) => (
                                     <div key={index} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center justify-between relative overflow-hidden">
                                         <div className={`absolute left-0 top-0 bottom-0 w-2 ${index === 0 ? 'bg-red-500' : index === 1 ? 'bg-orange-400' : 'bg-slate-300'}`}></div>
-                                        
                                         <div className="flex items-center gap-4 pl-4">
-                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-lg ${index === 0 ? 'bg-red-100 text-red-600' : index === 1 ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-500'}`}>
-                                                #{index + 1}
-                                            </div>
-                                            <div>
-                                                <h3 className="font-black text-slate-800 text-lg">{sofor.isim}</h3>
-                                                <p className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded inline-block mt-1">{sofor.cezaSayisi} Adet İhlal</p>
-                                            </div>
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-lg ${index === 0 ? 'bg-red-100 text-red-600' : index === 1 ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-500'}`}>#{index + 1}</div>
+                                            <div><h3 className="font-black text-slate-800 text-lg">{sofor.isim}</h3><p className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded inline-block mt-1">{sofor.cezaSayisi} Adet İhlal</p></div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-xs font-bold text-slate-400 uppercase mb-1">Toplam Maliyet</p>
-                                            <div className="text-2xl font-black text-red-600">{sofor.toplamTutar.toLocaleString()} ₺</div>
-                                        </div>
+                                        <div className="text-right"><p className="text-xs font-bold text-slate-400 uppercase mb-1">Toplam Maliyet</p><div className="text-2xl font-black text-red-600">{sofor.toplamTutar.toLocaleString()} ₺</div></div>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
+          🔥 MODAL: GENEL YAKIT RAPORU (BU YILIN LİDERLİK TABLOSU) 🔥
+          ========================================================================= */}
+      <AnimatePresence>
+        {yakitRaporuAcik && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setYakitRaporuAcik(false)}>
+                <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                    
+                    <div className="p-6 bg-gradient-to-r from-orange-500 to-orange-700 text-white flex justify-between items-center shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-3 rounded-xl"><Fuel size={24}/></div>
+                            <div>
+                                <h2 className="text-2xl font-black">Yıllık Yakıt Analizi ({new Date().getFullYear()})</h2>
+                                <p className="text-orange-100 text-xs font-bold uppercase tracking-widest">Plaka Bazlı Gider Tablosu</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setYakitRaporuAcik(false)} className="bg-black/20 hover:bg-black/40 p-2 rounded-full transition"><X size={20}/></button>
+                    </div>
+
+                    <div className="p-6 overflow-y-auto max-h-[70vh] bg-slate-50">
+                        {tumYakitlar.filter(y => new Date(y.fuel_date).getFullYear() === new Date().getFullYear()).length === 0 ? (
+                            <div className="text-center py-10 text-slate-400 font-bold">Bu yıl için sisteme girilmiş yakıt verisi yok.</div>
+                        ) : (
+                            <div className="space-y-4">
+                                {/* Toplam Özet Kartı */}
+                                <div className="bg-orange-50 p-6 rounded-2xl border border-orange-200 text-center mb-6">
+                                    <p className="text-sm font-bold text-orange-600 uppercase tracking-widest mb-1">Tüm Filonun {new Date().getFullYear()} Yılı Toplam Mazot Gideri</p>
+                                    <div className="text-5xl font-black text-orange-600">
+                                        {tumYakitlar.filter(y => new Date(y.fuel_date).getFullYear() === new Date().getFullYear()).reduce((a,b)=>a+Number(b.amount),0).toLocaleString()} ₺
+                                    </div>
+                                </div>
+
+                                {/* Plaka Listesi */}
+                                <h3 className="text-sm font-black text-slate-800 border-b pb-2 mb-4">Araç Bazlı Sıralama</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {aracYakitAnalizi().map((arac: any, index: number) => (
+                                        <div key={index} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+                                            <div>
+                                                <div className="bg-slate-900 text-white font-black px-3 py-1 rounded border-2 border-slate-700 inline-block mb-1 text-sm tracking-widest">
+                                                    {arac.plaka}
+                                                </div>
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">
+                                                    Bu Ay: <span className="text-orange-500">{arac.aylar[new Date().getMonth()].toLocaleString()} ₺</span>
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Yıllık Tüketim</p>
+                                                <div className="text-xl font-black text-slate-800">{arac.yillikToplam.toLocaleString()} ₺</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -495,7 +624,6 @@ export default function FiloYonetimEkrani() {
 
                     <div className="p-6 md:p-8 bg-slate-50 grid grid-cols-1 md:grid-cols-2 gap-8 max-h-[70vh] overflow-y-auto">
                         
-                        {/* SOL KOLON - KİMLİK & DURUM */}
                         <div className="space-y-4">
                             <h3 className="text-sm font-black text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><Car size={16}/> Araç Kimliği</h3>
                             <div className="grid grid-cols-2 gap-4">
@@ -520,7 +648,6 @@ export default function FiloYonetimEkrani() {
                             <div><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Araç Reklam</label><select value={yeniArac.ad_branding} onChange={e => setYeniArac({...yeniArac, ad_branding: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-500"><option>Reklam Yok</option><option>Ruhsata İşli</option><option>İşli Değil</option></select></div>
                         </div>
 
-                        {/* SAĞ KOLON - TARİHLER VE KM */}
                         <div className="space-y-4">
                             <h3 className="text-sm font-black text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><Calendar size={16}/> Kritik Tarihler (Bitiş)</h3>
                             <div><label className="text-[10px] font-bold text-slate-500 uppercase ml-1 text-red-500">Muayene Bitiş Tarihi</label><input type="date" value={yeniArac.inspection_date} onChange={e => setYeniArac({...yeniArac, inspection_date: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-red-400"/></div>
