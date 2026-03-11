@@ -13,7 +13,7 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car,
 } from 'lucide-react';
 
 // 🔥 SABİT PERSONEL LİSTESİ
@@ -226,6 +226,12 @@ export default function AdminPanel() {
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/teklifler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-purple-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
                     <div className="bg-purple-50 text-purple-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors"><FileText size={20}/></div>
                     <div><h3 className="font-bold text-slate-700 text-sm">Teklif</h3><p className="text-[10px] text-slate-400">Sözleşme & Form</p></div>
+                </motion.button>
+                {/* ARAÇ FİLOSU BUTONU */}
+                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/araclar')} className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-md border border-slate-700 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
+                    <div className="absolute -right-4 -bottom-4 opacity-10"><Truck size={80}/></div>
+                    <div className="bg-white/10 text-white w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-white/20 transition-colors relative z-10"><Car size={20}/></div>
+                    <div className="relative z-10"><h3 className="font-bold text-white text-sm">Araç Filosu</h3><p className="text-[10px] text-slate-400">Vize & Bakım Takip</p></div>
                 </motion.button>
             </div>
         </div>
