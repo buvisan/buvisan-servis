@@ -22,7 +22,7 @@ import html2canvas from 'html2canvas';
 
 // 🔥 SABİT PERSONEL LİSTESİ
 const PERSONEL_LISTESI = [
-  "VOLKAN ACAR", "HAMZA ATTAR", "VEYSEL ÇARKLI", "KERİM AKDOĞAN" , "GÖKHAN GÖK" , "BASİL HAVATİMİ" , "BURHAN KANDEMİR" , "OKAN ARAN" , "ADEM ACAR"
+  "VOLKAN ACAR", "HAMZA ATTAR", "VEYSEL ÇARKLI", "KERİM AKDOĞAN" , "GÖKHAN GÖK" , "BASİL HAVATİMİ" , "BURHAN KANDEMİR" , "OKAN ARAN" , "ADEM ACAR" , "KAYA ALİ TOSUN"
 ];
 
 export default function AnalizSayfasi() {
