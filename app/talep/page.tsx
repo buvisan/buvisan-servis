@@ -1,15 +1,15 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN MÜŞTERİ ARIZA BİLDİRİM PORTALI 🚀
-// Müşterilerin WhatsApp'tan tıklayıp kendi arızalarını gireceği sayfa.
+// BUVISAN MÜŞTERİ ARIZA BİLDİRİM PORTALI 🚀 V2.0
+// (Fotoğraf ve Video Yükleme Özelliği Eklendi 📸🎥)
 // ----------------------------------------------------------------------------
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { 
   Building2, User, Phone, MapPin, Settings, AlertTriangle, 
-  AlertCircle, Send, Loader2, CheckCircle2, Info
+  AlertCircle, Send, Loader2, CheckCircle2, Info, Camera, Video, Trash2, Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -24,19 +24,71 @@ export default function ArizaBildirimEkrani() {
       sorun: ''
   });
 
+  // 🔥 MEDYA YÜKLEME STATE'LERİ
+  const [medyaDosya, setMedyaDosya] = useState<File | null>(null);
+  const [medyaOnizleme, setMedyaOnizleme] = useState<string | null>(null);
+  const [medyaTuru, setMedyaTuru] = useState<'image' | 'video' | null>(null);
+  const dosyaInputRef = useRef<HTMLInputElement>(null);
+
   const [gonderiliyor, setGonderiliyor] = useState(false);
+  const [yuklemeMesaji, setYuklemeMesaji] = useState("");
   const [basarili, setBasarili] = useState(false);
 
+  // Dosya Seçildiğinde Çalışacak Fonksiyon
+  const medyaSecildi = (e: any) => {
+      const file = e.target.files[0];
+      if (file) {
+          // Maksimum 50MB sınırı
+          if (file.size > 50 * 1024 * 1024) {
+              alert("Dosya boyutu çok büyük! Lütfen 50MB'dan küçük bir video veya fotoğraf seçiniz.");
+              return;
+          }
+          setMedyaDosya(file);
+          setMedyaTuru(file.type.startsWith('video/') ? 'video' : 'image');
+          setMedyaOnizleme(URL.createObjectURL(file));
+      }
+  };
+
+  const medyaSil = () => {
+      setMedyaDosya(null);
+      setMedyaOnizleme(null);
+      setMedyaTuru(null);
+      if (dosyaInputRef.current) dosyaInputRef.current.value = '';
+  };
+
   const talebiGonder = async () => {
-      // Basit doğrulama
       if (!form.firma_adi || !form.telefon || !form.sorun) {
           alert("Lütfen Firma Adı, Telefon ve Arıza Detayı alanlarını doldurunuz.");
           return;
       }
 
       setGonderiliyor(true);
+      let yuklenenMedyaUrl = null;
 
-      // Admin panelindeki sisteme (service_tickets) doğrudan kayıt atıyoruz
+      // 🔥 EĞER DOSYA VARSA ÖNCE SUPABASE STORAGE'A YÜKLE (saha_raporlari klasörünü kullanıyoruz)
+      if (medyaDosya) {
+          setYuklemeMesaji("Medya (Fotoğraf/Video) Yükleniyor... Lütfen Bekleyin.");
+          const dosyaUzantisi = medyaDosya.name.split('.').pop();
+          const rastgeleIsim = `musteri_${Date.now()}-${Math.random().toString(36).substring(7)}.${dosyaUzantisi}`;
+          
+          const { error: uploadError } = await supabase.storage
+              .from('saha_raporlari') // Aynı depoyu kullanıyoruz (Güvenlik izni açık)
+              .upload(rastgeleIsim, medyaDosya);
+
+          if (uploadError) {
+              alert("Medya yüklenemedi: " + uploadError.message);
+              setGonderiliyor(false);
+              setYuklemeMesaji("");
+              return;
+          }
+
+          const { data: publicUrlData } = supabase.storage.from('saha_raporlari').getPublicUrl(rastgeleIsim);
+          yuklenenMedyaUrl = publicUrlData.publicUrl;
+      }
+
+      setYuklemeMesaji("Talebiniz Sisteme İletiliyor...");
+
+      // Admin panelindeki sisteme (service_tickets) kayıt atıyoruz
       const { error } = await supabase.from('service_tickets').insert([
           {
               description: form.sorun,
@@ -46,11 +98,13 @@ export default function ArizaBildirimEkrani() {
               manual_phone: form.telefon,
               manual_location: form.adres,
               manual_crane_info: form.vinc_bilgisi,
-              priority: form.aciliyet
+              priority: form.aciliyet,
+              media_url: yuklenenMedyaUrl // 🔥 MEDYA LİNKİNİ KAYDEDİYORUZ
           }
       ]);
 
       setGonderiliyor(false);
+      setYuklemeMesaji("");
 
       if (error) {
           alert("Gönderim sırasında bir hata oluştu: " + error.message);
@@ -133,11 +187,39 @@ export default function ArizaBildirimEkrani() {
                               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertCircle size={14}/> Arıza Detayı <span className="text-red-500">*</span></label>
                               <textarea rows={4} placeholder="Lütfen yaşadığınız sorunu detaylı bir şekilde açıklayınız..." value={form.sorun} onChange={e => setForm({...form, sorun: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500 transition leading-relaxed"/>
                           </div>
+
+                          {/* 🔥 MEDYA YÜKLEME ALANI 🔥 */}
+                          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-3 ml-1"><Camera size={14}/> Fotoğraf / Video Ekle (İsteğe Bağlı)</label>
+                              
+                              <input type="file" accept="image/*, video/*" ref={dosyaInputRef} onChange={medyaSecildi} className="hidden" />
+                              
+                              {!medyaOnizleme ? (
+                                  <button onClick={() => dosyaInputRef.current?.click()} className="w-full py-6 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:bg-white hover:border-blue-500 hover:text-blue-500 transition flex flex-col items-center gap-2">
+                                      <div className="flex gap-2 text-slate-400"><ImageIcon size={24} /><Video size={24} /></div>
+                                      <span className="text-sm">Arızanın fotoğrafını veya videosunu yükle</span>
+                                  </button>
+                              ) : (
+                                  <div className="relative rounded-xl overflow-hidden border border-slate-300 bg-black">
+                                      {medyaTuru === 'image' ? (
+                                          <img src={medyaOnizleme} alt="Önizleme" className="w-full h-48 object-cover opacity-90" />
+                                      ) : (
+                                          <video src={medyaOnizleme} controls className="w-full h-48 object-cover opacity-90" />
+                                      )}
+                                      <button onClick={medyaSil} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg shadow-lg hover:bg-red-600 transition">
+                                          <Trash2 size={16}/>
+                                      </button>
+                                  </div>
+                              )}
+                          </div>
                       </div>
 
-                      <button onClick={talebiGonder} disabled={gonderiliyor} className="w-full mt-4 py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70 disabled:active:scale-100">
-                          {gonderiliyor ? <Loader2 size={24} className="animate-spin"/> : <Send size={24}/>}
-                          {gonderiliyor ? 'Gönderiliyor...' : 'SERVİS TALEBİ OLUŞTUR'}
+                      <button onClick={talebiGonder} disabled={gonderiliyor} className="w-full mt-4 py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-blue-600/30 flex flex-col items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-70 disabled:active:scale-100">
+                          <div className="flex items-center gap-2">
+                              {gonderiliyor ? <Loader2 size={24} className="animate-spin"/> : <Send size={24}/>}
+                              {gonderiliyor ? 'GÖNDERİLİYOR...' : 'SERVİS TALEBİ OLUŞTUR'}
+                          </div>
+                          {yuklemeMesaji && <span className="text-xs text-blue-200 font-medium">{yuklemeMesaji}</span>}
                       </button>
 
                   </motion.div>
