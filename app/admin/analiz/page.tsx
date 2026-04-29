@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - PRO ANALİZ MODÜLÜ 🛠️
-// Versiyon: 9.1 (TypeScript Title Hatası Giderildi ✔️)
+// Versiyon: 9.2 (Dinamik Ay/Yıl Ciro ve Haftalık Ciro Filtresi Eklendi 📊)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -47,11 +47,19 @@ export default function AnalizSayfasi() {
   const [raporModalAcik, setRaporModalAcik] = useState(false);
   const [aktifRaporId, setAktifRaporId] = useState<string | null>(null); 
 
-  // ANALİZ TARİHİ
-  const [analizTarihi, setAnalizTarihi] = useState(new Date().toISOString().slice(0, 7)); 
+  // 🔥 YENİ: DİNAMİK CİRO VE ANALİZ İÇİN DÖNEM SEÇİCİLER 🔥
+  const [seciliDonem, setSeciliDonem] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM formunda ana ciro filtresi
+  const [analizTarihi, setAnalizTarihi] = useState(new Date().toISOString().slice(0, 7)); // Ekip performansı için ayrı filtre
 
-  // İSTATİSTİK & GRAFİK
-  const [istatistik, setIstatistik] = useState({ toplamCiro: 0, buAyCiro: 0, toplamIslem: 0, buHaftaIslem: 0, buAyIslem: 0 });
+  // 🔥 GÜNCELLENMİŞ İSTATİSTİK STATE'İ 🔥
+  const [istatistik, setIstatistik] = useState({ 
+      toplamCiro: 0, 
+      seciliAyCiro: 0, 
+      buHaftaCiro: 0, 
+      toplamIslem: 0, 
+      buHaftaIslem: 0, 
+      seciliAyIslem: 0 
+  });
   const [grafikVerisi, setGrafikVerisi] = useState<any[]>([]);
 
   // MALZEME YÖNETİMİ
@@ -80,6 +88,11 @@ export default function AnalizSayfasi() {
       return () => clearInterval(interval);
   }, []);
 
+  // Dönem (Ay/Yıl) değiştiğinde hesaplamaları tekrar tetikle
+  useEffect(() => {
+      if (kayitlar.length > 0) hesaplamalariYap(kayitlar);
+  }, [seciliDonem, kayitlar]);
+
   const tumVerileriGetir = async () => {
     try {
         const { data: servisData } = await supabase.from('completed_services').select('*').order('service_date', { ascending: false });
@@ -97,31 +110,57 @@ export default function AnalizSayfasi() {
   };
 
   // ==========================================================================
-  // HESAPLAMALAR
+  // HESAPLAMALAR (DİNAMİK OLARAK GÜNCELLENDİ)
   // ==========================================================================
   const hesaplamalariYap = (data: any[]) => {
     const bugun = new Date();
-    const suAnkiAy = bugun.getMonth();
-    const suAnkiYil = bugun.getFullYear();
+    
+    // Seçilen Yıl ve Ay'ı Parçala
+    const [secilenYil, secilenAy] = seciliDonem.split('-').map(Number);
+
+    // Bu haftanın başlangıcını (Pazartesi) bul
     const buHaftaBaslangic = new Date(bugun);
     const day = buHaftaBaslangic.getDay();
     const diff = buHaftaBaslangic.getDate() - day + (day === 0 ? -6 : 1); 
-    buHaftaBaslangic.setDate(diff); buHaftaBaslangic.setHours(0,0,0,0);
+    buHaftaBaslangic.setDate(diff); 
+    buHaftaBaslangic.setHours(0,0,0,0);
 
-    let topCiro = 0, ayCiro = 0, haftaSayi = 0, aySayi = 0;
+    let topCiro = 0, seciliAyCiro = 0, haftaCiro = 0, haftaSayi = 0, seciliAySayi = 0;
     const musteriAnalizi: any = {};
 
     data.forEach(item => {
         const fiyat = Number(item.price) || 0;
         const islemTarihi = new Date(item.service_date);
+        
+        // Tüm Zamanlar Toplam Ciro
         topCiro += fiyat;
-        if (islemTarihi.getMonth() === suAnkiAy && islemTarihi.getFullYear() === suAnkiYil) { ayCiro += fiyat; aySayi++; }
-        if (islemTarihi >= buHaftaBaslangic) { haftaSayi++; }
-        const musteri = item.customer_text || 'Bilinmeyen';
-        musteriAnalizi[musteri] = (musteriAnalizi[musteri] || 0) + fiyat;
+
+        // SEÇİLİ DÖNEM (Ay/Yıl) Ciro ve İşlem Sayısı
+        if (islemTarihi.getFullYear() === secilenYil && (islemTarihi.getMonth() + 1) === secilenAy) { 
+            seciliAyCiro += fiyat; 
+            seciliAySayi++; 
+            
+            // Grafiği SADECE seçili aya göre dolduruyoruz (Çok daha mantıklı bir analiz sunar)
+            const musteri = item.customer_text || 'Bilinmeyen';
+            musteriAnalizi[musteri] = (musteriAnalizi[musteri] || 0) + fiyat;
+        }
+
+        // BU HAFTA Ciro ve İşlem Sayısı
+        if (islemTarihi >= buHaftaBaslangic) { 
+            haftaCiro += fiyat;
+            haftaSayi++; 
+        }
     });
 
-    setIstatistik({ toplamCiro: topCiro, buAyCiro: ayCiro, toplamIslem: data.length, buHaftaIslem: haftaSayi, buAyIslem: aySayi });
+    setIstatistik({ 
+        toplamCiro: topCiro, 
+        seciliAyCiro: seciliAyCiro, 
+        buHaftaCiro: haftaCiro,
+        toplamIslem: data.length, 
+        buHaftaIslem: haftaSayi, 
+        seciliAyIslem: seciliAySayi 
+    });
+
     setGrafikVerisi(Object.keys(musteriAnalizi).map(key => ({ name: key, tutar: musteriAnalizi[key] })).sort((a, b) => b.tutar - a.tutar).slice(0, 5));
   };
 
@@ -182,7 +221,6 @@ export default function AnalizSayfasi() {
       setFormAcik(true);
   };
 
-  // 🔥 ÇOKLU FOTOĞRAFLI SAHA RAPORUNU FORMA ÇEVİRME 🔥
   const raporaDonustur = (rapor: any) => {
       setDuzenlemeId(null);
       formuSifirla();
@@ -278,19 +316,82 @@ export default function AnalizSayfasi() {
         </div>
       </div>
 
-      {/* İSTATİSTİKLER */}
+      {/* 🔥 İSTATİSTİKLER (DİNAMİK CİRO VE HAFTALIK GÜNCELLEMESİ) 🔥 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100"><div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Toplam Ciro</div><div className="text-xl font-black text-slate-800">{istatistik.toplamCiro.toLocaleString('tr-TR')} ₺</div></div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100"><div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Bu Ay Ciro</div><div className="text-xl font-black text-slate-800">{istatistik.buAyCiro.toLocaleString('tr-TR')} ₺</div></div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100"><div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Haftalık Servis</div><div className="text-xl font-black text-slate-800">{istatistik.buHaftaIslem} Adet</div></div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100"><div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Aylık Servis</div><div className="text-xl font-black text-slate-800">{istatistik.buAyIslem} Adet</div></div>
+        
+        {/* TOPLAM CİRO */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+            <div>
+                <div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Toplam Ciro (Tüm Zamanlar)</div>
+                <div className="text-xl md:text-2xl font-black text-slate-800">{istatistik.toplamCiro.toLocaleString('tr-TR')} ₺</div>
+            </div>
+            <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-100 pt-2">{istatistik.toplamIslem} Toplam Servis İşlemi</div>
+        </div>
+
+        {/* DİNAMİK SEÇİLİ DÖNEM CİRO */}
+        <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-5 rounded-2xl shadow-md border border-blue-700 text-white relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute right-0 bottom-0 opacity-10"><TrendingUp size={80}/></div>
+            <div className="flex justify-between items-start mb-2 relative z-10">
+                <div className="text-[10px] md:text-xs text-blue-200 font-bold uppercase">Dönem Cirosu</div>
+                {/* 🔥 DÖNEM FİLTRESİ BURADA 🔥 */}
+                <select 
+                    value={seciliDonem} 
+                    onChange={(e) => setSeciliDonem(e.target.value)} 
+                    className="bg-blue-900/50 border border-blue-500/50 text-white text-[10px] font-bold px-2 py-1 rounded outline-none cursor-pointer hover:bg-blue-900/80 transition"
+                >
+                    {Array.from({ length: 7 }, (_, i) => 2024 + i).map(yil => (
+                        ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"].map((ayAdi, index) => {
+                            const ayValue = `${yil}-${String(index + 1).padStart(2, '0')}`;
+                            return <option key={ayValue} value={ayValue}>{ayAdi} {yil}</option>;
+                        })
+                    ))}
+                </select>
+            </div>
+            <div className="text-xl md:text-2xl font-black relative z-10">{istatistik.seciliAyCiro.toLocaleString('tr-TR')} ₺</div>
+            <div className="text-[10px] text-blue-200 mt-2 border-t border-blue-500/30 pt-2 relative z-10">{istatistik.seciliAyIslem} Servis İşlemi Gerçekleşti</div>
+        </div>
+
+        {/* HAFTALIK CİRO VE SERVİS */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+            <div>
+                <div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Bu Hafta Ciro</div>
+                <div className="text-xl md:text-2xl font-black text-emerald-600">{istatistik.buHaftaCiro.toLocaleString('tr-TR')} ₺</div>
+            </div>
+            <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-100 pt-2">{istatistik.buHaftaIslem} Servis İşlemi Gerçekleşti</div>
+        </div>
+
+        {/* DİNAMİK SEÇİLİ DÖNEM SERVİS SAYISI */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+            <div>
+                <div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Dönem Servis Sayısı</div>
+                <div className="text-xl md:text-2xl font-black text-slate-800">{istatistik.seciliAyIslem} Adet</div>
+            </div>
+            <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-100 pt-2">Seçili ay içerisindeki kayıtlar</div>
+        </div>
       </div>
 
       {/* GRAFİK VE LİSTE */}
       <div className="space-y-8">
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hidden md:block">
-                <h3 className="text-sm font-bold text-slate-500 mb-6 uppercase flex items-center gap-2"><TrendingUp size={16}/> En Çok Ciro Yapan 5 Müşteri</h3>
-                <div className="h-[250px] w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={grafikVerisi}><CartesianGrid strokeDasharray="3 3" opacity={0.3} /><XAxis dataKey="name" tick={{fontSize: 10}} /><YAxis width={60} /><Tooltip /><Bar dataKey="tutar" fill="#4f46e5" radius={[6, 6, 0, 0]} name="Gelir (TL)" /></BarChart></ResponsiveContainer></div>
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2"><TrendingUp size={16}/> Seçili Dönemde En Çok Ciro Yapan 5 Müşteri</h3>
+                    <span className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100">Filtre: {seciliDonem}</span>
+                </div>
+                <div className="h-[250px] w-full">
+                    {grafikVerisi.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={grafikVerisi}>
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                                <XAxis dataKey="name" tick={{fontSize: 10}} />
+                                <YAxis width={60} />
+                                <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}/>
+                                <Bar dataKey="tutar" fill="#4f46e5" radius={[6, 6, 0, 0]} name="Gelir (TL)" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-full flex items-center justify-center text-slate-400 text-sm font-medium">Bu döneme ait gelir verisi bulunmuyor.</div>
+                    )}
+                </div>
             </div>
 
             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
