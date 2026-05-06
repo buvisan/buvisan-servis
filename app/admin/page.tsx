@@ -1,7 +1,7 @@
 "use client";
 // --------------------------------------------------------
-// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V3.5 🛠️
-// (Manuel İş Emrine Harita Koordinatları - Lat/Lng Eklendi 📍)
+// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V3.6 🛠️
+// (Koordinat Girilen Arızalarda "Haritada Gör" Butonu Eklendi 📍)
 // --------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -13,7 +13,7 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map
 } from 'lucide-react';
 
 const PERSONEL_LISTESI = [
@@ -35,7 +35,6 @@ export default function AdminPanel() {
   
   const [secilenManuelPersoneller, setSecilenManuelPersoneller] = useState<string[]>([]);
   
-  // 🔥 YENİ: State içine lat ve lng eklendi 🔥
   const [manuelKayit, setManuelKayit] = useState({
       firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: ''
   });
@@ -91,8 +90,8 @@ export default function AdminPanel() {
           aciliyet: kayit.priority || 'Normal',
           ekip: kayit.assigned_team || '',
           sorun: kayit.description || '',
-          lat: kayit.lat || '', // 🔥 YENİ: Veritabanından gelen enlem
-          lng: kayit.lng || ''  // 🔥 YENİ: Veritabanından gelen boylam
+          lat: kayit.lat || '', 
+          lng: kayit.lng || ''  
       });
 
       if(kayit.assigned_team) setSecilenManuelPersoneller(kayit.assigned_team.split(" - ").map((p:string) => p.trim()));
@@ -118,8 +117,8 @@ export default function AdminPanel() {
           description: manuelKayit.sorun, manual_customer_name: manuelKayit.firma_adi, manual_customer_rep: manuelKayit.yetkili,
           manual_phone: manuelKayit.telefon, manual_location: manuelKayit.adres, manual_crane_info: manuelKayit.vinc_bilgisi,
           priority: manuelKayit.aciliyet, assigned_team: manuelKayit.ekip,
-          lat: manuelKayit.lat ? Number(manuelKayit.lat) : null, // 🔥 YENİ: Enlem kaydediliyor
-          lng: manuelKayit.lng ? Number(manuelKayit.lng) : null  // 🔥 YENİ: Boylam kaydediliyor
+          lat: manuelKayit.lat ? Number(manuelKayit.lat) : null, 
+          lng: manuelKayit.lng ? Number(manuelKayit.lng) : null  
       };
 
       let error;
@@ -137,6 +136,12 @@ export default function AdminPanel() {
   }
 
   async function cikisYap() { await supabase.auth.signOut(); router.push('/login'); }
+
+  // 🔥 HARİTAYA GİT BUTONU 🔥
+  const haritayaGit = (lat: number, lng: number) => {
+    // Harita sayfasına URL parametresi ile koordinat yolluyoruz
+    router.push(`/admin/harita?lat=${lat}&lng=${lng}`);
+  };
 
   if (yukleniyor || !erisimIzni) {
     return (
@@ -182,7 +187,7 @@ export default function AdminPanel() {
             <div className="hidden md:flex bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex-col justify-center items-center text-center">
                 <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4"><LayoutDashboard size={32}/></div>
                 <h3 className="text-slate-800 font-bold text-lg">Yönetim Paneli</h3>
-                <p className="text-slate-400 text-xs mt-1">v3.5 Aktif</p>
+                <p className="text-slate-400 text-xs mt-1">v3.6 Aktif</p>
                 <div className="mt-4 w-full h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 w-2/3 rounded-full"></div></div>
             </div>
         </div>
@@ -220,6 +225,10 @@ export default function AdminPanel() {
               ) : (
                 bildirimler.map((kayit) => {
                   const isKritik = kayit.priority === 'Kritik (Makine Durdu)';
+                  
+                  // Adres bilgisini kontrol et
+                  const adresMetni = kayit.cranes?.location_address || kayit.manual_location;
+                  const koordinatVarMi = kayit.lat && kayit.lng;
                   
                   return (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={kayit.id} 
@@ -263,7 +272,22 @@ export default function AdminPanel() {
                               {kayit.cranes?.customer_name || kayit.manual_customer_name || "Bilinmeyen Müşteri"}
                           </h3>
                           <div className="flex flex-wrap items-center gap-3 text-slate-500 text-xs mt-1">
-                              <div className="flex items-center gap-1"><MapPin className="w-3 h-3 text-blue-500" /> <span>{kayit.cranes?.location_address || kayit.manual_location || "Adres Belirtilmemiş"}</span></div>
+                              
+                              {/* 🔥 DÜZELTME BURADA: KOORDİNAT GİRİLMİŞSE HARİTA BUTONU ÇIKSIN 🔥 */}
+                              <div className="flex items-center gap-1">
+                                  <MapPin className="w-3 h-3 text-blue-500" /> 
+                                  <span>
+                                      {adresMetni ? adresMetni : koordinatVarMi ? "📍 Harita Konumu Girildi" : "Adres Belirtilmemiş"}
+                                  </span>
+                                  {koordinatVarMi && (
+                                      <button 
+                                          onClick={() => haritayaGit(kayit.lat, kayit.lng)}
+                                          className="ml-2 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-bold transition flex items-center gap-1 shadow-sm"
+                                      >
+                                          <Map size={10}/> Haritada Gör
+                                      </button>
+                                  )}
+                              </div>
                               
                               {/* Telefon (Tıklanabilir) */}
                               {kayit.manual_phone && (
@@ -400,7 +424,7 @@ export default function AdminPanel() {
                                 <input type="text" placeholder="Örn: İnegöl OSB, 1. Cadde" value={manuelKayit.adres} onChange={e => setManuelKayit({...manuelKayit, adres: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
                             </div>
                             
-                            {/* 🔥 YENİ: HARİTA KOORDİNATLARI (ENLEM VE BOYLAM) 🔥 */}
+                            {/* HARİTA KOORDİNATLARI (ENLEM VE BOYLAM) */}
                             <div className="md:col-span-2 grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><MapPin size={12}/> Enlem (Lat)</label>
