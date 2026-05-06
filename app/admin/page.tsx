@@ -1,7 +1,7 @@
 "use client";
 // --------------------------------------------------------
-// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V3.4 🛠️
-// (Müşteriden Gelen Ses Kaydı ve Çoklu Medya Desteği Eklendi 🎙️📸)
+// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V3.5 🛠️
+// (Manuel İş Emrine Harita Koordinatları - Lat/Lng Eklendi 📍)
 // --------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -35,8 +35,9 @@ export default function AdminPanel() {
   
   const [secilenManuelPersoneller, setSecilenManuelPersoneller] = useState<string[]>([]);
   
+  // 🔥 YENİ: State içine lat ve lng eklendi 🔥
   const [manuelKayit, setManuelKayit] = useState({
-      firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: ''
+      firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: ''
   });
 
   useEffect(() => { guvenlikVeVeri(); }, []);
@@ -89,7 +90,9 @@ export default function AdminPanel() {
           vinc_bilgisi: kayit.manual_crane_info || kayit.cranes?.model_name || '',
           aciliyet: kayit.priority || 'Normal',
           ekip: kayit.assigned_team || '',
-          sorun: kayit.description || ''
+          sorun: kayit.description || '',
+          lat: kayit.lat || '', // 🔥 YENİ: Veritabanından gelen enlem
+          lng: kayit.lng || ''  // 🔥 YENİ: Veritabanından gelen boylam
       });
 
       if(kayit.assigned_team) setSecilenManuelPersoneller(kayit.assigned_team.split(" - ").map((p:string) => p.trim()));
@@ -114,7 +117,9 @@ export default function AdminPanel() {
       const veriPaketi = {
           description: manuelKayit.sorun, manual_customer_name: manuelKayit.firma_adi, manual_customer_rep: manuelKayit.yetkili,
           manual_phone: manuelKayit.telefon, manual_location: manuelKayit.adres, manual_crane_info: manuelKayit.vinc_bilgisi,
-          priority: manuelKayit.aciliyet, assigned_team: manuelKayit.ekip
+          priority: manuelKayit.aciliyet, assigned_team: manuelKayit.ekip,
+          lat: manuelKayit.lat ? Number(manuelKayit.lat) : null, // 🔥 YENİ: Enlem kaydediliyor
+          lng: manuelKayit.lng ? Number(manuelKayit.lng) : null  // 🔥 YENİ: Boylam kaydediliyor
       };
 
       let error;
@@ -126,7 +131,7 @@ export default function AdminPanel() {
       if (error) alert("Kaydedilemedi: " + error.message);
       else {
           setManuelFormAcik(false); setSecilenManuelPersoneller([]);
-          setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '' });
+          setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: '' });
           setDuzenlenenKayitId(null); guvenlikVeVeri(); 
       }
   }
@@ -177,7 +182,7 @@ export default function AdminPanel() {
             <div className="hidden md:flex bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex-col justify-center items-center text-center">
                 <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4"><LayoutDashboard size={32}/></div>
                 <h3 className="text-slate-800 font-bold text-lg">Yönetim Paneli</h3>
-                <p className="text-slate-400 text-xs mt-1">v3.4 Aktif</p>
+                <p className="text-slate-400 text-xs mt-1">v3.5 Aktif</p>
                 <div className="mt-4 w-full h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 w-2/3 rounded-full"></div></div>
             </div>
         </div>
@@ -186,7 +191,7 @@ export default function AdminPanel() {
         <div>
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><div className="w-1 h-6 bg-slate-800 rounded-full"></div> Operasyonlar</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                <motion.button whileHover={{ y: -3 }} onClick={() => { setDuzenlenenKayitId(null); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '' }); setSecilenManuelPersoneller([]); setManuelFormAcik(true); }} className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-md border border-slate-700 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
+                <motion.button whileHover={{ y: -3 }} onClick={() => { setDuzenlenenKayitId(null); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: '' }); setSecilenManuelPersoneller([]); setManuelFormAcik(true); }} className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-md border border-slate-700 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
                     <div className="absolute -right-4 -bottom-4 opacity-10"><Settings size={80}/></div>
                     <div className="bg-white/10 text-white w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-white/20 transition-colors relative z-10"><Plus size={20}/></div>
                     <div className="relative z-10"><h3 className="font-bold text-white text-sm">İş Emri Ekle</h3><p className="text-[10px] text-slate-400">Manuel arıza kaydı</p></div>
@@ -260,6 +265,7 @@ export default function AdminPanel() {
                           <div className="flex flex-wrap items-center gap-3 text-slate-500 text-xs mt-1">
                               <div className="flex items-center gap-1"><MapPin className="w-3 h-3 text-blue-500" /> <span>{kayit.cranes?.location_address || kayit.manual_location || "Adres Belirtilmemiş"}</span></div>
                               
+                              {/* Telefon (Tıklanabilir) */}
                               {kayit.manual_phone && (
                                   <a href={`tel:${kayit.manual_phone}`} className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded hover:bg-emerald-100 transition">
                                       <Phone className="w-3 h-3" /> {kayit.manual_phone}
@@ -285,9 +291,8 @@ export default function AdminPanel() {
                             <p className="whitespace-pre-line">{kayit.description}</p>
                         </div>
                         
-                        {/* 🔥 YENİ: SES KAYDI VE ÇOKLU MEDYA GÖRÜNTÜLEME 🔥 */}
+                        {/* SES KAYDI VE ÇOKLU MEDYA GÖRÜNTÜLEME */}
                         <div className="pt-3 space-y-3">
-                            
                             {/* SES KAYDI */}
                             {kayit.audio_url && (
                                 <div className="bg-slate-100 p-3 rounded-xl border border-slate-200 shadow-inner">
@@ -357,7 +362,7 @@ export default function AdminPanel() {
           ========================================================================= */}
       <AnimatePresence>
         {manuelFormAcik && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto" onClick={() => { setManuelFormAcik(false); setSecilenManuelPersoneller([]); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '' }); setDuzenlenenKayitId(null); }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto" onClick={() => { setManuelFormAcik(false); setSecilenManuelPersoneller([]); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: '' }); setDuzenlenenKayitId(null); }}>
                 <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-full max-w-3xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col my-auto" onClick={e => e.stopPropagation()}>
                     
                     {/* Modal Başlık */}
@@ -370,7 +375,7 @@ export default function AdminPanel() {
                                 <p className="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1">Saha Ekiplerine Yönlendir</p>
                             </div>
                         </div>
-                        <button onClick={() => { setManuelFormAcik(false); setSecilenManuelPersoneller([]); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '' }); setDuzenlenenKayitId(null); }} className="text-slate-400 hover:text-white bg-slate-800 hover:bg-red-500 p-2.5 rounded-full transition relative z-10"><X size={20}/></button>
+                        <button onClick={() => { setManuelFormAcik(false); setSecilenManuelPersoneller([]); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: '' }); setDuzenlenenKayitId(null); }} className="text-slate-400 hover:text-white bg-slate-800 hover:bg-red-500 p-2.5 rounded-full transition relative z-10"><X size={20}/></button>
                     </div>
 
                     {/* Form İçeriği */}
@@ -393,6 +398,18 @@ export default function AdminPanel() {
                             <div className="md:col-span-2">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><MapPin size={12}/> Açık Adres / Lokasyon</label>
                                 <input type="text" placeholder="Örn: İnegöl OSB, 1. Cadde" value={manuelKayit.adres} onChange={e => setManuelKayit({...manuelKayit, adres: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
+                            </div>
+                            
+                            {/* 🔥 YENİ: HARİTA KOORDİNATLARI (ENLEM VE BOYLAM) 🔥 */}
+                            <div className="md:col-span-2 grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><MapPin size={12}/> Enlem (Lat)</label>
+                                    <input type="number" placeholder="Örn: 40.1826" value={manuelKayit.lat} onChange={e => setManuelKayit({...manuelKayit, lat: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><MapPin size={12}/> Boylam (Lng)</label>
+                                    <input type="number" placeholder="Örn: 28.9338" value={manuelKayit.lng} onChange={e => setManuelKayit({...manuelKayit, lng: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
+                                </div>
                             </div>
                         </div>
 
@@ -453,7 +470,7 @@ export default function AdminPanel() {
                     </div>
 
                     <div className="p-6 border-t border-slate-200 bg-white flex justify-end gap-3 shrink-0">
-                        <button onClick={() => { setManuelFormAcik(false); setSecilenManuelPersoneller([]); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '' }); setDuzenlenenKayitId(null); }} className="px-6 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition text-sm">İptal</button>
+                        <button onClick={() => { setManuelFormAcik(false); setSecilenManuelPersoneller([]); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: '' }); setDuzenlenenKayitId(null); }} className="px-6 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition text-sm">İptal</button>
                         <button onClick={manuelArizaKaydet} disabled={kaydediliyor} className="px-8 py-3.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 flex items-center gap-2 text-sm active:scale-95">
                             {kaydediliyor ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>}
                             {kaydediliyor ? 'Kaydediliyor...' : duzenlenenKayitId ? 'Değişiklikleri Kaydet' : 'İş Emrini Sisteme Gönder'}

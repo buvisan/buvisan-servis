@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+// @ts-ignore
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Loader2, Search, X, Navigation, AlertTriangle, CheckCircle2, ExternalLink, Factory, Zap, Building2, Plus, Trash2, Map, Route, ArrowLeft } from 'lucide-react';

@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+// @ts-ignore
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Loader2, Search, X, Navigation, AlertTriangle, CheckCircle2, ExternalLink, Factory, Zap, Building2, Plus, Trash2, Map, Route } from 'lucide-react';
+import { Loader2, Search, X, Navigation, AlertTriangle, CheckCircle2, ExternalLink, Factory, Zap, Building2, Plus, Trash2, Map, Route, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -71,6 +72,20 @@ const yesilIcon = L.divIcon({
   popupAnchor: [0, -42],
 });
 
+// 🔥 YENİ: DIŞ SERVİS MAKİNALARI İÇİN SARI İKON 🔥
+const sariIcon = L.divIcon({
+  className: 'premium-marker',
+  html: `
+    <div class="marker-inner" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); width: 36px; height: 36px; border-radius: 50%; border: 3px solid white; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); display: flex; align-items: center; justify-content: center; color: white; position: relative;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 9.36l-7.1 7.1a1 1 0 0 1-1.4 0l-2.8-2.8a1 1 0 0 1 0-1.4l7.1-7.1a6 6 0 0 1 9.36-7.94l-3.77 3.77z"></path></svg>
+      <div style="position: absolute; bottom: -6px; left: 10px; width: 12px; height: 12px; background: #d97706; transform: rotate(45deg); z-index: -1; border: 2px solid white;"></div>
+    </div>
+  `,
+  iconSize: [36, 48],
+  iconAnchor: [18, 42],
+  popupAnchor: [0, -42],
+});
+
 const kirmiziIcon = L.divIcon({
   className: 'premium-marker',
   html: `
@@ -109,63 +124,77 @@ function HaritaKontrol({ hedef }: { hedef: { lat: number, lng: number } | null }
 
 export default function HaritaBileseni() {
   const [vincler, setVincler] = useState<any[]>([]);
+  const [manuelServisler, setManuelServisler] = useState<any[]>([]); // 🔥 YENİ: Dış servis makinaları
   const [yukleniyor, setYukleniyor] = useState(true);
+  
   const [aramaMetni, setAramaMetni] = useState("");
   const [seciliVincKonum, setSeciliVincKonum] = useState<{lat: number, lng: number} | null>(null);
   const [sonuclarAcik, setSonuclarAcik] = useState(false);
   const [aktifFiltre, setAktifFiltre] = useState('hepsi'); 
   const [ozet, setOzet] = useState({ toplam: 0, arizali: 0, saglam: 0 });
 
-  // 🚀 YENİ ÖZELLİK: ROTA SEPETİ 🚀
   const [rotaListesi, setRotaListesi] = useState<any[]>([]);
   const [rotaPanelAcik, setRotaPanelAcik] = useState(false);
 
   useEffect(() => {
     const verileriGetir = async () => {
-      const { data } = await supabase.from('cranes').select('*, service_tickets(*)');
-      if (data) {
-        const haritaVerisi = data.filter(v => v.lat && v.lng);
+      // 1. Kendi Vinçlerimiz
+      const { data: cranesData } = await supabase.from('cranes').select('*, service_tickets(*)');
+      
+      // 2. Manuel / Dış Servis Makinaları (crane_id'si olmayan ama lat/lng girilmiş service_tickets kayıtları)
+      const { data: manualData } = await supabase.from('service_tickets')
+          .select('*')
+          .is('crane_id', null)
+          .not('lat', 'is', null)
+          .not('lng', 'is', null);
+
+      let arizaliSayisi = 0;
+      let toplamArac = 0;
+
+      if (cranesData) {
+        const haritaVerisi = cranesData.filter(v => v.lat && v.lng);
         setVincler(haritaVerisi);
-        let arizaliSayisi = 0;
+        toplamArac += haritaVerisi.length;
+        
         haritaVerisi.forEach(v => {
            const aktifAriza = v.service_tickets?.some((t: any) => t.status !== 'tamamlandi');
            if (aktifAriza) arizaliSayisi++;
         });
-        setOzet({ toplam: haritaVerisi.length, arizali: arizaliSayisi, saglam: haritaVerisi.length - arizaliSayisi });
       }
+
+      if (manualData) {
+        setManuelServisler(manualData);
+        toplamArac += manualData.length;
+        
+        manualData.forEach(m => {
+           if (m.status !== 'tamamlandi') arizaliSayisi++;
+        });
+      }
+
+      setOzet({ toplam: toplamArac, arizali: arizaliSayisi, saglam: toplamArac - arizaliSayisi });
       setYukleniyor(false);
     };
     verileriGetir();
   }, []);
 
-  // Sepete Ekle / Çıkar
-  const rotayaEkleCikar = (vinc: any) => {
-    const listedeVarMi = rotaListesi.find(r => r.id === vinc.id);
+  const rotayaEkleCikar = (aracId: string, lat: number, lng: number, isim: string, model: string) => {
+    const listedeVarMi = rotaListesi.find(r => r.id === aracId);
     if (listedeVarMi) {
-        setRotaListesi(prev => prev.filter(r => r.id !== vinc.id));
+        setRotaListesi(prev => prev.filter(r => r.id !== aracId));
     } else {
-        setRotaListesi(prev => [...prev, vinc]);
-        setRotaPanelAcik(true); // Ekleme yapınca paneli aç
+        setRotaListesi(prev => [...prev, { id: aracId, lat, lng, isim, model }]);
+        setRotaPanelAcik(true);
     }
   };
 
-  // 🌍 DEVASA GOOGLE MAPS LİNKİ OLUŞTURUCU 🌍
   const cokluRotaOlustur = () => {
     if (rotaListesi.length === 0) return;
-    
-    // Format: https://www.google.com/maps/dir/Başlangıç/Durak1/Durak2/Bitiş
     let url = `https://www.google.com/maps/dir/${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}`;
-    
-    rotaListesi.forEach(v => {
-        url += `/${v.lat},${v.lng}`;
-    });
-
-    // En son fabrikaya geri dönülecekse bunu ekle (Opsiyonel, şimdilik tek yön yapalım ustalar eve de gidebilir)
-    // url += `/${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}`; 
-
+    rotaListesi.forEach(v => { url += `/${v.lat},${v.lng}`; });
     window.open(url, '_blank');
   };
 
+  // Kendi vinçlerimizi filtrele
   const filtrelenmisVincler = vincler.filter(v => {
     const aranan = aramaMetni.toLocaleLowerCase('tr-TR');
     const metinUyumu = 
@@ -174,10 +203,22 @@ export default function HaritaBileseni() {
       v.serial_number?.toLocaleLowerCase('tr-TR').includes(aranan);
 
     const arizaVarMi = v.service_tickets?.some((t: any) => t.status !== 'tamamlandi');
-    let durumUyumu = true;
-    if (aktifFiltre === 'arizali') durumUyumu = arizaVarMi;
-    if (aktifFiltre === 'saglam') durumUyumu = !arizaVarMi;
-    return metinUyumu && durumUyumu;
+    if (aktifFiltre === 'arizali') return metinUyumu && arizaVarMi;
+    if (aktifFiltre === 'saglam') return metinUyumu && !arizaVarMi;
+    return metinUyumu;
+  });
+
+  // Dış servis makinalarını filtrele
+  const filtrelenmisManuelServisler = manuelServisler.filter(m => {
+    const aranan = aramaMetni.toLocaleLowerCase('tr-TR');
+    const metinUyumu = 
+      m.manual_customer_name?.toLocaleLowerCase('tr-TR').includes(aranan) ||
+      m.manual_crane_info?.toLocaleLowerCase('tr-TR').includes(aranan);
+
+    const arizaVarMi = m.status !== 'tamamlandi';
+    if (aktifFiltre === 'arizali') return metinUyumu && arizaVarMi;
+    if (aktifFiltre === 'saglam') return metinUyumu && !arizaVarMi;
+    return metinUyumu;
   });
 
   const vinceGit = (lat: number, lng: number) => {
@@ -193,7 +234,7 @@ export default function HaritaBileseni() {
       <style>{customStyles}</style>
       
       {/* ÜST PANEL */}
-      <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute top-6 left-4 right-4 md:left-6 md:w-[450px] z-[9999] flex flex-col gap-3">
+      <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute top-6 left-4 right-4 md:left-6 md:w-[500px] z-[9999] flex flex-col gap-3">
         <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/50 overflow-hidden">
           <div className="flex items-center p-3 gap-3">
             <div className={`p-2 rounded-xl bg-slate-100 text-slate-500`}><Search className="w-5 h-5" /></div>
@@ -203,6 +244,8 @@ export default function HaritaBileseni() {
           <AnimatePresence>
             {sonuclarAcik && aramaMetni && (
               <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="max-h-[350px] overflow-y-auto border-t border-slate-100 bg-white">
+                
+                {/* Kendi Vinçlerimiz Sonuçları */}
                 {filtrelenmisVincler.map((vinc) => {
                     const arizaVarMi = vinc.service_tickets?.some((t: any) => t.status !== 'tamamlandi');
                     return (
@@ -212,14 +255,35 @@ export default function HaritaBileseni() {
                       </button>
                     )
                 })}
+
+                {/* Dış Servis Makinaları Sonuçları */}
+                {filtrelenmisManuelServisler.map((servis) => {
+                    const arizaVarMi = servis.status !== 'tamamlandi';
+                    return (
+                      <button key={servis.id} onClick={() => vinceGit(servis.lat, servis.lng)} className="w-full text-left p-3 hover:bg-orange-50 border-b border-slate-50 flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${arizaVarMi ? 'bg-red-500 animate-pulse' : 'bg-orange-400'}`}></div>
+                        <div>
+                            <div className="text-xs font-bold text-slate-800">{servis.manual_customer_name}</div>
+                            <div className="text-[10px] text-orange-600 font-bold flex items-center gap-1"><Wrench size={10}/> Dış Servis: {servis.manual_crane_info}</div>
+                        </div>
+                      </button>
+                    )
+                })}
               </motion.div>
             )}
           </AnimatePresence>
         </div>
         <div className="flex gap-2">
-            <button onClick={() => setAktifFiltre('hepsi')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-md border ${aktifFiltre === 'hepsi' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white/90 text-slate-600 border-white/50 hover:bg-white'}`}>TÜM FİLO</button>
-            <button onClick={() => setAktifFiltre('arizali')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-md border flex items-center justify-center gap-1 ${aktifFiltre === 'arizali' ? 'bg-red-600 text-white border-red-600' : 'bg-white/90 text-red-600 border-white/50 hover:bg-red-50'}`}><AlertTriangle size={14}/> ARIZALILAR</button>
-            <button onClick={() => setAktifFiltre('saglam')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-md border flex items-center justify-center gap-1 ${aktifFiltre === 'saglam' ? 'bg-green-600 text-white border-green-600' : 'bg-white/90 text-green-600 border-white/50 hover:bg-green-50'}`}><CheckCircle2 size={14}/> AKTİFLER</button>
+            <button onClick={() => setAktifFiltre('hepsi')} className={`flex-1 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-lg backdrop-blur-md border ${aktifFiltre === 'hepsi' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white/90 text-slate-600 border-white/50 hover:bg-white'}`}>TÜM FİLO</button>
+            <button onClick={() => setAktifFiltre('arizali')} className={`flex-1 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-lg backdrop-blur-md border flex items-center justify-center gap-1 ${aktifFiltre === 'arizali' ? 'bg-red-600 text-white border-red-600' : 'bg-white/90 text-red-600 border-white/50 hover:bg-red-50'}`}><AlertTriangle size={14}/> ARIZALILAR</button>
+            <button onClick={() => setAktifFiltre('saglam')} className={`flex-1 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-lg backdrop-blur-md border flex items-center justify-center gap-1 ${aktifFiltre === 'saglam' ? 'bg-green-600 text-white border-green-600' : 'bg-white/90 text-green-600 border-white/50 hover:bg-green-50'}`}><CheckCircle2 size={14}/> AKTİFLER</button>
+        </div>
+        
+        {/* LEJAND (RENK AÇIKLAMALARI) */}
+        <div className="bg-white/90 backdrop-blur-md p-2 rounded-xl border border-white/50 flex items-center justify-center gap-4 text-[10px] font-bold shadow-sm">
+            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> Kendi Vincimiz</div>
+            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-400"></span> Dış Servis Makinası</div>
+            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Arızalı</div>
         </div>
       </motion.div>
 
@@ -227,15 +291,11 @@ export default function HaritaBileseni() {
       <AnimatePresence>
         {rotaListesi.length > 0 && (
             <motion.div 
-                initial={{ x: 300, opacity: 0 }} 
-                animate={{ x: 0, opacity: 1 }} 
-                exit={{ x: 300, opacity: 0 }}
+                initial={{ x: 300, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 300, opacity: 0 }}
                 className="absolute bottom-24 right-4 md:bottom-6 md:right-6 z-[9999] w-72 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
             >
                 <div className="bg-slate-800 text-white p-3 flex justify-between items-center cursor-pointer" onClick={() => setRotaPanelAcik(!rotaPanelAcik)}>
-                    <div className="flex items-center gap-2 text-sm font-bold">
-                        <Route size={16}/> Servis Rotası ({rotaListesi.length})
-                    </div>
+                    <div className="flex items-center gap-2 text-sm font-bold"><Route size={16}/> Servis Rotası ({rotaListesi.length})</div>
                     {rotaPanelAcik ? <X size={16}/> : <Plus size={16}/>}
                 </div>
 
@@ -246,11 +306,11 @@ export default function HaritaBileseni() {
                                 <div className="flex items-center gap-2">
                                     <div className="bg-slate-200 text-slate-600 w-5 h-5 rounded-full flex items-center justify-center font-bold">{index + 1}</div>
                                     <div>
-                                        <div className="font-bold text-slate-800">{item.customer_name.substring(0, 15)}...</div>
-                                        <div className="text-slate-500">{item.model_name.substring(0, 15)}...</div>
+                                        <div className="font-bold text-slate-800">{item.isim.substring(0, 15)}...</div>
+                                        <div className="text-slate-500">{item.model?.substring(0, 15)}...</div>
                                     </div>
                                 </div>
-                                <button onClick={() => rotayaEkleCikar(item)} className="text-red-400 hover:text-red-600"><Trash2 size={14}/></button>
+                                <button onClick={() => rotayaEkleCikar(item.id, item.lat, item.lng, item.isim, item.model)} className="text-red-400 hover:text-red-600"><Trash2 size={14}/></button>
                             </div>
                         ))}
                     </div>
@@ -258,12 +318,7 @@ export default function HaritaBileseni() {
                 
                 {rotaPanelAcik && (
                     <div className="p-3 bg-white border-t border-slate-100">
-                        <button 
-                            onClick={cokluRotaOlustur}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-2 transition"
-                        >
-                            <Map size={14}/> ROTAYI HARİTADA AÇ
-                        </button>
+                        <button onClick={cokluRotaOlustur} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-2 transition"><Map size={14}/> ROTAYI HARİTADA AÇ</button>
                     </div>
                 )}
             </motion.div>
@@ -293,6 +348,7 @@ export default function HaritaBileseni() {
            </Popup>
         </Marker>
 
+        {/* BİZİM VİNÇLERİMİZ */}
         {filtrelenmisVincler.map((vinc) => {
           const arizaVarMi = vinc.service_tickets?.some((t: any) => t.status !== 'tamamlandi');
           const rotadaEkliMi = rotaListesi.some(r => r.id === vinc.id);
@@ -310,14 +366,9 @@ export default function HaritaBileseni() {
                      <div className="bg-slate-50 p-2 rounded-lg border border-slate-100"><div className="text-[9px] text-slate-400 font-bold uppercase">Seri No</div><div className="text-xs font-mono font-bold text-slate-700">{vinc.serial_number}</div></div>
                   </div>
                   <div className="space-y-2">
-                      {/* 🔥 ROTA SEPETİNE EKLEME BUTONU 🔥 */}
-                      <button 
-                        onClick={() => rotayaEkleCikar(vinc)} 
-                        className={`flex items-center justify-center gap-2 w-full text-xs font-bold py-2.5 rounded-lg transition shadow-md ${rotadaEkliMi ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-600 text-white hover:bg-green-700'}`}
-                      >
+                      <button onClick={() => rotayaEkleCikar(vinc.id, vinc.lat, vinc.lng, vinc.customer_name, vinc.model_name)} className={`flex items-center justify-center gap-2 w-full text-xs font-bold py-2.5 rounded-lg transition shadow-md ${rotadaEkliMi ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-600 text-white hover:bg-green-700'}`}>
                         {rotadaEkliMi ? <><Trash2 size={12}/> Rotadan Çıkar</> : <><Plus size={12}/> Rotaya Ekle</>}
                       </button>
-
                       <Link href={`/vinc/${vinc.id}`} target="_blank" className="flex items-center justify-center gap-2 w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-2.5 rounded-lg transition shadow-md">Müşteri Ekranı <ExternalLink size={12}/></Link>
                       <a href={`https://www.google.com/maps/dir/?api=1&origin=${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}&destination=${vinc.lat},${vinc.lng}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-bold py-2.5 rounded-lg transition"><Navigation size={12}/> Tekil Rota</a>
                   </div>
@@ -326,6 +377,50 @@ export default function HaritaBileseni() {
             </Marker>
           );
         })}
+
+        {/* YENİ: DIŞ SERVİS MAKİNALARI (MANUEL EKLENENLER) */}
+        {filtrelenmisManuelServisler.map((servis) => {
+          const arizaVarMi = servis.status !== 'tamamlandi';
+          const rotadaEkliMi = rotaListesi.some(r => r.id === servis.id);
+          const isim = servis.manual_customer_name || 'Bilinmeyen Firma';
+          const model = servis.manual_crane_info || 'Belirtilmemiş Makine';
+
+          return (
+            <Marker key={servis.id} position={[servis.lat, servis.lng]} icon={arizaVarMi ? kirmiziIcon : sariIcon} eventHandlers={{ click: () => vinceGit(servis.lat, servis.lng) }}>
+              <Popup className="premium-popup" closeButton={false}>
+                <div className="min-w-[240px] p-2">
+                  <div className="flex justify-between items-start mb-3">
+                     <div>
+                        <h3 className="font-black text-slate-800 text-sm leading-tight">{isim}</h3>
+                        <p className="text-[10px] text-slate-500 font-bold mt-1 flex items-center gap-1"><Wrench size={10} className="text-orange-500"/> {model}</p>
+                     </div>
+                     <div className={`p-1.5 rounded-lg ${arizaVarMi ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>{arizaVarMi ? <AlertTriangle size={16}/> : <Wrench size={16}/>}</div>
+                  </div>
+                  
+                  <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 mb-3">
+                      <div className="text-[9px] text-slate-400 font-bold uppercase">Uzaklık</div>
+                      <div className="text-xs font-mono font-bold text-slate-700 flex items-center gap-1"><Factory size={10} className="text-blue-400"/> {mesafeyiHesapla(servis.lat, servis.lng)} km</div>
+                  </div>
+                  
+                  {/* Arıza Detayı */}
+                  {servis.description && (
+                      <div className="bg-red-50 text-red-800 text-[10px] font-bold p-2 rounded-lg border border-red-100 mb-3 truncate">
+                          {servis.description}
+                      </div>
+                  )}
+
+                  <div className="space-y-2">
+                      <button onClick={() => rotayaEkleCikar(servis.id, servis.lat, servis.lng, isim, model)} className={`flex items-center justify-center gap-2 w-full text-xs font-bold py-2.5 rounded-lg transition shadow-md ${rotadaEkliMi ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-orange-500 text-white hover:bg-orange-600'}`}>
+                        {rotadaEkliMi ? <><Trash2 size={12}/> Rotadan Çıkar</> : <><Plus size={12}/> Rotaya Ekle</>}
+                      </button>
+                      <a href={`https://www.google.com/maps/dir/?api=1&origin=${FABRIKA_KONUM.lat},${FABRIKA_KONUM.lng}&destination=${servis.lat},${servis.lng}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-bold py-2.5 rounded-lg transition"><Navigation size={12}/> Tekil Rota</a>
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+
       </MapContainer>
       <Link href="/admin" className="absolute top-6 right-6 z-[9999] bg-white/90 backdrop-blur text-slate-700 px-4 py-3 rounded-2xl shadow-xl font-bold text-xs hover:bg-white hover:text-blue-600 transition flex items-center gap-2 border border-white/50"><Navigation className="w-4 h-4"/> PANELE DÖN</Link>
     </div>
