@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN GLOBAL YÖNETİM MERKEZİ 🌍
-// Versiyon: FINAL PRO MAX (Puantaj Usulü Personel Hakediş Sistemi 📊)
+// Versiyon: FINAL PRO MAX V3 (Aylık Malzeme Maliyet & Kâr Analizi 📊)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -10,7 +10,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { 
   Loader2, Plus, Search, Trash2, Save, Package, ArrowLeft, 
   Edit2, TrendingUp, DollarSign, BarChart3, AlertCircle, X, 
-  Activity, DownloadCloud, ShieldCheck, Calculator, Clock, Users, UserPlus
+  Activity, DownloadCloud, ShieldCheck, Calculator, Clock, Users, UserPlus,
+  CalendarDays, TrendingDown, Wallet
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
@@ -28,6 +29,7 @@ export default function MalzemelerSayfasi() {
   // Veriler
   const [malzemeler, setMalzemeler] = useState<any[]>([]);
   const [analizliMalzemeler, setAnalizliMalzemeler] = useState<any[]>([]);
+  const [tumServisler, setTumServisler] = useState<any[]>([]); // Aylık analiz için tüm servisleri tutar
   
   // Modallar
   const [formAcik, setFormAcik] = useState(false);
@@ -42,25 +44,22 @@ export default function MalzemelerSayfasi() {
     name: '', unit: 'Adet', buy_price: '', sale_price: '', discount_rate: '0'
   });
 
-  // Finansal Veriler (Genel)
-  const [seciliAy, setSeciliAy] = useState("2026-02");
+  // 🔥 YENİ: DİNAMİK MALZEME AYLIK ANALİZİ
+  const [seciliAy, setSeciliAy] = useState(new Date().toISOString().slice(0, 7));
+  const [aylikMalzemeAnalizi, setAylikMalzemeAnalizi] = useState({ ciro: 0, maliyet: 0, kar: 0 });
+
+  // Finansal Modal State (Sadece modal içinde kullanılır)
   const [finansalLoading, setFinansalLoading] = useState(false);
   const [finansalVeri, setFinansalVeri] = useState<any>({
-    maas: 0, malzeme: 0, kira: 0, tazminat: 0, yakit: 0, yemek: 0, 
-    mesaiYemek: 0, aracYipranma: 0, aracSigorta: 0, aracBakim: 0, 
-    kdvDahilFatura: 0, gResmiFatura: 0
+    maas: 0, malzeme: 0, kira: 0, tazminat: 0, yakit: 0, yemek: 0, mesaiYemek: 0, aracYipranma: 0, aracSigorta: 0, aracBakim: 0, kdvDahilFatura: 0, gResmiFatura: 0
   });
 
-  // 🔥 DETAYLI PERSONEL VERİLERİ (GÜNCELLENMİŞ YAPI)
+  // PERSONEL VERİLERİ 
   const [personelListesi, setPersonelListesi] = useState<any[]>([]);
   const [yeniPersonelAd, setYeniPersonelAd] = useState("");
+  const [mesaiForm, setMesaiForm] = useState({ maas: 0, saat15: 0, saat20: 0, izin: 0 });
 
-  // Mesai Robotu
-  const [mesaiForm, setMesaiForm] = useState({
-    maas: 0, saat15: 0, saat20: 0, izin: 0
-  });
-
-  // İstatistik
+  // İstatistik (Genel)
   const [istatistik, setIstatistik] = useState({
     toplamUrunCesidi: 0, enCokSatan: '-', enKarliUrun: '-', toplamMalzemeKari: 0
   });
@@ -72,20 +71,23 @@ export default function MalzemelerSayfasi() {
     verileriGetirVeAnalizEt();
   }, []);
 
+  // Ay değiştiğinde aylık analizi ve modal verilerini tekrar tetikle
   useEffect(() => {
-    if (showFinancialModal) finansalVeriyiGetir(seciliAy);
-    if (showPersonelModal) personelVerisiniGetir(seciliAy);
-  }, [seciliAy, showFinancialModal, showPersonelModal]);
+    aylikPerformansHesapla();
+    if(showFinancialModal) finansalVeriyiGetir(seciliAy);
+    if(showPersonelModal) personelVerisiniGetir(seciliAy);
+  }, [seciliAy, tumServisler, malzemeler]);
 
   const verileriGetirVeAnalizEt = async () => {
     try {
         setYukleniyor(true);
         const { data: stokData } = await supabase.from('materials').select('*').order('name', { ascending: true });
-        const { data: servisData } = await supabase.from('completed_services').select('materials');
+        const { data: servisData } = await supabase.from('completed_services').select('*'); // Materials ve Service Date lazım
 
         if (stokData && servisData) {
             setMalzemeler(stokData);
-            performansHesapla(stokData, servisData);
+            setTumServisler(servisData);
+            genelPerformansHesapla(stokData, servisData);
         }
     } catch (error) {
         console.error("Veri hatası:", error);
@@ -94,7 +96,44 @@ export default function MalzemelerSayfasi() {
     }
   };
 
-  const performansHesapla = (stokListesi: any[], servisListesi: any[]) => {
+  // 🔥 YENİ: SEÇİLİ AYA GÖRE SADECE MALZEME MALİYET / KÂR HESAPLAMASI 🔥
+  const aylikPerformansHesapla = () => {
+      if (tumServisler.length === 0 || malzemeler.length === 0) return;
+
+      const [secilenYil, secilenAyIndex] = seciliAy.split('-').map(Number);
+      let toplamCiro = 0;
+      let toplamMaliyet = 0;
+
+      tumServisler.forEach(servis => {
+          if (!servis.service_date) return;
+          const islemTarihi = new Date(servis.service_date);
+          
+          if (islemTarihi.getFullYear() === secilenYil && (islemTarihi.getMonth() + 1) === secilenAyIndex) {
+              if (servis.materials && Array.isArray(servis.materials)) {
+                  servis.materials.forEach((satilanMalzeme: any) => {
+                      const adet = Number(satilanMalzeme.adet || 1);
+                      const satisFiyati = Number(satilanMalzeme.toplam_fiyat || satilanMalzeme.fiyat || 0);
+
+                      // Depodaki alış fiyatını bul (Maliyet)
+                      const stokMalzemesi = malzemeler.find(m => m.name === (satilanMalzeme.ad || satilanMalzeme.name));
+                      const alisFiyati = stokMalzemesi ? Number(stokMalzemesi.buy_price) : 0;
+                      const maliyet = alisFiyati * adet;
+
+                      toplamCiro += satisFiyati;
+                      toplamMaliyet += maliyet;
+                  });
+              }
+          }
+      });
+
+      setAylikMalzemeAnalizi({
+          ciro: toplamCiro,
+          maliyet: toplamMaliyet,
+          kar: toplamCiro - toplamMaliyet
+      });
+  };
+
+  const genelPerformansHesapla = (stokListesi: any[], servisListesi: any[]) => {
       const satisOzeti: any = {}; 
       servisListesi.forEach(servis => {
           if (servis.materials && Array.isArray(servis.materials)) {
@@ -134,7 +173,7 @@ export default function MalzemelerSayfasi() {
   };
 
   // ==========================================================================
-  // 3. FİNANSAL İŞLEMLER
+  // 3. FİNANSAL İŞLEMLER (Sadece Modal İçin)
   // ==========================================================================
   const finansalVeriyiGetir = async (ayKey: string) => {
     setFinansalLoading(true);
@@ -165,31 +204,20 @@ export default function MalzemelerSayfasi() {
   };
 
   // ==========================================================================
-  // 🔥 YENİ: PERSONEL DETAY YÖNETİMİ (GELİŞMİŞ HESAPLAMA)
+  // 4. PERSONEL DETAY YÖNETİMİ
   // ==========================================================================
   const personelVerisiniGetir = async (ayKey: string) => {
       setFinansalLoading(true);
       const { data } = await supabase.from('personnel_monthly_lists').select('*').eq('month_key', ayKey).single();
-      
-      if(data && data.personnel_data) {
-          setPersonelListesi(data.personnel_data);
-      } else {
-          setPersonelListesi([]);
-      }
+      if(data && data.personnel_data) setPersonelListesi(data.personnel_data);
+      else setPersonelListesi([]);
       setFinansalLoading(false);
   };
 
   const personelEkle = () => {
       if(!yeniPersonelAd) return alert("İsim yazmalısın.");
       setPersonelListesi([...personelListesi, { 
-          id: Date.now(), 
-          ad: yeniPersonelAd, 
-          maas: 0, 
-          mesai50_saat: 0, // %50 Mesai Saati
-          mesai100_saat: 0, // %100 Mesai Saati
-          eksik_saat: 0, // İzin/Eksik Saati
-          servis_primi: 0, 
-          avans: 0
+          id: Date.now(), ad: yeniPersonelAd, maas: 0, mesai50_saat: 0, mesai100_saat: 0, eksik_saat: 0, servis_primi: 0, avans: 0
       }]);
       setYeniPersonelAd("");
   };
@@ -199,12 +227,9 @@ export default function MalzemelerSayfasi() {
   };
 
   const personelSil = (id: number) => {
-      if(confirm("Bu kişiyi listeden çıkarmak istiyor musun?")) {
-          setPersonelListesi(personelListesi.filter(p => p.id !== id));
-      }
+      if(confirm("Bu kişiyi listeden çıkarmak istiyor musun?")) setPersonelListesi(personelListesi.filter(p => p.id !== id));
   };
 
-  // 🔥 OTOMATİK HESAPLAMA MOTORU
   const hesapla = (p: any) => {
       const saatUcreti = (Number(p.maas) || 0) / 225;
       const mesai50Tutar = saatUcreti * 1.5 * (Number(p.mesai50_saat) || 0);
@@ -212,34 +237,23 @@ export default function MalzemelerSayfasi() {
       const kesintiTutar = saatUcreti * (Number(p.eksik_saat) || 0);
       const servis = Number(p.servis_primi) || 0;
       const avans = Number(p.avans) || 0;
-      
-      // Formül: Maaş + Mesai50 + Mesai100 + Servis - Kesinti - Avans
       const toplamAlacak = (Number(p.maas)||0) + mesai50Tutar + mesai100Tutar + servis - kesintiTutar - avans;
-      
       return { saatUcreti, mesai50Tutar, mesai100Tutar, kesintiTutar, toplamAlacak };
   };
 
   const personelListesiniKaydet = async () => {
       setFinansalLoading(true);
       const toplamGider = personelListesi.reduce((acc, p) => acc + hesapla(p).toplamAlacak, 0);
-      
       const { error } = await supabase.from('personnel_monthly_lists').upsert({
-          month_key: seciliAy,
-          personnel_data: personelListesi,
-          total_expense: toplamGider,
-          updated_at: new Date()
+          month_key: seciliAy, personnel_data: personelListesi, total_expense: toplamGider, updated_at: new Date()
       }, { onConflict: 'month_key' });
-
-      if (error) alert("Hata: " + error.message);
-      else alert("✅ Personel Hakediş Listesi Kaydedildi!");
+      if (error) alert("Hata: " + error.message); else alert("✅ Personel Hakediş Listesi Kaydedildi!");
       setFinansalLoading(false);
   };
 
   const personelToplamAlacak = personelListesi.reduce((acc, p) => acc + hesapla(p).toplamAlacak, 0);
 
-  // ==========================================================================
   // SİSTEM YEDEKLEME
-  // ==========================================================================
   const tamSistemYedegiAl = async () => {
     if (!confirm("⚠️ TÜM SİSTEM YEDEĞİ bilgisayarına indirilsin mi?")) return;
     setFinansalLoading(true);
@@ -280,39 +294,100 @@ export default function MalzemelerSayfasi() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-6 pb-24 font-sans">
+      
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
             <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2"><Package className="text-blue-600"/> Malzeme ve Performans</h1>
-            <p className="text-slate-500 text-sm">Stok, fiyat ve kârlılık yönetimi.</p>
+            <p className="text-slate-500 text-sm">Stok, fiyat, masraf ve kârlılık yönetimi.</p>
         </div>
-        <div className="flex gap-2">
-            {/* 🔥 YENİ BUTON: PERSONEL GİDER DETAYI */}
-            <button onClick={() => setShowPersonelModal(true)} className="bg-orange-100 border border-orange-200 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-200 transition">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <button onClick={() => setShowPersonelModal(true)} className="flex-1 md:flex-none bg-orange-100 border border-orange-200 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-orange-200 transition">
                 <Users size={18}/> Personel Gider Detayı
             </button>
-
-            <button onClick={() => setShowMesaiModal(true)} className="bg-white border-2 border-indigo-100 text-indigo-600 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-50 transition">
+            <button onClick={() => setShowMesaiModal(true)} className="flex-1 md:flex-none bg-white border-2 border-indigo-100 text-indigo-600 px-4 py-2 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-50 transition">
                 <Calculator size={18}/> Mesai Hesapla
             </button>
-            <button onClick={() => { formuSifirla(); setFormAcik(true); }} className="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg hover:bg-blue-700 transition">
+            <button onClick={() => { formuSifirla(); setFormAcik(true); }} className="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-blue-700 transition">
                 <Plus size={18}/> Yeni Malzeme
             </button>
-            <Link href="/admin" className="bg-white border px-5 py-2 rounded-xl font-bold text-slate-600 flex items-center gap-2 hover:bg-slate-50"><ArrowLeft size={18}/> Panel</Link>
+            <Link href="/admin" className="flex-1 md:flex-none bg-white border px-5 py-2 rounded-xl font-bold text-slate-600 flex items-center justify-center gap-2 hover:bg-slate-50"><ArrowLeft size={18}/> Panel</Link>
         </div>
       </div>
 
-      {/* İSTATİSTİKLER */}
+      {/* =========================================================================
+          🔥 BÖLÜM 1: DİNAMİK AYLIK MALZEME ANALİZİ PANOSU 🔥
+          ========================================================================= */}
+      <div className="mb-8 space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-900 p-5 rounded-3xl shadow-lg border border-slate-800">
+              <div className="flex items-center gap-3 text-white mb-4 sm:mb-0">
+                  <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400"><CalendarDays size={24}/></div>
+                  <div>
+                      <h2 className="text-lg font-black tracking-widest uppercase">Aylık Malzeme Analizi</h2>
+                      <p className="text-[10px] text-slate-400 font-bold">Seçili ayda sahada kullanılan malzemelerin kâr/zarar durumu.</p>
+                  </div>
+              </div>
+              <select 
+                  value={seciliAy} 
+                  onChange={e => setSeciliAy(e.target.value)} 
+                  className="w-full sm:w-auto bg-slate-800 border-2 border-slate-700 text-white text-sm font-black px-6 py-3 rounded-xl outline-none cursor-pointer hover:bg-slate-700 transition appearance-none text-center"
+              >
+                  {Array.from({length:6},(_,i)=>2024+i).map(y=>["OCAK","ŞUBAT","MART","NİSAN","MAYIS","HAZİRAN","TEMMUZ","AĞUSTOS","EYLÜL","EKİM","KASIM","ARALIK"].map((a,ix)=><option key={`${y}-${ix+1}`} value={`${y}-${String(ix+1).padStart(2,'0')}`}>{a} {y}</option>))}
+              </select>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* MALİYET */}
+              <div className="bg-white p-5 rounded-2xl border-2 border-red-100 shadow-sm relative overflow-hidden flex flex-col justify-center">
+                  <TrendingDown size={80} className="absolute -right-4 -bottom-4 text-red-50 opacity-50"/>
+                  <div className="relative z-10">
+                      <p className="text-[10px] font-bold text-red-500 uppercase flex items-center gap-1"><TrendingDown size={14}/> Toplam Malzeme Maliyeti (Alış)</p>
+                      <p className="text-3xl font-black text-red-600 mt-1">{formatCurrency(aylikMalzemeAnalizi.maliyet)}</p>
+                  </div>
+              </div>
+              
+              {/* CİRO (SATIŞ) */}
+              <div className="bg-white p-5 rounded-2xl border-2 border-blue-100 shadow-sm relative overflow-hidden flex flex-col justify-center">
+                  <DollarSign size={80} className="absolute -right-4 -bottom-4 text-blue-50 opacity-50"/>
+                  <div className="relative z-10">
+                      <p className="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-1"><DollarSign size={14}/> Toplam Malzeme Satışı (Ciro)</p>
+                      <p className="text-3xl font-black text-blue-600 mt-1">{formatCurrency(aylikMalzemeAnalizi.ciro)}</p>
+                  </div>
+              </div>
+
+              {/* NET KÂR */}
+              <div className={`p-5 rounded-2xl shadow-sm border-2 relative overflow-hidden flex flex-col justify-center ${aylikMalzemeAnalizi.kar >= 0 ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-400 text-white' : 'bg-gradient-to-br from-red-500 to-red-600 border-red-400 text-white'}`}>
+                  <Wallet size={80} className="absolute -right-4 -bottom-4 opacity-10"/>
+                  <div className="relative z-10">
+                      <p className="text-[10px] font-bold uppercase flex items-center gap-1 opacity-90"><Wallet size={14}/> {seciliAy} NET MALZEME KÂRI</p>
+                      <p className="text-4xl font-black tracking-tighter mt-1">{formatCurrency(aylikMalzemeAnalizi.kar)}</p>
+                  </div>
+              </div>
+          </div>
+      </div>
+
+      <div className="h-px w-full bg-slate-200 my-8"></div>
+
+      {/* =========================================================================
+          🔥 BÖLÜM 2: DEPO GENEL İSTATİSTİKLERİ (TÜM ZAMANLAR) 🔥
+          ========================================================================= */}
+      <h2 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2"><Package size={20} className="text-blue-600"/> Depo Genel Analizi (Tüm Zamanlar)</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100"><div className="text-xs text-slate-400 font-bold uppercase mb-1 flex items-center gap-2"><Package size={14}/> Çeşit</div><div className="text-2xl font-black text-slate-800">{istatistik.toplamUrunCesidi}</div></div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100"><div className="text-xs text-slate-400 font-bold uppercase mb-1 flex items-center gap-2"><TrendingUp size={14}/> En Çok Satan</div><div className="text-lg font-bold text-blue-600 truncate">{istatistik.enCokSatan}</div></div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100"><div className="text-xs text-slate-400 font-bold uppercase mb-1 flex items-center gap-2"><DollarSign size={14}/> En Kârlı</div><div className="text-lg font-bold text-green-600 truncate">{istatistik.enKarliUrun}</div></div>
-        <button onClick={() => setShowFinancialModal(true)} className="bg-slate-900 p-5 rounded-2xl shadow-xl flex flex-col items-start hover:scale-[1.02] transition group relative overflow-hidden"><BarChart3 size={80} className="absolute right-[-10px] bottom-[-10px] text-white/5"/><div className="text-[10px] text-slate-400 font-bold uppercase mb-1 flex items-center gap-2 relative z-10"><Activity size={14} className="text-emerald-400 animate-pulse"/> FİNANSAL YÖNETİM</div><div className="text-xl font-black text-white relative z-10">ANALİZ ET →</div></button>
+        
+        {/* Diğer Giderler (Kira vb.) İçin Finansal Yönetim Modalı Butonu */}
+        <button onClick={() => setShowFinancialModal(true)} className="bg-slate-900 p-5 rounded-2xl shadow-xl flex flex-col items-start hover:scale-[1.02] transition group relative overflow-hidden">
+            <BarChart3 size={80} className="absolute right-[-10px] bottom-[-10px] text-white/5"/>
+            <div className="text-[10px] text-slate-400 font-bold uppercase mb-1 flex items-center gap-2 relative z-10"><Activity size={14} className="text-emerald-400 animate-pulse"/> DİĞER GİDERLER (KİRA VB.)</div>
+            <div className="text-xl font-black text-white relative z-10">FİNANS MODALI →</div>
+        </button>
       </div>
 
-      {/* LİSTE */}
+      {/* LİSTE VE GRAFİK */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 bg-white p-6 rounded-3xl shadow-sm border hidden lg:block"><h3 className="text-sm font-bold text-slate-500 mb-6 uppercase"><TrendingUp size={16} className="inline mr-2"/> En Kârlı 5 Ürün</h3><div className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={grafikVerisi} layout="vertical"><CartesianGrid opacity={0.3}/><XAxis type="number" hide/><YAxis dataKey="name" type="category" width={100} tick={{fontSize:10}}/><Tooltip/><Bar dataKey="kar" fill="#10b981" radius={[0,4,4,0]} barSize={20}/></BarChart></ResponsiveContainer></div></div>
+        <div className="lg:col-span-1 bg-white p-6 rounded-3xl shadow-sm border hidden lg:block"><h3 className="text-sm font-bold text-slate-500 mb-6 uppercase"><TrendingUp size={16} className="inline mr-2"/> En Kârlı 5 Ürün</h3><div className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={grafikVerisi} layout="vertical"><CartesianGrid opacity={0.3}/><XAxis type="number" hide/><YAxis dataKey="name" type="category" width={100} tick={{fontSize:10}}/><Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}/><Bar dataKey="kar" fill="#10b981" radius={[0,4,4,0]} barSize={20}/></BarChart></ResponsiveContainer></div></div>
         <div className="lg:col-span-2 space-y-4">
             <div className="bg-white p-2 rounded-2xl border flex items-center gap-2 shadow-sm"><div className="p-2 text-slate-400"><Search size={20}/></div><input type="text" placeholder="Malzeme Ara..." value={arama} onChange={e=>setArama(e.target.value)} className="flex-1 p-2 bg-transparent outline-none font-bold"/></div>
             <div className="bg-white rounded-3xl shadow-sm border overflow-hidden">
@@ -335,9 +410,7 @@ export default function MalzemelerSayfasi() {
                             <div>
                                 <h2 className="text-2xl font-black text-slate-800">PERSONEL PUANTAJ VE HAKEDİŞ</h2>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <select value={seciliAy} onChange={e=>setSeciliAy(e.target.value)} className="bg-white border-2 border-orange-200 text-orange-700 text-xs font-black px-4 py-1.5 rounded-full outline-none shadow-sm cursor-pointer hover:bg-orange-100">
-                                        {Array.from({length:6},(_,i)=>2026+i).map(y=>["OCAK","ŞUBAT","MART","NİSAN","MAYIS","HAZİRAN","TEMMUZ","AĞUSTOS","EYLÜL","EKİM","KASIM","ARALIK"].map((a,ix)=><option key={`${y}-${ix+1}`} value={`${y}-${String(ix+1).padStart(2,'0')}`}>{a} {y}</option>))}
-                                    </select>
+                                    <span className="bg-white border-2 border-orange-200 text-orange-700 text-xs font-black px-4 py-1.5 rounded-full shadow-sm">{seciliAy}</span>
                                     <span className="text-[10px] font-bold text-slate-400 uppercase">{finansalLoading ? 'Yükleniyor...' : 'Maaş/225 Modu Aktif'}</span>
                                 </div>
                             </div>
@@ -468,13 +541,13 @@ export default function MalzemelerSayfasi() {
         <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[9999] flex items-center justify-center p-2 md:p-6">
             <motion.div initial={{scale:0.9,y:50}} animate={{scale:1,y:0}} exit={{scale:0.9,y:50}} className="bg-white w-full max-w-7xl rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
                 <div className="p-6 border-b flex justify-between items-center bg-slate-50">
-                    <div className="flex items-center gap-4"><div className="p-3 bg-slate-900 rounded-2xl text-emerald-400"><TrendingUp size={28}/></div><div><h2 className="text-2xl font-black text-slate-800">FİNANS YÖNETİMİ</h2><select value={seciliAy} onChange={e=>setSeciliAy(e.target.value)} className="bg-blue-600 text-white text-xs font-black px-4 py-1.5 rounded-full outline-none shadow-lg mt-1 cursor-pointer hover:bg-blue-700">{Array.from({length:6},(_,i)=>2026+i).map(y=>["OCAK","ŞUBAT","MART","NİSAN","MAYIS","HAZİRAN","TEMMUZ","AĞUSTOS","EYLÜL","EKİM","KASIM","ARALIK"].map((a,ix)=><option key={`${y}-${ix+1}`} value={`${y}-${String(ix+1).padStart(2,'0')}`}>{a} {y}</option>))}</select></div></div><button onClick={()=>setShowFinancialModal(false)} className="p-3 bg-white hover:text-red-500 rounded-2xl border"><X size={24}/></button>
+                    <div className="flex items-center gap-4"><div className="p-3 bg-slate-900 rounded-2xl text-emerald-400"><TrendingUp size={28}/></div><div><h2 className="text-2xl font-black text-slate-800">FİNANS YÖNETİMİ (DİĞER GİDERLER)</h2><div className="text-xs font-bold text-slate-500 mt-1">Seçili Dönem: <span className="bg-white px-2 py-1 rounded border shadow-sm">{seciliAy}</span></div></div></div><button onClick={()=>setShowFinancialModal(false)} className="p-3 bg-white hover:text-red-500 rounded-2xl border"><X size={24}/></button>
                 </div>
                 <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
                     <div className="w-full md:w-1/2 p-8 overflow-y-auto border-r bg-slate-50/30">
-                        <h3 className="font-black text-slate-800 text-sm mb-6 flex items-center gap-2"><Edit2 size={16}/> GİDER/GELİR GİRİŞİ</h3>
+                        <h3 className="font-black text-slate-800 text-sm mb-6 flex items-center gap-2"><Edit2 size={16}/> GİDER/GELİR GİRİŞİ ({seciliAy})</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {[{id:'maas',l:'Personel Maaş',c:'r'},{id:'malzeme',l:'Malzeme Gider',c:'r'},{id:'kira',l:'Kira',c:'r'},{id:'yakit',l:'Yakıt',c:'r'},{id:'yemek',l:'Yemek',c:'r'},{id:'tazminat',l:'Tazminat',c:'r'},{id:'mesaiYemek',l:'Mesai Yemek',c:'r'},{id:'aracYipranma',l:'Araç Yıp.',c:'r'},{id:'aracSigorta',l:'Sigorta',c:'r'},{id:'aracBakim',l:'Bakım',c:'r'},{id:'kdvDahilFatura',l:'FATURA (KDV DAHİL)',c:'g'},{id:'gResmiFatura',l:'G.RESMİ GELİR',c:'g'}].map(i=>(
+                            {[{id:'maas',l:'Personel Maaş',c:'r'},{id:'kira',l:'Kira',c:'r'},{id:'yakit',l:'Yakıt',c:'r'},{id:'yemek',l:'Yemek',c:'r'},{id:'tazminat',l:'Tazminat',c:'r'},{id:'mesaiYemek',l:'Mesai Yemek',c:'r'},{id:'aracYipranma',l:'Araç Yıp.',c:'r'},{id:'aracSigorta',l:'Sigorta',c:'r'},{id:'aracBakim',l:'Bakım',c:'r'}].map(i=>(
                                 <div key={i.id}><label className={`text-[10px] font-black uppercase ${i.c==='r'?'text-slate-400':'text-emerald-600'}`}>{i.l}</label><input type="number" value={finansalVeri[i.id]} onChange={e=>setFinansalVeri({...finansalVeri,[i.id]:Number(e.target.value)})} className={`w-full p-3 border rounded-2xl font-black text-sm outline-none focus:ring-2 ${i.c==='r'?'text-slate-700':'text-emerald-700 border-emerald-100'}`}/></div>
                             ))}
                         </div>
@@ -483,20 +556,13 @@ export default function MalzemelerSayfasi() {
                             <button onClick={tamSistemYedegiAl} className="flex-1 bg-emerald-600 text-white py-3 rounded-2xl font-black text-xs hover:bg-emerald-700 transition flex items-center justify-center gap-2"><ShieldCheck size={16}/> BİLGİSAYARA YEDEKLE</button>
                         </div>
                     </div>
-                    <div className="w-full md:w-1/2 p-8 overflow-y-auto bg-white">
-                        {(()=>{
-                            const topGider = Object.entries(finansalVeri).filter(([k])=>!k.includes('Fatura')).reduce((a,b)=>a+(b[1] as number),0);
-                            const netGelir = (finansalVeri.kdvDahilFatura/1.20) + finansalVeri.gResmiFatura;
-                            const brut = netGelir - topGider;
-                            const vergi = brut>0?brut*0.20:0;
-                            const net = brut - vergi;
-                            return <div className="space-y-6 text-center animate-in fade-in">
-                                <h4 className="text-xs font-black text-slate-400 tracking-widest">{seciliAy} NET KAR/ZARAR</h4>
-                                <div className={`text-6xl font-black tracking-tighter ${net>=0?'text-emerald-600':'text-red-600'}`}>{formatCurrency(net)}</div>
-                                <div className="grid grid-cols-2 gap-4 text-left"><div className="p-4 bg-slate-100 rounded-3xl"><div className="text-[10px] font-bold text-slate-500">GİDER</div><div className="text-xl font-black text-red-500">{formatCurrency(topGider)}</div></div><div className="p-4 bg-emerald-50 rounded-3xl"><div className="text-[10px] font-bold text-emerald-600">GELİR (NET)</div><div className="text-xl font-black text-emerald-700">{formatCurrency(netGelir)}</div></div></div>
-                                <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-100 text-yellow-800 text-xs font-bold text-left flex gap-3"><AlertCircle size={20}/><div>Bu ayki {formatCurrency(brut)} brüt kâr üzerinden {formatCurrency(vergi)} gelir vergisi hesaplanmıştır.</div></div>
-                            </div>
-                        })()}
+                    <div className="w-full md:w-1/2 p-8 overflow-y-auto bg-white flex flex-col justify-center">
+                        <div className="text-center">
+                            <div className="w-24 h-24 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4"><Activity size={40}/></div>
+                            <h3 className="text-xl font-black text-slate-800">DİNAMİK KÂR / ZARAR EKRANI ANA SAYFAYA TAŞINDI!</h3>
+                            <p className="text-slate-500 mt-2 leading-relaxed">Malzeme maliyetleri, satışlar ve Kâr/Zarar durumu artık arka planda otomatik olarak hesaplanıp <br/><b>Malzemeler ana ekranının en üstünde</b> gösterilmektedir.</p>
+                            <p className="text-sm font-bold text-blue-600 mt-4">Lütfen seçili aya ait sadece Kira, Maaş, Yakıt gibi yan giderleri buraya giriniz.</p>
+                        </div>
                     </div>
                 </div>
             </motion.div>
