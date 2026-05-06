@@ -194,7 +194,7 @@ export default function HaritaBileseni() {
     window.open(url, '_blank');
   };
 
-  // Kendi vinçlerimizi filtrele
+// Kendi vinçlerimizi filtrele
   const filtrelenmisVincler = vincler.filter(v => {
     const aranan = aramaMetni.toLocaleLowerCase('tr-TR');
     const metinUyumu = 
@@ -202,18 +202,24 @@ export default function HaritaBileseni() {
       v.customer_name?.toLocaleLowerCase('tr-TR').includes(aranan) ||
       v.serial_number?.toLocaleLowerCase('tr-TR').includes(aranan);
 
+    // 🔥 EKLENEN KOD: Dış Servis seçiliyse bizim vinçleri gizle
+    if (aktifFiltre === 'dis_servis') return false; 
+
     const arizaVarMi = v.service_tickets?.some((t: any) => t.status !== 'tamamlandi');
     if (aktifFiltre === 'arizali') return metinUyumu && arizaVarMi;
     if (aktifFiltre === 'saglam') return metinUyumu && !arizaVarMi;
     return metinUyumu;
   });
 
-  // Dış servis makinalarını filtrele
+// Dış servis makinalarını filtrele
   const filtrelenmisManuelServisler = manuelServisler.filter(m => {
     const aranan = aramaMetni.toLocaleLowerCase('tr-TR');
     const metinUyumu = 
       m.manual_customer_name?.toLocaleLowerCase('tr-TR').includes(aranan) ||
       m.manual_crane_info?.toLocaleLowerCase('tr-TR').includes(aranan);
+
+    // 🔥 EKLENEN KOD: Dış Servis seçiliyse bunların hepsini göster
+    if (aktifFiltre === 'dis_servis') return metinUyumu; 
 
     const arizaVarMi = m.status !== 'tamamlandi';
     if (aktifFiltre === 'arizali') return metinUyumu && arizaVarMi;
