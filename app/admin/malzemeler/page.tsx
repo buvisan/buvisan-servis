@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN GLOBAL YÖNETİM MERKEZİ 🌍
-// Versiyon: FINAL PRO MAX V4 (Otomatik Sabit Giderler ve Finans Modalı 📊)
+// Versiyon: FINAL PRO MAX V5 (Tam Entegre Otomatik Kâr/Zarar ve KDV Sistemi 📊)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -73,9 +73,9 @@ export default function MalzemelerSayfasi() {
 
   useEffect(() => {
     aylikPerformansHesapla();
-    if(showFinancialModal) finansalVeriyiGetir(seciliAy);
+    finansalVeriyiGetir(seciliAy);
     if(showPersonelModal) personelVerisiniGetir(seciliAy);
-  }, [seciliAy, tumServisler, malzemeler, showFinancialModal, showPersonelModal]);
+  }, [seciliAy, tumServisler, malzemeler]);
 
   const verileriGetirVeAnalizEt = async () => {
     try {
@@ -171,7 +171,6 @@ export default function MalzemelerSayfasi() {
     setFinansalLoading(true);
     const { data } = await supabase.from('financial_records').select('*').eq('month_key', ayKey).single();
     
-    // Eğer o aya ait veri varsa onu getir, yoksa senin FİX rakamlarını otomatik doldur!
     if (data) {
       setFinansalVeri({
         maas: data.maas || 0, 
@@ -206,7 +205,7 @@ export default function MalzemelerSayfasi() {
         arac_sigorta: finansalVeri.aracSigorta, arac_bakim: finansalVeri.aracBakim, kdv_dahil_fatura: finansalVeri.kdvDahilFatura, g_resmi_fatura: finansalVeri.gResmiFatura,
         updated_at: new Date()
     }, { onConflict: 'month_key' });
-    if (error) alert("Hata: " + error.message); else alert("✅ Veriler Kaydedildi!");
+    if (error) alert("Hata: " + error.message); else alert("✅ Sabit ve Diğer Giderler Kaydedildi!");
     setFinansalLoading(false);
   };
 
@@ -299,14 +298,43 @@ export default function MalzemelerSayfasi() {
   const filtrelenmisListe = analizliMalzemeler.filter(m => m.name.toLowerCase().includes(arama.toLowerCase()));
   const grafikVerisi = analizliMalzemeler.slice(0, 5).map(m => ({ name: m.name.substring(0,10), kar: m.performans.toplamKar }));
 
+
+  // ==========================================================================
+  // 🔥 YENİ: OTOMATİK ENTEGRE KÂR ZARAR HESAPLAMASI (HER ŞEY DAHİL) 🔥
+  // ==========================================================================
+  
+  // 1. Sabit Giderler Toplamı (Fatura gelirleri hariç modalda girilen her şey)
+  const sabitGiderlerToplami = 
+      (finansalVeri.maas || 0) + (finansalVeri.kira || 0) + (finansalVeri.yakit || 0) + 
+      (finansalVeri.yemek || 0) + (finansalVeri.tazminat || 0) + (finansalVeri.mesaiYemek || 0) + 
+      (finansalVeri.aracYipranma || 0) + (finansalVeri.aracSigorta || 0) + (finansalVeri.aracBakim || 0);
+
+  // 2. Malzeme Maliyeti (Alış Fiyatlarından)
+  const malzemeMaliyeti = aylikMalzemeAnalizi.maliyet;
+
+  // 3. Şirketin O Ayki Toplam Gideri (Sabit + Malzeme)
+  const genelToplamGider = sabitGiderlerToplami + malzemeMaliyeti;
+
+  // 4. KDV'siz Ciro ve KDV'li Ciro (Satış Fiyatlarından)
+  const ciroKdvsiz = aylikMalzemeAnalizi.ciro;
+  const ciroKdvDahil = ciroKdvsiz * 1.20; // %20 KDV eklendi
+
+  // 5. Ekstra Gelir (Gayri Resmi vb.)
+  const ekstraGelir = Number(finansalVeri.gResmiFatura) || 0;
+  const genelToplamGelir = ciroKdvDahil + ekstraGelir;
+
+  // 6. Net Kâr
+  const sirketNetKar = genelToplamGelir - genelToplamGider;
+
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-6 pb-24 font-sans">
       
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-            <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2"><Package className="text-blue-600"/> Malzeme ve Performans</h1>
-            <p className="text-slate-500 text-sm">Stok, fiyat, masraf ve kârlılık yönetimi.</p>
+            <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2"><Package className="text-blue-600"/> Finans & Performans Merkezi</h1>
+            <p className="text-slate-500 text-sm">Tüm gelir, gider ve kârlılık tek bir ekranda otomatik birleşti.</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <button onClick={() => setShowPersonelModal(true)} className="flex-1 md:flex-none bg-orange-100 border border-orange-200 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-orange-200 transition">
@@ -323,15 +351,15 @@ export default function MalzemelerSayfasi() {
       </div>
 
       {/* =========================================================================
-          🔥 BÖLÜM 1: DİNAMİK AYLIK MALZEME ANALİZİ PANOSU 🔥
+          🔥 BÖLÜM 1: DİNAMİK AYLIK FİNANS PANOSU (HER ŞEY DAHİL) 🔥
           ========================================================================= */}
       <div className="mb-8 space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-900 p-5 rounded-3xl shadow-lg border border-slate-800">
               <div className="flex items-center gap-3 text-white mb-4 sm:mb-0">
                   <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400"><CalendarDays size={24}/></div>
                   <div>
-                      <h2 className="text-lg font-black tracking-widest uppercase">Aylık Malzeme Analizi</h2>
-                      <p className="text-[10px] text-slate-400 font-bold">Seçili ayda sahada kullanılan malzemelerin kâr/zarar durumu.</p>
+                      <h2 className="text-lg font-black tracking-widest uppercase">Aylık Firma Finans Analizi</h2>
+                      <p className="text-[10px] text-slate-400 font-bold">Seçili ayın Satış Cirosu, Malzeme Maliyeti ve Sabit Giderleri otomatik hesaplanır.</p>
                   </div>
               </div>
               <select 
@@ -343,33 +371,45 @@ export default function MalzemelerSayfasi() {
               </select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* MALİYET */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              {/* MALİYET & GİDER */}
               <div className="bg-white p-5 rounded-2xl border-2 border-red-100 shadow-sm relative overflow-hidden flex flex-col justify-center">
                   <TrendingDown size={80} className="absolute -right-4 -bottom-4 text-red-50 opacity-50"/>
                   <div className="relative z-10">
-                      <p className="text-[10px] font-bold text-red-500 uppercase flex items-center gap-1"><TrendingDown size={14}/> Toplam Malzeme Maliyeti (Alış)</p>
-                      <p className="text-3xl font-black text-red-600 mt-1">{formatCurrency(aylikMalzemeAnalizi.maliyet)}</p>
+                      <p className="text-[10px] font-bold text-red-500 uppercase flex items-center gap-1"><TrendingDown size={14}/> Toplam Gider (Malzeme + Sabit)</p>
+                      <p className="text-3xl font-black text-red-600 mt-1">{formatCurrency(genelToplamGider)}</p>
+                      <p className="text-[10px] font-bold text-slate-400 mt-2 bg-slate-50 p-1.5 rounded inline-block">Malzeme: {formatCurrency(malzemeMaliyeti)} | Sabit: {formatCurrency(sabitGiderlerToplami)}</p>
                   </div>
               </div>
               
-              {/* CİRO (SATIŞ) */}
+              {/* CİRO (SATIŞ) + KDV EKLENDİ */}
               <div className="bg-white p-5 rounded-2xl border-2 border-blue-100 shadow-sm relative overflow-hidden flex flex-col justify-center">
                   <DollarSign size={80} className="absolute -right-4 -bottom-4 text-blue-50 opacity-50"/>
                   <div className="relative z-10">
-                      <p className="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-1"><DollarSign size={14}/> Toplam Malzeme Satışı (Ciro)</p>
-                      <p className="text-3xl font-black text-blue-600 mt-1">{formatCurrency(aylikMalzemeAnalizi.ciro)}</p>
+                      <p className="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-1"><DollarSign size={14}/> Toplam Ciro (%20 KDV Dahil)</p>
+                      <p className="text-3xl font-black text-blue-600 mt-1">{formatCurrency(genelToplamGelir)}</p>
+                      <p className="text-[10px] font-bold text-slate-400 mt-2 bg-slate-50 p-1.5 rounded inline-block">KDV'siz Ham Ciro: {formatCurrency(ciroKdvsiz)}</p>
                   </div>
               </div>
 
               {/* NET KÂR */}
-              <div className={`p-5 rounded-2xl shadow-sm border-2 relative overflow-hidden flex flex-col justify-center ${aylikMalzemeAnalizi.kar >= 0 ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-400 text-white' : 'bg-gradient-to-br from-red-500 to-red-600 border-red-400 text-white'}`}>
+              <div className={`p-5 rounded-2xl shadow-sm border-2 relative overflow-hidden flex flex-col justify-center ${sirketNetKar >= 0 ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-400 text-white' : 'bg-gradient-to-br from-red-500 to-red-600 border-red-400 text-white'}`}>
                   <Wallet size={80} className="absolute -right-4 -bottom-4 opacity-10"/>
                   <div className="relative z-10">
-                      <p className="text-[10px] font-bold uppercase flex items-center gap-1 opacity-90"><Wallet size={14}/> {seciliAy} NET MALZEME KÂRI</p>
-                      <p className="text-4xl font-black tracking-tighter mt-1">{formatCurrency(aylikMalzemeAnalizi.kar)}</p>
+                      <p className="text-[10px] font-bold uppercase flex items-center gap-1 opacity-90"><Wallet size={14}/> {seciliAy} FİRMA NET KÂRI</p>
+                      <p className="text-4xl font-black tracking-tighter mt-1">{formatCurrency(sirketNetKar)}</p>
                   </div>
               </div>
+
+              {/* SABİT GİDER MODALI GİRİŞİ */}
+              <button onClick={() => setShowFinancialModal(true)} className="bg-slate-900 p-5 rounded-2xl shadow-xl flex flex-col justify-center items-start hover:scale-[1.02] transition group relative overflow-hidden border-2 border-slate-700">
+                  <BarChart3 size={80} className="absolute right-[-10px] bottom-[-10px] text-white/5"/>
+                  <div className="relative z-10">
+                      <div className="text-[10px] text-blue-400 font-bold uppercase mb-1 flex items-center gap-2"><Activity size={14} className="animate-pulse"/> Giderleri Yönet (Kira vs.)</div>
+                      <div className="text-xl lg:text-2xl font-black text-white">SABİT GİDER GİRİŞİ →</div>
+                  </div>
+              </button>
           </div>
       </div>
 
@@ -379,17 +419,10 @@ export default function MalzemelerSayfasi() {
           🔥 BÖLÜM 2: DEPO GENEL İSTATİSTİKLERİ (TÜM ZAMANLAR) 🔥
           ========================================================================= */}
       <h2 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2"><Package size={20} className="text-blue-600"/> Depo Genel Analizi (Tüm Zamanlar)</h2>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100"><div className="text-xs text-slate-400 font-bold uppercase mb-1 flex items-center gap-2"><Package size={14}/> Çeşit</div><div className="text-2xl font-black text-slate-800">{istatistik.toplamUrunCesidi}</div></div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100"><div className="text-xs text-slate-400 font-bold uppercase mb-1 flex items-center gap-2"><TrendingUp size={14}/> En Çok Satan</div><div className="text-lg font-bold text-blue-600 truncate">{istatistik.enCokSatan}</div></div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100"><div className="text-xs text-slate-400 font-bold uppercase mb-1 flex items-center gap-2"><DollarSign size={14}/> En Kârlı</div><div className="text-lg font-bold text-green-600 truncate">{istatistik.enKarliUrun}</div></div>
-        
-        {/* Diğer Giderler (Kira vb.) İçin Finansal Yönetim Modalı Butonu */}
-        <button onClick={() => setShowFinancialModal(true)} className="bg-slate-900 p-5 rounded-2xl shadow-xl flex flex-col items-start hover:scale-[1.02] transition group relative overflow-hidden">
-            <BarChart3 size={80} className="absolute right-[-10px] bottom-[-10px] text-white/5"/>
-            <div className="text-[10px] text-slate-400 font-bold uppercase mb-1 flex items-center gap-2 relative z-10"><Activity size={14} className="text-emerald-400 animate-pulse"/> DİĞER GİDERLER (KİRA VB.)</div>
-            <div className="text-xl font-black text-white relative z-10">FİNANS MODALI →</div>
-        </button>
       </div>
 
       {/* LİSTE VE GRAFİK */}
@@ -404,13 +437,12 @@ export default function MalzemelerSayfasi() {
         </div>
       </div>
 
-      {/* 🚀 YENİ: DETAYLI PERSONEL GİDER MODALI (EXCEL FORMATINDA) */}
+      {/* 🚀 DETAYLI PERSONEL GİDER MODALI (EXCEL FORMATINDA) */}
       <AnimatePresence>
         {showPersonelModal && (
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-orange-900/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
                 <motion.div initial={{scale:0.95,y:20}} animate={{scale:1,y:0}} exit={{scale:0.95,y:20}} className="bg-white w-full max-w-[90rem] h-[90vh] rounded-[40px] shadow-2xl overflow-hidden flex flex-col">
                     
-                    {/* Header */}
                     <div className="p-6 border-b flex justify-between items-center bg-orange-50 shrink-0">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-orange-600 rounded-2xl text-white"><Users size={28}/></div>
@@ -425,7 +457,6 @@ export default function MalzemelerSayfasi() {
                         <button onClick={()=>setShowPersonelModal(false)} className="p-3 bg-white hover:text-red-500 rounded-2xl border"><X size={24}/></button>
                     </div>
 
-                    {/* İçerik */}
                     <div className="flex-1 overflow-y-auto p-8 bg-slate-50">
                         <div className="flex gap-2 mb-6 max-w-md">
                             <input type="text" placeholder="Ad Soyad Giriniz..." value={yeniPersonelAd} onChange={e=>setYeniPersonelAd(e.target.value)} className="flex-1 p-3 rounded-xl border font-bold text-sm outline-none focus:ring-2 focus:ring-orange-300"/>
@@ -550,7 +581,7 @@ export default function MalzemelerSayfasi() {
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-slate-900 rounded-2xl text-emerald-400"><TrendingUp size={28}/></div>
                         <div>
-                            <h2 className="text-2xl font-black text-slate-800">FİNANS YÖNETİMİ (DİĞER GİDERLER)</h2>
+                            <h2 className="text-2xl font-black text-slate-800">FİNANS YÖNETİMİ (SABİT GİDERLER)</h2>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="text-xs font-bold text-slate-500">Seçili Dönem:</span>
                                 <select value={seciliAy} onChange={e=>setSeciliAy(e.target.value)} className="bg-white border border-slate-300 text-slate-700 text-xs font-black px-3 py-1 rounded shadow-sm outline-none cursor-pointer hover:bg-slate-100">
@@ -567,8 +598,8 @@ export default function MalzemelerSayfasi() {
                     <div className="w-full md:w-1/2 p-8 overflow-y-auto border-r bg-slate-50/30">
                         <h3 className="font-black text-slate-800 text-sm mb-6 flex items-center gap-2"><Edit2 size={16}/> GİDER/GELİR GİRİŞİ ({seciliAy})</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* FATURALAR GERİ GELDİ */}
-                            {[{id:'maas',l:'Personel Maaş',c:'r'},{id:'kira',l:'Kira',c:'r'},{id:'yakit',l:'Yakıt',c:'r'},{id:'yemek',l:'Yemek',c:'r'},{id:'tazminat',l:'Tazminat',c:'r'},{id:'mesaiYemek',l:'Mesai Yemek',c:'r'},{id:'aracYipranma',l:'Araç Yıp.',c:'r'},{id:'aracSigorta',l:'Sigorta',c:'r'},{id:'aracBakim',l:'Bakım',c:'r'},{id:'kdvDahilFatura',l:'FATURA (KDV DAHİL)',c:'g'},{id:'gResmiFatura',l:'G.RESMİ GELİR',c:'g'}].map(i=>(
+                            {/* FATURALAR HARİÇ MANUEL GİDER GİRİŞLERİ */}
+                            {[{id:'maas',l:'Personel Maaş',c:'r'},{id:'kira',l:'Kira',c:'r'},{id:'yakit',l:'Yakıt',c:'r'},{id:'yemek',l:'Yemek',c:'r'},{id:'tazminat',l:'Tazminat',c:'r'},{id:'mesaiYemek',l:'Mesai Yemek',c:'r'},{id:'aracYipranma',l:'Araç Yıp.',c:'r'},{id:'aracSigorta',l:'Sigorta',c:'r'},{id:'aracBakim',l:'Bakım',c:'r'},{id:'gResmiFatura',l:'G.RESMİ GELİR (EKSTRA)',c:'g'}].map(i=>(
                                 <div key={i.id}>
                                     <label className={`text-[10px] font-black uppercase ${i.c==='r'?'text-slate-400':'text-emerald-600'}`}>{i.l}</label>
                                     <input type="number" value={finansalVeri[i.id]} onChange={e=>setFinansalVeri({...finansalVeri,[i.id]:Number(e.target.value)})} className={`w-full p-3 border rounded-2xl font-black text-sm outline-none focus:ring-2 ${i.c==='r'?'text-slate-700':'text-emerald-700 border-emerald-100'}`}/>
@@ -583,43 +614,30 @@ export default function MalzemelerSayfasi() {
                     
                     {/* Sağ Kısım: Şirket Geneli Net Kâr Analizi */}
                     <div className="w-full md:w-1/2 p-8 overflow-y-auto bg-white flex flex-col justify-center">
-                        {(()=>{
-                            // Tüm masrafları topla (Faturalar hariç)
-                            const topGider = Object.entries(finansalVeri).filter(([k])=>!k.includes('Fatura')).reduce((a,b)=>a+(b[1] as number),0);
-                            // Net Gelir (Faturanın KDV'siz hali + Gayriresmi gelir)
-                            const netGelir = (finansalVeri.kdvDahilFatura/1.20) + finansalVeri.gResmiFatura;
-                            // Brüt
-                            const brut = netGelir - topGider;
-                            // Kurumlar veya Gelir Vergisi (Sadece kar varsa alınır, varsayılan %20)
-                            const vergi = brut > 0 ? brut * 0.20 : 0;
-                            // Cüzdanda kalan en net rakam
-                            const net = brut - vergi;
+                        <div className="space-y-6 text-center animate-in fade-in">
+                            <h4 className="text-xs font-black text-slate-400 tracking-widest">{seciliAy} FİRMA NET KÂR / ZARAR DURUMU</h4>
+                            <div className={`text-6xl font-black tracking-tighter ${sirketNetKar >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {formatCurrency(sirketNetKar)}
+                            </div>
                             
-                            return (
-                            <div className="space-y-6 text-center animate-in fade-in">
-                                <h4 className="text-xs font-black text-slate-400 tracking-widest">{seciliAy} FİRMA NET KÂR / ZARAR DURUMU</h4>
-                                <div className={`text-6xl font-black tracking-tighter ${net >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                    {formatCurrency(net)}
+                            <div className="grid grid-cols-2 gap-4 text-left">
+                                <div className="p-4 bg-red-50 rounded-3xl">
+                                    <div className="text-[10px] font-bold text-red-500">TOPLAM GİDER</div>
+                                    <div className="text-xl font-black text-red-600">{formatCurrency(genelToplamGider)}</div>
+                                    <div className="text-[10px] text-slate-500 mt-2 font-medium bg-white/50 p-1.5 rounded">Sabit: {formatCurrency(sabitGiderlerToplami)}<br/>Malzeme: {formatCurrency(malzemeMaliyeti)}</div>
                                 </div>
-                                
-                                <div className="grid grid-cols-2 gap-4 text-left">
-                                    <div className="p-4 bg-slate-100 rounded-3xl">
-                                        <div className="text-[10px] font-bold text-slate-500">GİDERLER (SABİT)</div>
-                                        <div className="text-xl font-black text-red-500">{formatCurrency(topGider)}</div>
-                                    </div>
-                                    <div className="p-4 bg-emerald-50 rounded-3xl">
-                                        <div className="text-[10px] font-bold text-emerald-600">GELİR (NET)</div>
-                                        <div className="text-xl font-black text-emerald-700">{formatCurrency(netGelir)}</div>
-                                    </div>
-                                </div>
-                                
-                                <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-100 text-yellow-800 text-xs font-bold text-left flex gap-3">
-                                    <AlertCircle size={20} className="shrink-0"/>
-                                    <div>Bu ayki <b>{formatCurrency(brut)}</b> brüt kâr üzerinden, sisteme <b>{formatCurrency(vergi)}</b> tahmini gelir vergisi hesaplanıp netten düşülmüştür.</div>
+                                <div className="p-4 bg-emerald-50 rounded-3xl">
+                                    <div className="text-[10px] font-bold text-emerald-600">SATIŞ CİROSU (KDV DAHİL)</div>
+                                    <div className="text-xl font-black text-emerald-700">{formatCurrency(genelToplamGelir)}</div>
+                                    <div className="text-[10px] text-slate-500 mt-2 font-medium bg-white/50 p-1.5 rounded">KDV'siz Ham Ciro: {formatCurrency(ciroKdvsiz)}</div>
                                 </div>
                             </div>
-                            )
-                        })()}
+                            
+                            <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 text-blue-800 text-xs font-bold text-left flex gap-3 shadow-sm">
+                                <AlertCircle size={24} className="shrink-0 text-blue-500"/>
+                                <div className="leading-relaxed">Bu ekranda şirketinizin genel sabit giderlerini güncelleyebilirsiniz. Gelirler (Ciro) sahadaki satışlardan <b className="text-blue-600">otomatik olarak KDV eklenerek</b> buraya çekilmektedir.</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </motion.div>
