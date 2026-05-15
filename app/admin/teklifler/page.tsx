@@ -18,6 +18,9 @@ export default function TekliflerSayfasi() {
   const [stok, setStok] = useState<any[]>([]);
   const [arama, setArama] = useState("");
   
+  // 🔥 YENİ: FİLTRELEME SEKMESİ STATE'İ 🔥
+  const [aktifSekme, setAktifSekme] = useState<'hepsi' | 'beklemede' | 'onaylandi' | 'reddedildi'>('hepsi');
+
   // Modal & Form
   const [modalAcik, setModalAcik] = useState(false);
   const [onizlemeAcik, setOnizlemeAcik] = useState(false); // Şablon Önizleme Modu
@@ -146,8 +149,12 @@ export default function TekliflerSayfasi() {
       setTimeout(() => { win?.print(); win?.close(); }, 500);
   };
 
-  // Arama
-  const filtrelenmis = teklifler.filter(t => t.customer_name.toLowerCase().includes(arama.toLowerCase()));
+  // 🔥 YENİ: ARAMA VE SEKMELİ FİLTRELEME BİRLEŞTİRİLDİ 🔥
+  const filtrelenmis = teklifler.filter(t => {
+      const aramaUyumu = t.customer_name.toLowerCase().includes(arama.toLowerCase());
+      if (aktifSekme === 'hepsi') return aramaUyumu;
+      return aramaUyumu && t.status === aktifSekme;
+  });
 
   // İstatistikler
   const bekleyenTutar = teklifler.filter(t => t.status === 'beklemede').reduce((a, b) => a + b.total_price, 0);
@@ -187,64 +194,85 @@ export default function TekliflerSayfasi() {
       </div>
 
       {/* LİSTE */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-4 border-b flex justify-between items-center">
-              <h3 className="font-bold text-slate-700">📜 Teklif Geçmişi</h3>
-              <div className="relative"><Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4"/><input type="text" placeholder="Müşteri Ara..." value={arama} onChange={e => setArama(e.target.value)} className="pl-9 pr-4 py-2 border rounded-lg text-sm outline-none"/></div>
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+          
+          {/* 🔥 YENİ: FİLTRELEME SEKMELERİ VE ARAMA 🔥 */}
+          <div className="p-5 border-b border-slate-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                  <h3 className="font-bold text-slate-700">📜 Teklif Geçmişi</h3>
+                  <span className="text-xs font-bold text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">{filtrelenmis.length} Kayıt</span>
+              </div>
+              
+              <div className="flex flex-wrap md:flex-nowrap bg-slate-200/50 p-1 rounded-xl w-full xl:w-auto">
+                   <button onClick={() => setAktifSekme('hepsi')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition ${aktifSekme === 'hepsi' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Tümü</button>
+                   <button onClick={() => setAktifSekme('beklemede')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${aktifSekme === 'beklemede' ? 'bg-white text-orange-500 shadow-sm' : 'text-slate-500 hover:text-orange-500'}`}><Clock size={12}/> Bekleyenler</button>
+                   <button onClick={() => setAktifSekme('onaylandi')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${aktifSekme === 'onaylandi' ? 'bg-white text-green-600 shadow-sm' : 'text-slate-500 hover:text-green-600'}`}><CheckCircle size={12}/> Onaylananlar</button>
+                   <button onClick={() => setAktifSekme('reddedildi')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${aktifSekme === 'reddedildi' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-500 hover:text-red-500'}`}><XCircle size={12}/> Reddedilenler</button>
+               </div>
+
+              <div className="relative w-full xl:w-64">
+                  <Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4"/>
+                  <input type="text" placeholder="Müşteri Ara..." value={arama} onChange={e => setArama(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 transition bg-white"/>
+              </div>
           </div>
-          <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
-                  <tr><th className="p-4">Tarih</th><th className="p-4">Müşteri</th><th className="p-4">Şablon</th><th className="p-4">Tutar</th><th className="p-4">Durum</th><th className="p-4 text-right">İşlem</th></tr>
-              </thead>
-              <tbody className="divide-y">
-                  {filtrelenmis.map(t => (
-                      <tr key={t.id} className="hover:bg-slate-50">
-                          <td className="p-4 font-mono text-slate-500">{new Date(t.offer_date).toLocaleDateString('tr-TR')}</td>
-                          <td className="p-4 font-bold text-slate-800">{t.customer_name}</td>
-                          <td className="p-4"><span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs uppercase font-bold">{t.template_type}</span></td>
-                          <td className="p-4 font-black text-slate-700">{t.total_price.toLocaleString()} ₺</td>
-                          <td className="p-4">
-                              {/* DURUM GÖSTERGESİ */}
-                              {t.status === 'beklemede' && <span className="text-orange-500 font-bold text-xs flex items-center gap-1"><Clock size={12}/> Bekliyor</span>}
-                              {t.status === 'onaylandi' && <span className="text-green-600 font-bold text-xs flex items-center gap-1"><CheckCircle size={12}/> Onaylandı</span>}
-                              {t.status === 'reddedildi' && <span className="text-red-500 font-bold text-xs flex items-center gap-1"><XCircle size={12}/> Reddedildi</span>}
-                          </td>
-                          <td className="p-4 text-right flex justify-end gap-2 items-center">
-                              {t.status === 'beklemede' && (
-                                  <>
-                                    <button onClick={() => durumGuncelle(t.id, 'onaylandi')} className="p-2 bg-green-100 text-green-600 rounded hover:bg-green-200 transition" title="Onayla"><ThumbsUp size={16}/></button>
-                                    <button onClick={() => durumGuncelle(t.id, 'reddedildi')} className="p-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition mr-2" title="Reddet"><ThumbsDown size={16}/></button>
-                                  </>
-                              )}
-                              <button onClick={() => { setSeciliTeklif(t); setOnizlemeAcik(true); }} className="p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100" title="Görüntüle & Yazdır"><Printer size={16}/></button>
-                              <button onClick={() => sil(t.id)} className="p-2 bg-red-50 text-red-500 rounded hover:bg-red-100"><Trash2 size={16}/></button>
-                          </td>
-                      </tr>
-                  ))}
-              </tbody>
-          </table>
+
+          <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50/50 text-slate-500 font-bold uppercase text-[10px]">
+                      <tr><th className="p-4 pl-6">Tarih</th><th className="p-4">Müşteri</th><th className="p-4">Şablon</th><th className="p-4">Tutar</th><th className="p-4">Durum</th><th className="p-4 text-right pr-6">İşlem</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                      {filtrelenmis.map(t => (
+                          <tr key={t.id} className="hover:bg-slate-50/50 transition">
+                              <td className="p-4 pl-6 font-mono text-slate-500 text-xs">{new Date(t.offer_date).toLocaleDateString('tr-TR')}</td>
+                              <td className="p-4 font-bold text-slate-800">{t.customer_name}</td>
+                              <td className="p-4"><span className="bg-blue-50 text-blue-600 border border-blue-100 px-2.5 py-1 rounded text-[10px] uppercase font-bold">{t.template_type}</span></td>
+                              <td className="p-4 font-black text-slate-700">{t.total_price.toLocaleString()} ₺</td>
+                              <td className="p-4">
+                                  {/* DURUM GÖSTERGESİ */}
+                                  {t.status === 'beklemede' && <span className="text-orange-500 bg-orange-50 border border-orange-100 px-2.5 py-1 rounded-full font-bold text-[10px] flex items-center gap-1 w-max"><Clock size={12}/> BEKLİYOR</span>}
+                                  {t.status === 'onaylandi' && <span className="text-green-600 bg-green-50 border border-green-100 px-2.5 py-1 rounded-full font-bold text-[10px] flex items-center gap-1 w-max"><CheckCircle size={12}/> ONAYLANDI</span>}
+                                  {t.status === 'reddedildi' && <span className="text-red-500 bg-red-50 border border-red-100 px-2.5 py-1 rounded-full font-bold text-[10px] flex items-center gap-1 w-max"><XCircle size={12}/> REDDEDİLDİ</span>}
+                              </td>
+                              <td className="p-4 pr-6 text-right flex justify-end gap-2 items-center">
+                                  {t.status === 'beklemede' && (
+                                      <>
+                                        <button onClick={() => durumGuncelle(t.id, 'onaylandi')} className="p-2 bg-green-50 text-green-600 border border-green-100 rounded-lg hover:bg-green-600 hover:text-white transition" title="Onayla"><ThumbsUp size={16}/></button>
+                                        <button onClick={() => durumGuncelle(t.id, 'reddedildi')} className="p-2 bg-red-50 text-red-500 border border-red-100 rounded-lg hover:bg-red-600 hover:text-white transition mr-2" title="Reddet"><ThumbsDown size={16}/></button>
+                                      </>
+                                  )}
+                                  <button onClick={() => { setSeciliTeklif(t); setOnizlemeAcik(true); }} className="p-2 bg-blue-50 text-blue-500 border border-blue-100 rounded-lg hover:bg-blue-600 hover:text-white transition" title="Görüntüle & Yazdır"><Printer size={16}/></button>
+                                  <button onClick={() => sil(t.id)} className="p-2 bg-slate-50 text-slate-400 border border-slate-200 rounded-lg hover:bg-red-500 hover:text-white transition"><Trash2 size={16}/></button>
+                              </td>
+                          </tr>
+                      ))}
+                      {filtrelenmis.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-medium">Bu kategoride gösterilecek kayıt bulunamadı.</td></tr>}
+                  </tbody>
+              </table>
+          </div>
       </div>
 
       {/* --- MODAL 1: YENİ TEKLİF OLUŞTURMA SİHİRBAZI --- */}
       <AnimatePresence>
         {modalAcik && (
-            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-                    <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
-                        <h2 className="text-xl font-bold flex items-center gap-2"><FileText/> Yeni Teklif Oluştur</h2>
-                        <button onClick={() => setModalAcik(false)}><XCircle/></button>
+            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+                <div className="bg-white w-full max-w-4xl rounded-[32px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                    <div className="p-6 md:p-8 bg-slate-900 text-white flex justify-between items-center shrink-0 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-8 opacity-5"><FileText size={100}/></div>
+                        <h2 className="text-2xl font-black flex items-center gap-3 relative z-10"><FileText/> Yeni Teklif Oluştur</h2>
+                        <button onClick={() => setModalAcik(false)} className="bg-slate-800 hover:bg-red-500 p-2 rounded-full transition relative z-10"><X/></button>
                     </div>
                     
-                    <div className="p-6 overflow-y-auto space-y-6">
+                    <div className="p-6 md:p-8 overflow-y-auto space-y-6 bg-slate-50">
                         {/* 1. Şablon Seçimi */}
-                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                            <label className="text-xs font-bold text-blue-600 uppercase block mb-2">Şablon Türü Seçin</label>
+                        <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100">
+                            <label className="text-xs font-bold text-blue-600 uppercase block mb-3">Şablon Türü Seçin</label>
                             <div className="flex gap-4">
                                 {['standart', 'bakim', 'siparis'].map(tip => (
                                     <button 
                                         key={tip}
                                         onClick={() => setYeniTeklif({...yeniTeklif, template_type: tip})}
-                                        className={`flex-1 py-3 rounded-lg border-2 font-bold uppercase text-xs transition ${yeniTeklif.template_type === tip ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-blue-300'}`}
+                                        className={`flex-1 py-3 rounded-xl border-2 font-bold uppercase text-xs transition ${yeniTeklif.template_type === tip ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-200' : 'border-slate-200 bg-white text-slate-500 hover:border-blue-300'}`}
                                     >
                                         {tip === 'standart' ? 'Fiyat Teklifi' : tip === 'bakim' ? 'Periyodik Bakım' : 'Sipariş Formu'}
                                     </button>
@@ -255,25 +283,25 @@ export default function TekliflerSayfasi() {
                         {/* 2. Müşteri Bilgileri */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="text-xs font-bold text-slate-400">Müşteri / Firma Adı</label>
-                                <input type="text" className="w-full p-3 border rounded-lg font-bold" value={yeniTeklif.customer_name} onChange={e => setYeniTeklif({...yeniTeklif, customer_name: e.target.value})} />
+                                <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Müşteri / Firma Adı</label>
+                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-400 shadow-sm" value={yeniTeklif.customer_name} onChange={e => setYeniTeklif({...yeniTeklif, customer_name: e.target.value})} />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-slate-400">Yetkili Kişi (Sayın...)</label>
-                                <input type="text" className="w-full p-3 border rounded-lg" value={yeniTeklif.customer_rep} onChange={e => setYeniTeklif({...yeniTeklif, customer_rep: e.target.value})} />
+                                <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Yetkili Kişi (Sayın...)</label>
+                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 shadow-sm" value={yeniTeklif.customer_rep} onChange={e => setYeniTeklif({...yeniTeklif, customer_rep: e.target.value})} />
                             </div>
                             <div className="col-span-2">
-                                <label className="text-xs font-bold text-slate-400">Adres</label>
-                                <input type="text" className="w-full p-3 border rounded-lg" value={yeniTeklif.customer_address} onChange={e => setYeniTeklif({...yeniTeklif, customer_address: e.target.value})} />
+                                <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Adres</label>
+                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 shadow-sm" value={yeniTeklif.customer_address} onChange={e => setYeniTeklif({...yeniTeklif, customer_address: e.target.value})} />
                             </div>
                         </div>
 
                         {/* 3. Kalemler (Malzeme/İşçilik) */}
-                        <div className="border rounded-xl p-4 bg-slate-50">
-                            <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><Box size={16}/> Hizmet ve Ürünler</h4>
+                        <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
+                            <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Box size={16} className="text-blue-500"/> Hizmet ve Ürünler</h4>
                             
-                            <div className="flex gap-2 mb-4">
-                                <select className="flex-1 p-2 border rounded-lg text-sm" value={secilenStokId} onChange={e => {
+                            <div className="flex gap-2 mb-4 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                                <select className="flex-1 p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none" value={secilenStokId} onChange={e => {
                                     setSecilenStokId(e.target.value);
                                     const urun = stok.find(s => s.id === e.target.value);
                                     if(urun) setTempFiyat(urun.sale_price);
@@ -281,38 +309,40 @@ export default function TekliflerSayfasi() {
                                     <option value="">Stoktan Seç (Opsiyonel)</option>
                                     {stok.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
-                                <input type="number" placeholder="Adet" className="w-20 p-2 border rounded-lg text-center" value={tempAdet} onChange={e => setTempAdet(Number(e.target.value))} />
-                                <input type="number" placeholder="Fiyat" className="w-24 p-2 border rounded-lg" value={tempFiyat} onChange={e => setTempFiyat(Number(e.target.value))} />
-                                <button onClick={kalemEkle} className="bg-green-600 text-white p-2 rounded-lg"><Plus/></button>
+                                <input type="number" placeholder="Adet" className="w-20 p-2.5 bg-white border border-slate-200 rounded-lg text-center font-bold outline-none" value={tempAdet} onChange={e => setTempAdet(Number(e.target.value))} />
+                                <input type="number" placeholder="Fiyat" className="w-28 p-2.5 bg-white border border-slate-200 rounded-lg font-bold outline-none" value={tempFiyat} onChange={e => setTempFiyat(Number(e.target.value))} />
+                                <button onClick={kalemEkle} className="bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg transition shadow-md"><Plus/></button>
                             </div>
 
-                            <table className="w-full text-sm bg-white rounded-lg overflow-hidden shadow-sm">
-                                <thead className="bg-slate-100 text-xs text-slate-500 font-bold uppercase"><tr><th className="p-2 text-left">Açıklama</th><th className="p-2">Adet</th><th className="p-2 text-right">Birim</th><th className="p-2 text-right">Toplam</th><th className="p-2"></th></tr></thead>
+                            <table className="w-full text-sm bg-white rounded-xl overflow-hidden border border-slate-100">
+                                <thead className="bg-slate-50 text-[10px] text-slate-500 font-bold uppercase border-b border-slate-100"><tr><th className="p-3 text-left">Açıklama</th><th className="p-3 text-center">Adet</th><th className="p-3 text-right">Birim</th><th className="p-3 text-right">Toplam</th><th className="p-3"></th></tr></thead>
                                 <tbody>
                                     {kalemler.map(k => (
-                                        <tr key={k.id} className="border-b">
-                                            <td className="p-2">{k.ad}</td>
-                                            <td className="p-2 text-center">{k.adet}</td>
-                                            <td className="p-2 text-right">{k.birim_fiyat} ₺</td>
-                                            <td className="p-2 text-right font-bold">{k.toplam} ₺</td>
-                                            <td className="p-2 text-center"><button onClick={() => kalemSil(k.id)} className="text-red-500"><Trash2 size={14}/></button></td>
+                                        <tr key={k.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
+                                            <td className="p-3 font-medium text-slate-700">{k.ad}</td>
+                                            <td className="p-3 text-center text-slate-500">{k.adet}</td>
+                                            <td className="p-3 text-right text-slate-500">{k.birim_fiyat.toLocaleString()} ₺</td>
+                                            <td className="p-3 text-right font-bold text-slate-800">{k.toplam.toLocaleString()} ₺</td>
+                                            <td className="p-3 text-center"><button onClick={() => kalemSil(k.id)} className="text-red-400 hover:text-red-600 bg-red-50 p-1.5 rounded transition"><Trash2 size={14}/></button></td>
                                         </tr>
                                     ))}
+                                    {kalemler.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-slate-400 text-xs">Henüz kalem eklenmedi.</td></tr>}
                                 </tbody>
                             </table>
-                            <div className="text-right mt-2 font-black text-xl text-slate-800">Toplam: {toplamTutar.toLocaleString()} ₺</div>
+                            <div className="text-right mt-4 font-black text-2xl text-slate-800 bg-slate-50 inline-block float-right px-4 py-2 rounded-xl border border-slate-200">Toplam: {toplamTutar.toLocaleString()} ₺</div>
+                            <div className="clear-both"></div>
                         </div>
 
                         {/* 4. Notlar */}
                         <div>
-                            <label className="text-xs font-bold text-slate-400">Teklif Notları / Şartlar</label>
-                            <textarea className="w-full p-3 border rounded-lg text-sm" rows={3} placeholder="Ödeme koşulları, garanti süresi vb..." value={yeniTeklif.description} onChange={e => setYeniTeklif({...yeniTeklif, description: e.target.value})}></textarea>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Teklif Notları / Şartlar</label>
+                            <textarea className="w-full p-4 bg-white border border-slate-200 rounded-xl text-sm resize-none outline-none focus:border-blue-400 shadow-sm leading-relaxed" rows={3} placeholder="Ödeme koşulları, garanti süresi vb..." value={yeniTeklif.description} onChange={e => setYeniTeklif({...yeniTeklif, description: e.target.value})}></textarea>
                         </div>
                     </div>
 
-                    <div className="p-4 bg-slate-100 flex justify-end gap-3 shrink-0">
-                        <button onClick={() => setModalAcik(false)} className="px-6 py-3 bg-white border rounded-xl font-bold text-slate-600">Vazgeç</button>
-                        <button onClick={teklifKaydet} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg">Teklifi Oluştur</button>
+                    <div className="p-6 bg-white border-t border-slate-200 flex justify-end gap-3 shrink-0">
+                        <button onClick={() => setModalAcik(false)} className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-600 transition text-sm">Vazgeç</button>
+                        <button onClick={teklifKaydet} className="px-8 py-3.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition text-sm flex items-center gap-2">Teklifi Oluştur</button>
                     </div>
                 </div>
             </motion.div>
@@ -343,7 +373,7 @@ export default function TekliflerSayfasi() {
                             {/* HEADER: LOGO VE FİRMA BİLGİSİ */}
                             <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-8">
                                 <div>
-                                    <h1 className="text-3xl font-black text-slate-800 tracking-tighter">ZM METAL</h1>
+                                    <h1 className="text-3xl font-black text-slate-800 tracking-tighter">BUVİSAN</h1>
                                     <p className="text-sm font-bold text-slate-500">MAKİNA İMALAT SANAYİ VE TİCARET LİMİTED ŞİRKETİ</p>
                                 </div>
                                 <div className="text-right text-xs text-slate-600">
