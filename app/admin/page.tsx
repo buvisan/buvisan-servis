@@ -1,7 +1,7 @@
 "use client";
 // --------------------------------------------------------
-// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V3.6 🛠️
-// (Koordinat Girilen Arızalarda "Haritada Gör" Butonu Eklendi 📍)
+// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V3.7 🛠️
+// (İş Emirlerine Tümü / Bekleyen / Çözüldü Filtresi Eklendi 📋)
 // --------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -28,6 +28,9 @@ export default function AdminPanel() {
   const [yukleniyor, setYukleniyor] = useState(true);
   const [erisimIzni, setErisimIzni] = useState(false);
   const [istatistikler, setIstatistikler] = useState({ bekleyen: 0, cozulen: 0, toplam: 0 });
+
+  // 🔥 YENİ: İŞ EMRİ FİLTRELEME STATE'İ 🔥
+  const [aktifSekme, setAktifSekme] = useState<'hepsi' | 'bekliyor' | 'tamamlandi'>('bekliyor');
 
   const [manuelFormAcik, setManuelFormAcik] = useState(false);
   const [kaydediliyor, setKaydediliyor] = useState(false);
@@ -137,11 +140,17 @@ export default function AdminPanel() {
 
   async function cikisYap() { await supabase.auth.signOut(); router.push('/login'); }
 
-  // 🔥 HARİTAYA GİT BUTONU 🔥
   const haritayaGit = (lat: number, lng: number) => {
-    // Harita sayfasına URL parametresi ile koordinat yolluyoruz
     router.push(`/admin/harita?lat=${lat}&lng=${lng}`);
   };
+
+  // 🔥 YENİ: İŞ EMİRLERİNİ FİLTRELEME FONKSİYONU 🔥
+  const filtrelenmisBildirimler = bildirimler.filter(kayit => {
+      if (aktifSekme === 'hepsi') return true;
+      if (aktifSekme === 'bekliyor') return kayit.status !== 'tamamlandi';
+      if (aktifSekme === 'tamamlandi') return kayit.status === 'tamamlandi';
+      return true;
+  });
 
   if (yukleniyor || !erisimIzni) {
     return (
@@ -187,7 +196,7 @@ export default function AdminPanel() {
             <div className="hidden md:flex bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex-col justify-center items-center text-center">
                 <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4"><LayoutDashboard size={32}/></div>
                 <h3 className="text-slate-800 font-bold text-lg">Yönetim Paneli</h3>
-                <p className="text-slate-400 text-xs mt-1">v3.6 Aktif</p>
+                <p className="text-slate-400 text-xs mt-1">v3.7 Aktif</p>
                 <div className="mt-4 w-full h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 w-2/3 rounded-full"></div></div>
             </div>
         </div>
@@ -211,19 +220,28 @@ export default function AdminPanel() {
 
         {/* 3. BİLDİRİM LİSTESİ */}
         <div>
-            <div className="flex items-center justify-between mb-4 mt-8">
-               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><div className="w-1 h-6 bg-red-500 rounded-full"></div> Bekleyen İşler / Bildirimler</h2>
-               <span className="text-xs font-bold text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200">{bildirimler.length} Kayıt</span>
+            {/* 🔥 DÜZELTME BURADA: BUTONLAR EKLENDİ 🔥 */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 mt-8 gap-4">
+               <div className="flex items-center gap-3">
+                   <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><div className="w-1 h-6 bg-red-500 rounded-full"></div> İş Emirleri / Bildirimler</h2>
+                   <span className="text-xs font-bold text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200">{filtrelenmisBildirimler.length} Kayıt</span>
+               </div>
+               
+               <div className="flex bg-slate-200/50 p-1 rounded-xl w-full md:w-auto">
+                   <button onClick={() => setAktifSekme('hepsi')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition ${aktifSekme === 'hepsi' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Tümü</button>
+                   <button onClick={() => setAktifSekme('bekliyor')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${aktifSekme === 'bekliyor' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-red-500'}`}><AlertTriangle size={12}/> Bekleyenler</button>
+                   <button onClick={() => setAktifSekme('tamamlandi')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${aktifSekme === 'tamamlandi' ? 'bg-white text-green-600 shadow-sm' : 'text-slate-500 hover:text-green-500'}`}><CheckCircle2 size={12}/> Çözülenler</button>
+               </div>
             </div>
 
             <div className="space-y-4">
-              {bildirimler.length === 0 ? (
+              {filtrelenmisBildirimler.length === 0 ? (
                 <div className="bg-white p-12 rounded-3xl text-center border border-dashed border-slate-300">
                   <div className="bg-green-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle2 className="w-8 h-8 text-green-500" /></div>
-                  <h3 className="text-lg font-bold text-slate-700">Tertemiz!</h3><p className="text-slate-400 text-sm mt-1">Bekleyen iş emri bulunmuyor.</p>
+                  <h3 className="text-lg font-bold text-slate-700">Tertemiz!</h3><p className="text-slate-400 text-sm mt-1">Bu kategoride gösterilecek kayıt bulunamadı.</p>
                 </div>
               ) : (
-                bildirimler.map((kayit) => {
+                filtrelenmisBildirimler.map((kayit) => {
                   const isKritik = kayit.priority === 'Kritik (Makine Durdu)';
                   
                   // Adres bilgisini kontrol et
@@ -273,7 +291,6 @@ export default function AdminPanel() {
                           </h3>
                           <div className="flex flex-wrap items-center gap-3 text-slate-500 text-xs mt-1">
                               
-                              {/* 🔥 DÜZELTME BURADA: KOORDİNAT GİRİLMİŞSE HARİTA BUTONU ÇIKSIN 🔥 */}
                               <div className="flex items-center gap-1">
                                   <MapPin className="w-3 h-3 text-blue-500" /> 
                                   <span>
