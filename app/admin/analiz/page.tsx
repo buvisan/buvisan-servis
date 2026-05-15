@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - PRO ANALİZ MODÜLÜ 🛠️
-// Versiyon: 9.4 (Ekip Performansı Manuel "Yarım Kalan İş" Ekleme Modülü 👥)
+// Versiyon: 9.5 (Ekip Performansı: Toplu Yarım Kalan İş Ekleme Modülü 👥)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -32,7 +32,8 @@ export default function AnalizSayfasi() {
   // STATE YÖNETİMİ
   const [indiriliyor, setIndiriliyor] = useState(false);
   const [yukleniyor, setYukleniyor] = useState(true);
-  const [kayitlar, setKayitlar] = useState<any[]>([]);
+  const [kayitlar, setKayitlar] = useState<any[]>([]); // completed_services (Ciro İçin)
+  const [isEmirleri, setIsEmirleri] = useState<any[]>([]); // service_tickets (Performans İçin) 
   const [stokMalzemeleri, setStokMalzemeleri] = useState<any[]>([]); 
   const [aramaMetni, setAramaMetni] = useState("");
   
@@ -47,11 +48,9 @@ export default function AnalizSayfasi() {
   const [raporModalAcik, setRaporModalAcik] = useState(false);
   const [aktifRaporId, setAktifRaporId] = useState<string | null>(null); 
 
-  // DİNAMİK CİRO VE ANALİZ İÇİN DÖNEM SEÇİCİLER
-  const [seciliDonem, setSeciliDonem] = useState(new Date().toISOString().slice(0, 7)); 
-  const [analizTarihi, setAnalizTarihi] = useState(new Date().toISOString().slice(0, 7)); 
+  const [seciliDonem, setSeciliDonem] = useState(new Date().toISOString().slice(0, 7));
+  const [analizTarihi, setAnalizTarihi] = useState(new Date().toISOString().slice(0, 7));
 
-  // İSTATİSTİK STATE'İ
   const [istatistik, setIstatistik] = useState({ 
       toplamCiro: 0, seciliAyCiro: 0, buHaftaCiro: 0, 
       toplamIslem: 0, buHaftaIslem: 0, seciliAyIslem: 0 
@@ -75,8 +74,10 @@ export default function AnalizSayfasi() {
 
   const [secilenPersoneller, setSecilenPersoneller] = useState<string[]>([]);
 
-  // 🔥 YENİ: YARIM KALAN İŞ FORMU İÇİN STATE'LER 🔥
+  // 🔥 YENİ: TOPLU YARIM KALAN İŞ FORMU STATE'LERİ 🔥
   const [seciliPersonelAd, setSeciliPersonelAd] = useState<string | null>(null);
+  const [yarimIsFormAcik, setYarimIsFormAcik] = useState(false); // Toplu ekleme paneli kontrolü
+  const [secilenYarimIsPersonelleri, setSecilenYarimIsPersonelleri] = useState<string[]>([]); // Çoklu personel seçimi
   const [yarimIsForm, setYarimIsForm] = useState({ musteri: '', tarih: new Date().toISOString().split('T')[0] });
   const [yarimIsEkleniyor, setYarimIsEkleniyor] = useState(false);
 
@@ -89,17 +90,24 @@ export default function AnalizSayfasi() {
       return () => clearInterval(interval);
   }, []);
 
-  // Dönem (Ay/Yıl) değiştiğinde hesaplamaları tekrar tetikle
   useEffect(() => {
       if (kayitlar.length > 0) hesaplamalariYap(kayitlar);
   }, [seciliDonem, kayitlar]);
 
   const tumVerileriGetir = async () => {
     try {
+        setYukleniyor(true);
+        // 1. Ciro ve Faturalar İçin
         const { data: servisData } = await supabase.from('completed_services').select('*').order('service_date', { ascending: false });
         if (servisData) { setKayitlar(servisData); hesaplamalariYap(servisData); }
+        
+        // 2. Ekip Performansı İçin BÜTÜN İŞ EMİRLERİ
+        const { data: biletData } = await supabase.from('service_tickets').select('*, cranes(customer_name)').order('created_at', { ascending: false });
+        if (biletData) { setIsEmirleri(biletData); }
+
         const { data: stokData } = await supabase.from('materials').select('*').order('name', { ascending: true });
         if (stokData) setStokMalzemeleri(stokData);
+
         await sesliRaporlariGetir();
     } catch (error) { console.error("Veri hatası", error); } 
     finally { setYukleniyor(false); }
@@ -111,7 +119,7 @@ export default function AnalizSayfasi() {
   };
 
   // ==========================================================================
-  // HESAPLAMALAR 
+  // HESAPLAMALAR
   // ==========================================================================
   const hesaplamalariYap = (data: any[]) => {
     const bugun = new Date();
@@ -126,7 +134,6 @@ export default function AnalizSayfasi() {
     const musteriAnalizi: any = {};
 
     data.forEach(item => {
-        // Eğer yarım kalan iş ise ciroyu etkilemez (zaten price 0 gireceğiz ama garanti olsun)
         if (item.service_type === 'Yarım Kalan İş') return; 
 
         const fiyat = Number(item.price) || 0;
@@ -166,25 +173,35 @@ export default function AnalizSayfasi() {
       });
 
       return PERSONEL_LISTESI.map(personel => {
-          // Bütün işlemleri (Çözülen + Yarım Kalan) filtreliyoruz
+          // Bütün işlemleri (Çözülen + Yarım Kalan) filtreliyoruz.
+          // Ortak isim listesini parçalamaya gerek yok, "includes" ile hepsini kusursuz sayar!
           const gittigiIsler = filtrelenmisKayitlar.filter(k => k.technician && k.technician.includes(personel));
           return { ad: personel, isSayisi: gittigiIsler.length, detaylar: gittigiIsler };
       }).sort((a, b) => b.isSayisi - a.isSayisi);
   };
 
-  // 🔥 YENİ: YARIM KALAN İŞ EKLEME FONKSİYONU 🔥
-  const yarimIsEkle = async () => {
+  const aktifPersonelDetay = seciliPersonelAd ? personelAnaliziYap().find(p => p.ad === seciliPersonelAd) : null;
+
+  // 🔥 YENİ: TOPLU YARIM KALAN İŞ EKLEME FONKSİYONU 🔥
+  const yarimIsPersonelSeciminiGuncelle = (personel: string) => {
+      let yeniListe = [...secilenYarimIsPersonelleri];
+      if (yeniListe.includes(personel)) yeniListe = yeniListe.filter(p => p !== personel);
+      else yeniListe.push(personel);
+      setSecilenYarimIsPersonelleri(yeniListe);
+  };
+
+  const topluYarimIsEkle = async () => {
       if(!yarimIsForm.musteri) return alert("Lütfen müşteri adını girin!");
-      if(!seciliPersonelAd) return alert("Lütfen sol taraftan bir personel seçin!");
+      if(secilenYarimIsPersonelleri.length === 0) return alert("Lütfen en az bir personel seçin!");
 
       setYarimIsEkleniyor(true);
 
       const paket = {
           service_date: yarimIsForm.tarih,
           customer_text: yarimIsForm.musteri,
-          technician: seciliPersonelAd,
-          service_type: 'Yarım Kalan İş', // Kritik filtreleme noktası
-          price: 0, // Maliyete etki etmez
+          technician: secilenYarimIsPersonelleri.join(" - "), // Seçilen tüm isimleri birleştirir
+          service_type: 'Yarım Kalan İş',
+          price: 0, 
           description: 'Bu iş personelin performansına eklenmiş ancak yarım kalmış bir işlemdir.'
       };
 
@@ -195,7 +212,9 @@ export default function AnalizSayfasi() {
       if (error) alert("Hata oluştu: " + error.message);
       else {
           setYarimIsForm({ musteri: '', tarih: new Date().toISOString().split('T')[0] });
-          tumVerileriGetir(); // Listeyi güncelle ki anında ekranda görünsün
+          setSecilenYarimIsPersonelleri([]);
+          setYarimIsFormAcik(false);
+          tumVerileriGetir(); 
       }
   };
 
@@ -315,9 +334,6 @@ export default function AnalizSayfasi() {
 
   if (yukleniyor && kayitlar.length === 0) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-600 w-10 h-10"/></div>;
 
-  // Render için seçili personelin detayını her renderda hesapla
-  const aktifPersonelDetay = seciliPersonelAd ? personelAnaliziYap().find(p => p.ad === seciliPersonelAd) : null;
-
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-6 pb-24 relative font-sans">
       
@@ -338,18 +354,29 @@ export default function AnalizSayfasi() {
         </div>
       </div>
 
-      {/* İSTATİSTİKLER */}
+      {/* 🔥 İSTATİSTİKLER (DİNAMİK CİRO VE HAFTALIK GÜNCELLEMESİ) 🔥 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
+        
+        {/* TOPLAM CİRO */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
-            <div><div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Toplam Ciro (Tüm Zamanlar)</div><div className="text-xl md:text-2xl font-black text-slate-800">{istatistik.toplamCiro.toLocaleString('tr-TR')} ₺</div></div>
+            <div>
+                <div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Toplam Ciro (Tüm Zamanlar)</div>
+                <div className="text-xl md:text-2xl font-black text-slate-800">{istatistik.toplamCiro.toLocaleString('tr-TR')} ₺</div>
+            </div>
             <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-100 pt-2">{istatistik.toplamIslem} Toplam Servis İşlemi</div>
         </div>
 
+        {/* DİNAMİK SEÇİLİ DÖNEM CİRO */}
         <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-5 rounded-2xl shadow-md border border-blue-700 text-white relative overflow-hidden flex flex-col justify-between">
             <div className="absolute right-0 bottom-0 opacity-10"><TrendingUp size={80}/></div>
             <div className="flex justify-between items-start mb-2 relative z-10">
                 <div className="text-[10px] md:text-xs text-blue-200 font-bold uppercase">Dönem Cirosu</div>
-                <select value={seciliDonem} onChange={(e) => setSeciliDonem(e.target.value)} className="bg-blue-900/50 border border-blue-500/50 text-white text-[10px] font-bold px-2 py-1 rounded outline-none cursor-pointer hover:bg-blue-900/80 transition">
+                {/* 🔥 DÖNEM FİLTRESİ BURADA 🔥 */}
+                <select 
+                    value={seciliDonem} 
+                    onChange={(e) => setSeciliDonem(e.target.value)} 
+                    className="bg-blue-900/50 border border-blue-500/50 text-white text-[10px] font-bold px-2 py-1 rounded outline-none cursor-pointer hover:bg-blue-900/80 transition"
+                >
                     {Array.from({ length: 7 }, (_, i) => 2024 + i).map(yil => (
                         ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"].map((ayAdi, index) => {
                             const ayValue = `${yil}-${String(index + 1).padStart(2, '0')}`;
@@ -362,13 +389,21 @@ export default function AnalizSayfasi() {
             <div className="text-[10px] text-blue-200 mt-2 border-t border-blue-500/30 pt-2 relative z-10">{istatistik.seciliAyIslem} Servis İşlemi Gerçekleşti</div>
         </div>
 
+        {/* HAFTALIK CİRO VE SERVİS */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
-            <div><div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Bu Hafta Ciro</div><div className="text-xl md:text-2xl font-black text-emerald-600">{istatistik.buHaftaCiro.toLocaleString('tr-TR')} ₺</div></div>
+            <div>
+                <div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Bu Hafta Ciro</div>
+                <div className="text-xl md:text-2xl font-black text-emerald-600">{istatistik.buHaftaCiro.toLocaleString('tr-TR')} ₺</div>
+            </div>
             <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-100 pt-2">{istatistik.buHaftaIslem} Servis İşlemi Gerçekleşti</div>
         </div>
 
+        {/* DİNAMİK SEÇİLİ DÖNEM SERVİS SAYISI */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
-            <div><div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Dönem Servis Sayısı</div><div className="text-xl md:text-2xl font-black text-slate-800">{istatistik.seciliAyIslem} Adet</div></div>
+            <div>
+                <div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Dönem Servis Sayısı</div>
+                <div className="text-xl md:text-2xl font-black text-slate-800">{istatistik.seciliAyIslem} Adet</div>
+            </div>
             <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-100 pt-2">Seçili ay içerisindeki kayıtlar</div>
         </div>
       </div>
@@ -527,7 +562,10 @@ export default function AnalizSayfasi() {
                             <div className="space-y-4">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Wrench size={12}/> İşlem Detayları</span>
                                 <div className="flex gap-2">
-                                    <div className="relative w-32 shrink-0"><input type="text" placeholder="Form No" value={yeniKayit.form_number} onChange={e => setYeniKayit({...yeniKayit, form_number: e.target.value})} className="w-full pl-8 p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs font-bold text-blue-700 placeholder:text-blue-400/50 outline-none focus:ring-2 focus:ring-blue-400 transition"/><FileText size={14} className="absolute left-2.5 top-3.5 text-blue-400"/></div>
+                                    <div className="relative w-32 shrink-0">
+                                        <input type="text" placeholder="Form No" value={yeniKayit.form_number} onChange={e => setYeniKayit({...yeniKayit, form_number: e.target.value})} className="w-full pl-8 p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs font-bold text-blue-700 placeholder:text-blue-400/50 outline-none focus:ring-2 focus:ring-blue-400 transition"/>
+                                        <FileText size={14} className="absolute left-2.5 top-3.5 text-blue-400"/>
+                                    </div>
                                     <select value={yeniKayit.service_type} onChange={e => setYeniKayit({...yeniKayit, service_type: e.target.value})} className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:ring-2 focus:ring-slate-300 transition"><option>Servis</option><option>Periyodik Bakım</option><option>Garanti</option><option>Montaj</option><option>Diğer</option></select>
                                     <input type="text" placeholder="Kapasite" value={yeniKayit.crane_capacity} onChange={e => setYeniKayit({...yeniKayit, crane_capacity: e.target.value})} className="w-24 shrink-0 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-slate-300 transition"/>
                                 </div>
@@ -539,7 +577,11 @@ export default function AnalizSayfasi() {
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Users size={12}/> Servis Ekibi (Seçiniz)</span>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                                 {PERSONEL_LISTESI.map((personel) => (
-                                    <button key={personel} onClick={() => personelSeciminiGuncelle(personel)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition border ${secilenPersoneller.includes(personel) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+                                    <button 
+                                        key={personel} 
+                                        onClick={() => personelSeciminiGuncelle(personel)}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition border ${secilenPersoneller.includes(personel) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                                    >
                                         {secilenPersoneller.includes(personel) ? <CheckSquare size={14}/> : <Square size={14}/>}
                                         {personel}
                                     </button>
@@ -589,6 +631,8 @@ export default function AnalizSayfasi() {
         {performansAcik && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-purple-900/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4" onClick={() => setPerformansAcik(false)}>
                 <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white w-full max-w-5xl rounded-[40px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                    
+                    {/* Header */}
                     <div className="p-6 bg-purple-50 border-b border-purple-100 flex justify-between items-center shrink-0">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-purple-600 rounded-2xl text-white"><Users size={28}/></div>
@@ -607,8 +651,62 @@ export default function AnalizSayfasi() {
                                 </div>
                             </div>
                         </div>
-                        <button onClick={() => setPerformansAcik(false)} className="p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition"><X size={24}/></button>
+
+                        {/* 🔥 YENİ: TOPLU YARIM KALAN İŞ BUTONU BURADA 🔥 */}
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => setYarimIsFormAcik(!yarimIsFormAcik)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm border ${yarimIsFormAcik ? 'bg-orange-500 text-white border-orange-600' : 'bg-white text-orange-600 border-orange-200 hover:bg-orange-50'}`}>
+                                {yarimIsFormAcik ? <X size={16}/> : <Plus size={16}/>}
+                                {yarimIsFormAcik ? 'Kapat' : 'Toplu Yarım İş Ekle'}
+                            </button>
+                            <button onClick={() => setPerformansAcik(false)} className="p-2 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition border border-transparent"><X size={24}/></button>
+                        </div>
                     </div>
+
+                    {/* 🔥 YENİ: TOPLU YARIM İŞ EKLEME PANELİ (Aşağı Doğru Açılır) 🔥 */}
+                    <AnimatePresence>
+                        {yarimIsFormAcik && (
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="bg-orange-50 border-b border-orange-100 px-6 py-4 overflow-hidden shrink-0">
+                                <div className="max-w-4xl mx-auto">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <AlertCircle size={16} className="text-orange-500"/>
+                                        <h3 className="text-sm font-bold text-orange-800">Çoklu Personele Yarım İş Ekle</h3>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                        <div className="md:col-span-2">
+                                            <label className="text-[10px] font-bold text-orange-600 uppercase mb-1 block">Müşteri / Firma Adı</label>
+                                            <input type="text" className="w-full p-2.5 rounded-xl border border-orange-200 text-sm outline-none focus:ring-2 focus:ring-orange-300" value={yarimIsForm.musteri} onChange={e=>setYarimIsForm({...yarimIsForm, musteri: e.target.value})} placeholder="Örn: X Firması" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-orange-600 uppercase mb-1 block">Gidilen Tarih</label>
+                                            <input type="date" className="w-full p-2.5 rounded-xl border border-orange-200 text-sm outline-none focus:ring-2 focus:ring-orange-300" value={yarimIsForm.tarih} onChange={e=>setYarimIsForm({...yarimIsForm, tarih: e.target.value})} />
+                                        </div>
+                                    </div>
+
+                                    <label className="text-[10px] font-bold text-orange-600 uppercase mb-2 block">İşe Giden Personelleri Seçin</label>
+                                    <div className="flex flex-wrap gap-2 mb-4">
+                                        {PERSONEL_LISTESI.map(personel => (
+                                            <button
+                                                key={personel}
+                                                onClick={() => yarimIsPersonelSeciminiGuncelle(personel)}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition border ${secilenYarimIsPersonelleri.includes(personel) ? 'bg-orange-500 text-white border-orange-600' : 'bg-white text-slate-600 border-orange-200 hover:bg-orange-100'}`}
+                                            >
+                                                {secilenYarimIsPersonelleri.includes(personel) ? <CheckSquare size={14}/> : <Square size={14}/>}
+                                                {personel}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex justify-end">
+                                        <button onClick={topluYarimIsEkle} disabled={yarimIsEkleniyor} className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-2.5 rounded-xl font-bold transition flex items-center gap-2 shadow-md">
+                                            {yarimIsEkleniyor ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} 
+                                            {yarimIsEkleniyor ? 'Ekleniyor...' : 'Seçili Personellere İş Ekle'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                     
                     <div className="flex flex-1 overflow-hidden">
                         {/* Sol Liste (Personeller) */}
@@ -631,21 +729,6 @@ export default function AnalizSayfasi() {
                                             <p className="text-sm text-slate-500">{analizTarihi} döneminde atandığı tüm iş emirleri.</p>
                                         </div>
                                         <div className="text-4xl font-black text-purple-600">{aktifPersonelDetay.isSayisi}</div>
-                                    </div>
-
-                                    {/* 🔥 YENİ: YARIM KALAN İŞ MANUEL EKLEME FORMU 🔥 */}
-                                    <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 flex flex-wrap lg:flex-nowrap gap-3 items-end shadow-sm">
-                                        <div className="flex-1 min-w-[150px]">
-                                            <label className="text-[10px] font-bold text-orange-600 uppercase mb-1 block">Yarım Kalan İş / Müşteri</label>
-                                            <input type="text" className="w-full p-2.5 rounded-xl border border-orange-200 text-sm outline-none focus:ring-2 focus:ring-orange-300" value={yarimIsForm.musteri} onChange={e=>setYarimIsForm({...yarimIsForm, musteri: e.target.value})} placeholder="Örn: X Firması" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-orange-600 uppercase mb-1 block">Gidilen Tarih</label>
-                                            <input type="date" className="w-full p-2.5 rounded-xl border border-orange-200 text-sm outline-none focus:ring-2 focus:ring-orange-300" value={yarimIsForm.tarih} onChange={e=>setYarimIsForm({...yarimIsForm, tarih: e.target.value})} />
-                                        </div>
-                                        <button onClick={yarimIsEkle} disabled={yarimIsEkleniyor} className="bg-orange-500 hover:bg-orange-600 text-white px-5 rounded-xl font-bold transition flex items-center gap-2 h-[42px] shadow-md w-full lg:w-auto justify-center">
-                                            {yarimIsEkleniyor ? <Loader2 size={16} className="animate-spin"/> : <Plus size={16}/>} İş Ekle
-                                        </button>
                                     </div>
 
                                     {aktifPersonelDetay.detaylar.length > 0 ? (
@@ -672,7 +755,7 @@ export default function AnalizSayfasi() {
                                                 </div>
                                             ))}
                                         </div>
-                                    ) : (<div className="text-center py-10 text-slate-400"><div className="flex justify-center mb-4"><Package size={48} className="opacity-20"/></div><p>Bu ay için kayıt bulunamadı.</p></div>)}
+                                    ) : (<div className="text-center py-20 text-slate-400"><div className="flex justify-center mb-4"><Package size={48} className="opacity-20"/></div><p>Bu ay için kayıt bulunamadı.</p></div>)}
                                 </div>
                             ) : (<div className="h-full flex flex-col items-center justify-center text-slate-400"><Users size={64} className="opacity-10 mb-4"/><p className="font-medium">Detaylarını görmek için soldan bir personel seçin.</p></div>)}
                         </div>
@@ -731,6 +814,7 @@ export default function AnalizSayfasi() {
                       <div className="bg-slate-50 p-5 rounded-2xl text-sm text-slate-600 whitespace-pre-line">{seciliKayit.description}</div>
                   </div>
 
+                  {/* 🔥 İŞTE BURASI: YILLAR SONRA BİLE AÇIP BAKABİLECEĞİN KALICI FOTOĞRAF GALERİSİ 🔥 */}
                   {seciliKayit.image_urls && seciliKayit.image_urls.length > 0 && (
                       <div>
                           <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Camera size={18} className="text-blue-600"/> Olay Yeri / Form Fotoğrafları</h3>
