@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - PRO ANALİZ MODÜLÜ 🛠️
-// Versiyon: 9.2 (Dinamik Ay/Yıl Ciro ve Haftalık Ciro Filtresi Eklendi 📊)
+// Versiyon: 9.3 (Ekip Performansı Tüm İş Emirlerine Bağlandı 👥)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -32,7 +32,8 @@ export default function AnalizSayfasi() {
   // STATE YÖNETİMİ
   const [indiriliyor, setIndiriliyor] = useState(false);
   const [yukleniyor, setYukleniyor] = useState(true);
-  const [kayitlar, setKayitlar] = useState<any[]>([]);
+  const [kayitlar, setKayitlar] = useState<any[]>([]); // completed_services (Ciro İçin)
+  const [isEmirleri, setIsEmirleri] = useState<any[]>([]); // service_tickets (Performans İçin) 🔥
   const [stokMalzemeleri, setStokMalzemeleri] = useState<any[]>([]); 
   const [aramaMetni, setAramaMetni] = useState("");
   
@@ -47,18 +48,12 @@ export default function AnalizSayfasi() {
   const [raporModalAcik, setRaporModalAcik] = useState(false);
   const [aktifRaporId, setAktifRaporId] = useState<string | null>(null); 
 
-  // 🔥 YENİ: DİNAMİK CİRO VE ANALİZ İÇİN DÖNEM SEÇİCİLER 🔥
-  const [seciliDonem, setSeciliDonem] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM formunda ana ciro filtresi
-  const [analizTarihi, setAnalizTarihi] = useState(new Date().toISOString().slice(0, 7)); // Ekip performansı için ayrı filtre
+  const [seciliDonem, setSeciliDonem] = useState(new Date().toISOString().slice(0, 7));
+  const [analizTarihi, setAnalizTarihi] = useState(new Date().toISOString().slice(0, 7));
 
-  // 🔥 GÜNCELLENMİŞ İSTATİSTİK STATE'İ 🔥
   const [istatistik, setIstatistik] = useState({ 
-      toplamCiro: 0, 
-      seciliAyCiro: 0, 
-      buHaftaCiro: 0, 
-      toplamIslem: 0, 
-      buHaftaIslem: 0, 
-      seciliAyIslem: 0 
+      toplamCiro: 0, seciliAyCiro: 0, buHaftaCiro: 0, 
+      toplamIslem: 0, buHaftaIslem: 0, seciliAyIslem: 0 
   });
   const [grafikVerisi, setGrafikVerisi] = useState<any[]>([]);
 
@@ -88,17 +83,24 @@ export default function AnalizSayfasi() {
       return () => clearInterval(interval);
   }, []);
 
-  // Dönem (Ay/Yıl) değiştiğinde hesaplamaları tekrar tetikle
   useEffect(() => {
       if (kayitlar.length > 0) hesaplamalariYap(kayitlar);
   }, [seciliDonem, kayitlar]);
 
   const tumVerileriGetir = async () => {
     try {
+        setYukleniyor(true);
+        // 1. Ciro ve Faturalar İçin
         const { data: servisData } = await supabase.from('completed_services').select('*').order('service_date', { ascending: false });
         if (servisData) { setKayitlar(servisData); hesaplamalariYap(servisData); }
+        
+        // 2. Ekip Performansı İçin BÜTÜN İŞ EMİRLERİ 🔥
+        const { data: biletData } = await supabase.from('service_tickets').select('*, cranes(customer_name)').order('created_at', { ascending: false });
+        if (biletData) { setIsEmirleri(biletData); }
+
         const { data: stokData } = await supabase.from('materials').select('*').order('name', { ascending: true });
         if (stokData) setStokMalzemeleri(stokData);
+
         await sesliRaporlariGetir();
     } catch (error) { console.error("Veri hatası", error); } 
     finally { setYukleniyor(false); }
@@ -110,15 +112,11 @@ export default function AnalizSayfasi() {
   };
 
   // ==========================================================================
-  // HESAPLAMALAR (DİNAMİK OLARAK GÜNCELLENDİ)
+  // HESAPLAMALAR
   // ==========================================================================
   const hesaplamalariYap = (data: any[]) => {
     const bugun = new Date();
-    
-    // Seçilen Yıl ve Ay'ı Parçala
     const [secilenYil, secilenAy] = seciliDonem.split('-').map(Number);
-
-    // Bu haftanın başlangıcını (Pazartesi) bul
     const buHaftaBaslangic = new Date(bugun);
     const day = buHaftaBaslangic.getDay();
     const diff = buHaftaBaslangic.getDate() - day + (day === 0 ? -6 : 1); 
@@ -132,20 +130,15 @@ export default function AnalizSayfasi() {
         const fiyat = Number(item.price) || 0;
         const islemTarihi = new Date(item.service_date);
         
-        // Tüm Zamanlar Toplam Ciro
         topCiro += fiyat;
 
-        // SEÇİLİ DÖNEM (Ay/Yıl) Ciro ve İşlem Sayısı
         if (islemTarihi.getFullYear() === secilenYil && (islemTarihi.getMonth() + 1) === secilenAy) { 
             seciliAyCiro += fiyat; 
             seciliAySayi++; 
-            
-            // Grafiği SADECE seçili aya göre dolduruyoruz (Çok daha mantıklı bir analiz sunar)
             const musteri = item.customer_text || 'Bilinmeyen';
             musteriAnalizi[musteri] = (musteriAnalizi[musteri] || 0) + fiyat;
         }
 
-        // BU HAFTA Ciro ve İşlem Sayısı
         if (islemTarihi >= buHaftaBaslangic) { 
             haftaCiro += fiyat;
             haftaSayi++; 
@@ -153,27 +146,25 @@ export default function AnalizSayfasi() {
     });
 
     setIstatistik({ 
-        toplamCiro: topCiro, 
-        seciliAyCiro: seciliAyCiro, 
-        buHaftaCiro: haftaCiro,
-        toplamIslem: data.length, 
-        buHaftaIslem: haftaSayi, 
-        seciliAyIslem: seciliAySayi 
+        toplamCiro: topCiro, seciliAyCiro: seciliAyCiro, buHaftaCiro: haftaCiro,
+        toplamIslem: data.length, buHaftaIslem: haftaSayi, seciliAyIslem: seciliAySayi 
     });
 
     setGrafikVerisi(Object.keys(musteriAnalizi).map(key => ({ name: key, tutar: musteriAnalizi[key] })).sort((a, b) => b.tutar - a.tutar).slice(0, 5));
   };
 
+  // 🔥 GÜNCELLENMİŞ EKİP PERFORMANSI (TÜM İŞ EMİRLERİNDEN) 🔥
   const personelAnaliziYap = () => {
       const [secilenYil, secilenAy] = analizTarihi.split('-').map(Number);
-      const filtrelenmisKayitlar = kayitlar.filter(k => {
-          if (!k.service_date) return false;
-          const d = new Date(k.service_date);
+      
+      const filtrelenmisIsler = isEmirleri.filter(k => {
+          if (!k.created_at) return false;
+          const d = new Date(k.created_at);
           return d.getFullYear() === secilenYil && (d.getMonth() + 1) === secilenAy;
       });
 
       return PERSONEL_LISTESI.map(personel => {
-          const gittigiIsler = filtrelenmisKayitlar.filter(k => k.technician && k.technician.includes(personel));
+          const gittigiIsler = filtrelenmisIsler.filter(k => k.assigned_team && k.assigned_team.includes(personel));
           return { ad: personel, isSayisi: gittigiIsler.length, detaylar: gittigiIsler };
       }).sort((a, b) => b.isSayisi - a.isSayisi);
   };
@@ -411,7 +402,6 @@ export default function AnalizSayfasi() {
                                             {item.customer_text} 
                                             {item.form_number && <span className="text-[9px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded font-mono">No: {item.form_number}</span>}
                                             
-                                            {/* 🔥 DÜZELTME BURADA: title HTML prop'u için span kullanıyoruz */}
                                             {item.image_urls && item.image_urls.length > 0 && (
                                                 <span title="Fotoğraflı Kayıt" className="flex items-center">
                                                     <ImageIcon size={14} className="text-blue-400" />
@@ -643,7 +633,7 @@ export default function AnalizSayfasi() {
                                     <div className="flex justify-between items-end border-b pb-4">
                                         <div>
                                             <h3 className="text-2xl font-black text-slate-800">{aktifPersonelDetay.ad}</h3>
-                                            <p className="text-sm text-slate-500">{analizTarihi} döneminde tamamladığı işler.</p>
+                                            <p className="text-sm text-slate-500">{analizTarihi} döneminde atandığı tüm iş emirleri.</p>
                                         </div>
                                         <div className="text-4xl font-black text-purple-600">{aktifPersonelDetay.isSayisi}</div>
                                     </div>
@@ -653,19 +643,21 @@ export default function AnalizSayfasi() {
                                                 <div key={is.id} className="p-4 rounded-2xl border border-slate-100 hover:bg-purple-50 transition group flex justify-between items-center">
                                                     <div>
                                                         <div className="font-bold text-slate-800 flex items-center gap-2">
-                                                            {is.customer_text}
-                                                            {is.form_number && <span className="text-[9px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded font-mono">No: {is.form_number}</span>}
+                                                            {is.cranes?.customer_name || is.manual_customer_name || "Bilinmeyen Müşteri"}
                                                         </div>
-                                                        <div className="text-xs text-slate-400 mt-1 flex items-center gap-2"><Calendar size={12}/> {new Date(is.service_date).toLocaleDateString('tr-TR')}</div>
+                                                        <div className="text-xs text-slate-400 mt-1 flex items-center gap-2"><Calendar size={12}/> {new Date(is.created_at).toLocaleDateString('tr-TR')}</div>
                                                     </div>
                                                     <div className="text-right">
-                                                        <div className="font-black text-slate-700">{Number(is.price).toLocaleString()} ₺</div>
-                                                        <div className="text-[10px] text-purple-500 font-bold uppercase mt-1">{is.service_type}</div>
+                                                        {is.status === 'tamamlandi' ? (
+                                                            <div className="text-[10px] text-green-600 bg-green-100 px-2 py-1 rounded font-bold uppercase mt-1 flex items-center gap-1"><CheckCircle2 size={12}/> Çözüldü</div>
+                                                        ) : (
+                                                            <div className="text-[10px] text-orange-600 bg-orange-100 px-2 py-1 rounded font-bold uppercase mt-1 flex items-center gap-1"><Clock size={12}/> Bekliyor</div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
-                                    ) : (<div className="text-center py-20 text-slate-400"><div className="flex justify-center mb-4"><Package size={48} className="opacity-20"/></div><p>Bu ay için kayıt bulunamadı.</p></div>)}
+                                    ) : (<div className="text-center py-20 text-slate-400"><div className="flex justify-center mb-4"><Package size={48} className="opacity-20"/></div><p>Bu ay için atandığı iş bulunamadı.</p></div>)}
                                 </div>
                             ) : (<div className="h-full flex flex-col items-center justify-center text-slate-400"><Users size={64} className="opacity-10 mb-4"/><p className="font-medium">Detaylarını görmek için soldan bir personel seçin.</p></div>)}
                         </div>
