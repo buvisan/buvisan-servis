@@ -1,7 +1,7 @@
 "use client";
 // --------------------------------------------------------
-// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V4.0 🛠️
-// (Satış Tüneli, Keşif ve Teklif Süreçleri Eklendi 📋)
+// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V4.1 🛠️
+// (Teklif Önizleme Modülü Doğrudan Ana Ekrana Gömüldü 📄)
 // --------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -16,30 +16,20 @@ import {
   AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck
 } from 'lucide-react';
 
-const [teklifler, setTeklifler] = useState<any[]>([]); // Teklifleri tutacak
-  const [seciliTeklif, setSeciliTeklif] = useState<any | null>(null); // Görüntülenecek teklif
-  const [onizlemeAcik, setOnizlemeAcik] = useState(false); // Modal durumu
-  const printRef = useRef<HTMLDivElement>(null); // Yazdırma için
-
-
 const PERSONEL_LISTESI = [
-  "VEYSEL ÇARKLI", "KERİM AKDOĞAN" , "GÖKHAN GÖK" , "BURHAN KANDEMİR" , "OKAN ARAN" , "ADEM ACAR"
+  "VOLKAN ACAR", "HAMZA ATTAR", "VEYSEL ÇARKLI", "KERİM AKDOĞAN" , "GÖKHAN GÖK" , "BASİL HAVATİMİ" , "BURHAN KANDEMİR" , "OKAN ARAN" , "ADEM ACAR"
 ];
 
 export default function AdminPanel() {
   const router = useRouter();
   
-  // Yazdırma ve Önizleme için gerekli
-  const printRef = useRef<HTMLDivElement>(null); 
-  const [seciliTeklif, setSeciliTeklif] = useState<any | null>(null);
-  const [onizlemeAcik, setOnizlemeAcik] = useState(false);
   const [aktifChatId, setAktifChatId] = useState<string | null>(null);
   const [bildirimler, setBildirimler] = useState<any[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [erisimIzni, setErisimIzni] = useState(false);
   const [istatistikler, setIstatistikler] = useState({ bekleyen: 0, cozulen: 0, toplam: 0 });
 
-  // 🔥 YENİ: İŞ EMRİ FİLTRELEME STATE'İ 🔥
+  // İŞ EMRİ FİLTRELEME STATE'İ
   const [aktifSekme, setAktifSekme] = useState<'hepsi' | 'bekliyor' | 'tamamlandi'>('bekliyor');
   const [aramaMetni, setAramaMetni] = useState("");
 
@@ -49,12 +39,17 @@ export default function AdminPanel() {
   
   const [secilenManuelPersoneller, setSecilenManuelPersoneller] = useState<string[]>([]);
   
-  // 🔥 YENİ: Form state'ine ticket_type ve pipeline_status eklendi 🔥
   const [manuelKayit, setManuelKayit] = useState({
       firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: '',
-      ticket_type: 'ariza', // ariza veya kesif
+      ticket_type: 'ariza', 
       pipeline_status: 'bekliyor' 
   });
+
+  // 🔥 YENİ: TEKLİF SİSTEMİ İÇİN GEREKLİ STATELER VE REF 🔥
+  const [teklifler, setTeklifler] = useState<any[]>([]);
+  const [seciliTeklif, setSeciliTeklif] = useState<any | null>(null);
+  const [onizlemeAcik, setOnizlemeAcik] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { guvenlikVeVeri(); }, []);
 
@@ -68,31 +63,31 @@ export default function AdminPanel() {
 
         setErisimIzni(true);
 
-        const { data } = await supabase.from('service_tickets').select('*, cranes(*)').order('created_at', { ascending: false });
+        // Hem İş Emirlerini Hem de Teklifleri Çekiyoruz
+        const { data: biletData } = await supabase.from('service_tickets').select('*, cranes(*)').order('created_at', { ascending: false });
+        const { data: teklifData } = await supabase.from('offers').select('*'); 
 
-        if (data) {
-            setBildirimler(data);
+        if (biletData) {
+            setBildirimler(biletData);
             setIstatistikler({
-                bekleyen: data.filter(x => x.pipeline_status !== 'tamamlandi').length,
-                cozulen: data.filter(x => x.pipeline_status === 'tamamlandi').length,
-                toplam: data.length
+                bekleyen: biletData.filter(x => x.pipeline_status !== 'tamamlandi').length,
+                cozulen: biletData.filter(x => x.pipeline_status === 'tamamlandi').length,
+                toplam: biletData.length
             });
         }
+
+        if (teklifData) {
+            setTeklifler(teklifData);
+        }
+
     } catch (error) { console.error("Hata:", error); } 
     finally { setYukleniyor(false); }
-
-    const { data: biletData } = await supabase.from('service_tickets').select('*, cranes(*)').order('created_at', { ascending: false });
-    const { data: teklifData } = await supabase.from('offers').select('*'); // Teklifleri de çekiyoruz
-    
-    if (biletData) setBildirimler(biletData);
-    if (teklifData) setTeklifler(teklifData);
   }
 
-  // 🔥 YENİ: PIPELINE (SÜREÇ) GÜNCELLEME 🔥
+  // PIPELINE (SÜREÇ) GÜNCELLEME
   async function durumGuncelle(id: string, yeniDurum: string) {
     if(!confirm(`Bu işin durumunu "${yeniDurum.toUpperCase()}" olarak değiştirmek istiyor musunuz?`)) return;
     
-    // Eski status sütununu da geriye dönük uyumluluk için güncelliyoruz
     const legacyStatus = yeniDurum === 'tamamlandi' ? 'tamamlandi' : 'bekliyor';
     
     const { error } = await supabase.from('service_tickets').update({ 
@@ -180,15 +175,13 @@ export default function AdminPanel() {
     router.push(`/admin/harita?lat=${lat}&lng=${lng}`);
   };
 
-  // 🔥 YENİ: İŞ EMİRLERİNİ FİLTRELEME FONKSİYONU 🔥
+  // İŞ EMİRLERİNİ FİLTRELEME FONKSİYONU
   const filtrelenmisBildirimler = bildirimler.filter(kayit => {
-      // 1. Arama Filtresi
       const aramaKriteri = aramaMetni.toLowerCase();
       const firmaAd = (kayit.cranes?.customer_name || kayit.manual_customer_name || "").toLowerCase();
       const sorun = (kayit.description || "").toLowerCase();
       const aramaUyumu = firmaAd.includes(aramaKriteri) || sorun.includes(aramaKriteri);
 
-      // 2. Sekme Filtresi
       let sekmeUyumu = true;
       if (aktifSekme === 'hepsi') sekmeUyumu = true;
       if (aktifSekme === 'bekliyor') sekmeUyumu = kayit.pipeline_status !== 'tamamlandi';
@@ -197,7 +190,6 @@ export default function AdminPanel() {
       return aramaUyumu && sekmeUyumu;
   });
 
-  // 🔥 YENİ: PİPELİNE DURUM RENKLERİ VE METİNLERİ 🔥
   const getPipelineStatusBadge = (status: string) => {
       switch(status) {
           case 'kesif_bekliyor': return <span className="bg-purple-100 text-purple-700 border-purple-200 px-3 py-1 text-[10px] font-bold rounded-full flex items-center gap-1 shadow-sm border"><Eye size={12}/> KEŞİF BEKLİYOR</span>;
@@ -208,6 +200,31 @@ export default function AdminPanel() {
           case 'tamamlandi': return <span className="bg-green-100 text-green-700 border-green-200 px-3 py-1 text-[10px] font-bold rounded-full flex items-center gap-1 shadow-sm border"><CheckCircle2 size={12}/> ÇÖZÜLDÜ</span>;
           default: return <span className="bg-slate-100 text-slate-700 border-slate-200 px-3 py-1 text-[10px] font-bold rounded-full flex items-center gap-1 shadow-sm border"><Clock size={12}/> BEKLİYOR</span>;
       }
+  };
+
+  // 🔥 YENİ: YAZDIRMA FONKSİYONU 🔥
+  const yazdir = () => {
+    const printContent = printRef.current;
+    if (!printContent) return;
+    
+    const win = window.open('', '', 'width=900,height=650');
+    win?.document.write(`
+      <html>
+        <head>
+          <title>Buvisan Teklif</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>
+              @media print {
+                  body { -webkit-print-color-adjust: exact; }
+              }
+          </style>
+        </head>
+        <body>${printContent.innerHTML}</body>
+      </html>
+    `);
+    win?.document.close();
+    win?.focus();
+    setTimeout(() => { win?.print(); win?.close(); }, 500);
   };
 
   if (yukleniyor || !erisimIzni) {
@@ -254,7 +271,7 @@ export default function AdminPanel() {
             <div className="hidden md:flex bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex-col justify-center items-center text-center">
                 <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4"><LayoutDashboard size={32}/></div>
                 <h3 className="text-slate-800 font-bold text-lg">Yönetim Paneli</h3>
-                <p className="text-slate-400 text-xs mt-1">v4.0 Aktif</p>
+                <p className="text-slate-400 text-xs mt-1">v4.1 Aktif</p>
                 <div className="mt-4 w-full h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 w-2/3 rounded-full"></div></div>
             </div>
         </div>
@@ -278,7 +295,6 @@ export default function AdminPanel() {
 
         {/* 3. BİLDİRİM LİSTESİ */}
         <div>
-            {/* 🔥 FİLTRELEME VE ARAMA 🔥 */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 mt-8 gap-4">
                <div className="flex items-center gap-3 w-full md:w-auto">
                    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 whitespace-nowrap"><div className="w-1 h-6 bg-blue-500 rounded-full"></div> Operasyon Takibi</h2>
@@ -422,13 +438,6 @@ export default function AdminPanel() {
                                     </div>
                                 </div>
                             )}
-
-                            {/* ESKİ TEKLİ MEDYA İÇİN GERİYE DÖNÜK UYUMLULUK */}
-                            {kayit.media_url && (!kayit.media_urls || kayit.media_urls.length === 0) && (
-                                <div>
-                                    <a href={kayit.media_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-100 transition border border-blue-100 shadow-sm"><Camera className="w-3 h-3" /> Fotoğrafı Görüntüle</a>
-                                </div>
-                            )}
                         </div>
 
                       </div>
@@ -436,6 +445,20 @@ export default function AdminPanel() {
                       {/* 🔥 İŞLEM VE PIPELINE BUTONLARI 🔥 */}
                       <div className="w-full md:w-[220px] flex flex-col gap-2 shrink-0">
                           
+                          {/* 🔥 YENİ: TEKLİF GÖRÜNTÜLEME BUTONU 🔥 */}
+                          {teklifler.some(t => t.related_ticket_id === kayit.id) && (
+                              <button 
+                                  onClick={() => {
+                                      const teklif = teklifler.find(t => t.related_ticket_id === kayit.id);
+                                      setSeciliTeklif(teklif);
+                                      setOnizlemeAcik(true);
+                                  }}
+                                  className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md mb-1"
+                              >
+                                  <Printer size={14} className="text-blue-400"/> GÖNDERİLEN TEKLİFİ GÖR
+                              </button>
+                          )}
+
                           {kayit.pipeline_status !== 'tamamlandi' && (
                               <div className="bg-slate-50 border border-slate-200 p-2 rounded-xl flex flex-col gap-2 mb-2">
                                   <span className="text-[10px] font-bold text-slate-400 uppercase text-center">Durumu Güncelle</span>
@@ -462,21 +485,7 @@ export default function AdminPanel() {
                           <div className="flex gap-2 w-full mt-1">
                               <button onClick={() => kayitDuzenleAc(kayit)} className="flex-1 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm"><Edit2 size={12}/> Düzenle</button>
                               <button onClick={() => kayitSil(kayit.id)} className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm"><Trash2 size={12}/> Sil</button>
-                                {/* 🔥 YENİ: TEKLİFİ GÖR BUTONU 🔥 */}
-                                {kayit.pipeline_status === 'teklif_bekliyor' && teklifler.find(t => t.related_ticket_id === kayit.id) && (
-                                    <button 
-                                        onClick={() => { 
-                                            const teklif = teklifler.find(t => t.related_ticket_id === kayit.id);
-                                            setSeciliTeklif(teklif); 
-                                            setOnizlemeAcik(true); 
-                                        }}
-                                        className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 py-2 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
-                                    >
-                                        <FileText size={14}/> Teklifi Görüntüle
-                                    </button>
-                                )}
                           </div>
-                          
                       </div>
                     </div>
                     {/* CHAT ALANI ENTEGRASYONU */}
@@ -487,49 +496,6 @@ export default function AdminPanel() {
                             </motion.div>
                         )}
                     </AnimatePresence>
-                        {/* --- MODAL: TEKLİF ÖNİZLEME (A4 KAĞIT) --- */}
-                        <AnimatePresence>
-                        {onizlemeAcik && seciliTeklif && (
-                            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/90 z-[9999] flex items-center justify-center p-4">
-                                <div className="bg-slate-200 w-full max-w-5xl h-[95vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden relative">
-                                    <div className="bg-slate-800 text-white p-4 flex justify-between items-center shrink-0 shadow-md">
-                                        <h3 className="font-bold flex items-center gap-2"><FileCheck size={16}/> Önizleme Modu</h3>
-                                        <button onClick={() => setOnizlemeAcik(false)} className="hover:bg-slate-700 p-2 rounded-full"><X/></button>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-slate-600/50">
-                                        <div ref={printRef} className="bg-white w-[210mm] min-h-[297mm] p-[15mm] shadow-xl relative text-black shrink-0">
-                                            <h1 className="text-3xl font-black text-slate-800 tracking-tighter">BUVİSAN</h1>
-                                            <div className="border-b-2 border-slate-800 pb-4 mb-8"></div>
-                                            <h2 className="text-xl font-bold uppercase border-b border-slate-300 inline-block pb-1 mb-8">FİYAT TEKLİFİ</h2>
-                                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8 text-sm">
-                                                <p><b>Müşteri:</b> {seciliTeklif.customer_name}</p>
-                                                <p><b>Adres:</b> {seciliTeklif.customer_address}</p>
-                                            </div>
-                                            <table className="w-full mb-8 border-collapse">
-                                                <thead><tr className="bg-slate-100 text-left text-xs uppercase border-y border-slate-300"><th className="p-3">Açıklama</th><th className="p-3 text-right">Tutar</th></tr></thead>
-                                                <tbody>
-                                                    {seciliTeklif.items?.map((item: any, i: number) => (
-                                                        <tr key={i} className="border-b"><td className="p-3">{item.ad}</td><td className="p-3 text-right font-bold">{Number(item.toplam).toLocaleString()} ₺</td></tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                            <div className="text-right font-black text-xl">Toplam: {Number(seciliTeklif.total_price).toLocaleString()} ₺</div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white border-t p-4 flex justify-center gap-4">
-                                        <button onClick={() => {
-                                            const win = window.open('', '', 'width=900,height=650');
-                                            win?.document.write(`<html><body>${printRef.current?.innerHTML}</body></html>`);
-                                            win?.print();
-                                        }} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 flex items-center gap-2">
-                                            <Printer size={16}/> Yazdır / PDF Kaydet
-                                        </button>
-                                        <button onClick={() => setOnizlemeAcik(false)} className="bg-slate-100 text-slate-700 px-6 py-3 rounded-xl font-bold hover:bg-slate-200">Kapat</button>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        )}
-                        </AnimatePresence>
                   </motion.div>
                 )})
               )}
@@ -665,6 +631,136 @@ export default function AdminPanel() {
                     </div>
 
                 </motion.div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --- MODAL: TEKLİF ÖNİZLEME (A4 KAĞIT) --- */}
+      <AnimatePresence>
+        {onizlemeAcik && seciliTeklif && (
+            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/90 z-[9999] flex items-center justify-center p-4">
+                
+                <div className="bg-slate-200 w-full max-w-5xl h-[95vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden relative">
+                    
+                    {/* --- ÜST BAR (Başlık) --- */}
+                    <div className="bg-slate-800 text-white p-4 flex justify-between items-center shrink-0 z-50 shadow-md">
+                        <h3 className="font-bold flex items-center gap-2"><FileCheck size={18}/> Teklif Önizleme</h3>
+                        <button onClick={() => setOnizlemeAcik(false)} className="hover:bg-slate-700 p-2 rounded-full"><X size={20}/></button>
+                    </div>
+
+                    {/* --- ORTA KISIM (KAYDIRILABİLİR ALAN) --- */}
+                    <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-slate-600/50">
+                        
+                        {/* A4 KAĞIDI */}
+                        <div ref={printRef} className="bg-white w-[210mm] min-h-[297mm] p-[15mm] shadow-xl relative text-black shrink-0">
+                            
+                            {/* HEADER: LOGO VE FİRMA BİLGİSİ */}
+                            <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-8">
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-800 tracking-tighter">BUVİSAN</h1>
+                                    <p className="text-sm font-bold text-slate-500">MAKİNA İMALAT SANAYİ VE TİCARET LİMİTED ŞİRKETİ</p>
+                                </div>
+                                <div className="text-right text-xs text-slate-600">
+                                    <p>Demirci / Nilüfer / BURSA</p>
+                                    <p>Tel: 0224 374 00 01</p>
+                                    <p>Web: www.buvisan.com</p>
+                                </div>
+                            </div>
+
+                            {/* BELGE BAŞLIĞI */}
+                            <div className="text-center mb-8">
+                                <h2 className="text-xl font-bold uppercase border-b border-slate-300 inline-block pb-1">
+                                    {seciliTeklif.template_type === 'standart' ? 'FİYAT TEKLİF FORMU' : 
+                                     seciliTeklif.template_type === 'bakim' ? 'PERİYODİK BAKIM SÖZLEŞMESİ' : 'SİPARİŞ FORMU'}
+                                </h2>
+                                <p className="text-xs text-slate-400 mt-1">Tarih: {new Date(seciliTeklif.offer_date).toLocaleDateString('tr-TR')}</p>
+                            </div>
+
+                            {/* MÜŞTERİ BİLGİLERİ */}
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8 text-sm">
+                                <div className="grid grid-cols-[100px_1fr] gap-2 mb-2">
+                                    <span className="font-bold text-slate-600">Sayın:</span>
+                                    <span>{seciliTeklif.customer_rep || 'Yetkili'}</span>
+                                </div>
+                                <div className="grid grid-cols-[100px_1fr] gap-2 mb-2">
+                                    <span className="font-bold text-slate-600">Firma:</span>
+                                    <span className="uppercase font-bold">{seciliTeklif.customer_name}</span>
+                                </div>
+                                <div className="grid grid-cols-[100px_1fr] gap-2">
+                                    <span className="font-bold text-slate-600">Adres:</span>
+                                    <span>{seciliTeklif.customer_address}</span>
+                                </div>
+                            </div>
+
+                            {/* TABLO */}
+                            <table className="w-full mb-8 border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-100 text-slate-700 text-xs uppercase border-y border-slate-300">
+                                        <th className="p-3 text-left">Açıklama / Malzeme</th>
+                                        <th className="p-3 text-center">Miktar</th>
+                                        <th className="p-3 text-right">Birim Fiyat</th>
+                                        <th className="p-3 text-right">Tutar</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-sm">
+                                    {seciliTeklif.items && seciliTeklif.items.map((item: any, i: number) => (
+                                        <tr key={i} className="border-b border-slate-100">
+                                            <td className="p-3">{item.ad}</td>
+                                            <td className="p-3 text-center">{item.adet}</td>
+                                            <td className="p-3 text-right">{Number(item.birim_fiyat).toLocaleString()} ₺</td>
+                                            <td className="p-3 text-right font-bold">{Number(item.toplam).toLocaleString()} ₺</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot>
+                                    <tr className="border-t-2 border-slate-800">
+                                        <td colSpan={3} className="p-3 text-right font-bold uppercase text-slate-600">Genel Toplam</td>
+                                        <td className="p-3 text-right font-black text-lg">{Number(seciliTeklif.total_price).toLocaleString()} ₺</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+
+                            {/* NOTLAR */}
+                            <div className="mb-12">
+                                <h4 className="font-bold text-sm border-b border-slate-200 mb-2 pb-1">Notlar ve Şartlar:</h4>
+                                <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">
+                                    {seciliTeklif.description || 'Bu teklif 15 gün süreyle geçerlidir. Fiyatlara KDV dahil değildir.'}
+                                </div>
+                            </div>
+
+                            {/* İMZA */}
+                            <div className="flex justify-between mt-auto pt-12 pb-8">
+                                <div className="text-center">
+                                    <p className="font-bold text-sm mb-12">Müşteri Onayı</p>
+                                    <div className="border-t border-slate-400 w-32 mx-auto"></div>
+                                    <p className="text-xs text-slate-400 mt-1">İmza / Kaşe</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="font-bold text-sm mb-12">BUVİSAN Onayı</p>
+                                    <div className="border-t border-slate-400 w-32 mx-auto"></div>
+                                    <p className="text-xs text-slate-400 mt-1">İmza / Kaşe</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* --- ALT BAR (SABİT AKSİYON BUTONLARI) --- */}
+                    <div className="bg-white border-t p-4 flex justify-center gap-4 shrink-0 z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.1)]">
+                        <button onClick={() => {
+                            const win = window.open('', '', 'width=900,height=650');
+                            win?.document.write('<html><head><title>Buvisan Teklif</title><script src="https://cdn.tailwindcss.com"></script><style>@media print { body { -webkit-print-color-adjust: exact; } }</style></head><body>' + printRef.current?.innerHTML + '</body></html>');
+                            win?.document.close();
+                            win?.focus();
+                            setTimeout(() => { win?.print(); win?.close(); }, 500);
+                        }} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 flex items-center gap-2 transform active:scale-95 transition">
+                            <Printer size={20}/> Yazdır / PDF Kaydet
+                        </button>
+                        <button onClick={() => setOnizlemeAcik(false)} className="bg-slate-100 text-slate-700 px-6 py-3 rounded-xl font-bold hover:bg-slate-200">
+                            Kapat
+                        </button>
+                    </div>
+
+                </div>
             </motion.div>
         )}
       </AnimatePresence>
