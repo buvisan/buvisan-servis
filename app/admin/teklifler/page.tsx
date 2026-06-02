@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN GLOBAL YÖNETİM MERKEZİ 🌍
-// Versiyon: TEKLİFLER V4.0 (İş Emirleri ile Tam Entegre CRM Otomasyonu 🔄)
+// Versiyon: TEKLİFLER V4.0 (İş Emirleri & Akıllı Servis Maliyet Otomasyonu 🔄)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { 
   Loader2, Plus, FileText, Calendar, DollarSign, User, MapPin, 
   Box, Printer, Trash2, CheckCircle, XCircle, Search, FileCheck, Clock,
-  ThumbsUp, ThumbsDown, MessageCircle, X, Link as LinkIcon
+  ThumbsUp, ThumbsDown, MessageCircle, X, Link as LinkIcon, Calculator, AlertTriangle, TrendingUp, Settings
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,7 +21,7 @@ export default function TekliflerSayfasi() {
   const [yukleniyor, setYukleniyor] = useState(true);
   const [teklifler, setTeklifler] = useState<any[]>([]);
   const [stok, setStok] = useState<any[]>([]);
-  const [aktifBiletler, setAktifBiletler] = useState<any[]>([]); // 🔥 YENİ: Bekleyen İş Emirleri
+  const [aktifBiletler, setAktifBiletler] = useState<any[]>([]); 
   const [arama, setArama] = useState("");
   
   // FİLTRELEME SEKMESİ STATE'İ 
@@ -33,7 +33,7 @@ export default function TekliflerSayfasi() {
   const [seciliTeklif, setSeciliTeklif] = useState<any | null>(null);
 
   // Form Verileri
-  const [seciliBiletId, setSeciliBiletId] = useState<string>(""); // 🔥 YENİ: Hangi arızaya teklif veriliyor?
+  const [seciliBiletId, setSeciliBiletId] = useState<string>(""); 
   const [yeniTeklif, setYeniTeklif] = useState({
     customer_name: '', customer_address: '', customer_rep: '',
     offer_date: new Date().toISOString().split('T')[0],
@@ -51,6 +51,19 @@ export default function TekliflerSayfasi() {
   const [tempAdet, setTempAdet] = useState(1);
   const [tempFiyat, setTempFiyat] = useState(0);
 
+  // 🔥 YENİ: AKILLI SERVİS HESAPLAYICI STATE'İ 🔥
+  const [hesap, setHesap] = useState({
+    kisiSayisi: 2,
+    maas: 50000,
+    yolSaati: 2,
+    arizaSaati: 3,
+    mesafeKm: 100,
+    kmMaliyeti: 6,
+    yemekMaliyeti: 600,
+    genelGiderYuzdesi: 15,
+    karMarji: 40
+  });
+
   // Yazdırma Referansı
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -61,7 +74,6 @@ export default function TekliflerSayfasi() {
     const { data: teklifData } = await supabase.from('offers').select('*').order('created_at', { ascending: false });
     const { data: stokData } = await supabase.from('materials').select('*').order('name');
     
-    // 🔥 YENİ: Tamamlanmamış aktif iş emirlerini çekiyoruz (Teklife bağlamak için)
     const { data: biletData } = await supabase.from('service_tickets')
         .select('*, cranes(*)')
         .neq('pipeline_status', 'tamamlandi')
@@ -74,7 +86,6 @@ export default function TekliflerSayfasi() {
     setYukleniyor(false);
   };
 
-  // 🔥 YENİ: Arıza seçilirse müşteri bilgilerini otomatik doldur 🔥
   const handleBiletSecimi = (biletId: string) => {
       setSeciliBiletId(biletId);
       if (!biletId) return;
@@ -92,6 +103,7 @@ export default function TekliflerSayfasi() {
 
   // --- İŞLEMLER ---
   const kalemEkle = () => {
+    if(!tempAdet || !tempFiyat) return alert("Lütfen adet ve fiyat giriniz.");
     const stokUrun = stok.find(s => s.id === secilenStokId);
     const ad = stokUrun ? stokUrun.name : "Özel Hizmet/Ürün";
     
@@ -99,6 +111,19 @@ export default function TekliflerSayfasi() {
         id: Date.now(), ad, adet: tempAdet, birim_fiyat: tempFiyat, toplam: tempAdet * tempFiyat
     }]);
     setSecilenStokId(""); setTempAdet(1); setTempFiyat(0);
+  };
+
+  // 🔥 YENİ: HESAPLANAN FİYATI TEKLİFE EKLEME FONKSİYONU 🔥
+  const akilliFiyatiTeklifeEkle = (hesaplananFiyat: number) => {
+      const ad = `Vinç Servis ve Müdahale Hizmeti (İşçilik, Yol ve Konaklama/Yemek Dahil)`;
+      setKalemler([...kalemler, {
+          id: Date.now(), 
+          ad, 
+          adet: 1, 
+          birim_fiyat: Math.round(hesaplananFiyat), 
+          toplam: Math.round(hesaplananFiyat)
+      }]);
+      alert("Akıllı fiyat başarıyla teklife eklendi! 🚀");
   };
 
   const kalemSil = (id: number) => setKalemler(kalemler.filter(k => k.id !== id));
@@ -109,7 +134,6 @@ export default function TekliflerSayfasi() {
     if (!yeniTeklif.customer_name) return alert("Müşteri adı zorunlu!");
     
     setYukleniyor(true);
-    // related_ticket_id ile iş emrini veritabanında da eşliyoruz
     const paket = { ...yeniTeklif, items: kalemler, total_price: toplamTutar, related_ticket_id: seciliBiletId || null };
     
     const { error } = await supabase.from('offers').insert([paket]);
@@ -117,7 +141,6 @@ export default function TekliflerSayfasi() {
     if (error) {
         alert("Hata: " + error.message);
     } else {
-        // 🔥 YAPIYI BAĞLAYAN OTOMASYON: Seçili iş emri varsa durumunu Sarı (Teklif Bekliyor) yap! 🔥
         if (seciliBiletId) {
             await supabase.from('service_tickets')
                 .update({ pipeline_status: 'teklif_bekliyor', status: 'bekliyor' })
@@ -149,7 +172,6 @@ export default function TekliflerSayfasi() {
       verileriGetir();
   };
 
-  // DURUM GÜNCELLEME
   const durumGuncelle = async (id: string, yeniDurum: string) => {
       const { error } = await supabase.from('offers').update({ status: yeniDurum }).eq('id', id);
       if(!error) {
@@ -157,7 +179,6 @@ export default function TekliflerSayfasi() {
       }
   };
 
-  // WHATSAPP PAYLAŞIM
   const whatsappPaylas = () => {
       if(!seciliTeklif) return;
       const mesaj = `Sayın ${seciliTeklif.customer_rep || 'Yetkili'}, ${seciliTeklif.template_type === 'standart' ? 'Fiyat Teklifiniz' : 'Sözleşmeniz'} ektedir. Toplam Tutar: ${seciliTeklif.total_price.toLocaleString()} TL. Saygılarımızla, Buvisan Vinç.`;
@@ -165,7 +186,6 @@ export default function TekliflerSayfasi() {
       window.open(url, '_blank');
   };
 
-  // --- YAZDIRMA / PDF ---
   const yazdir = () => {
       const printContent = printRef.current;
       if (!printContent) return;
@@ -196,9 +216,23 @@ export default function TekliflerSayfasi() {
       return aramaUyumu && t.status === aktifSekme;
   });
 
-  // İstatistikler
   const bekleyenTutar = teklifler.filter(t => t.status === 'beklemede').reduce((a, b) => a + b.total_price, 0);
   const onayliTutar = teklifler.filter(t => t.status === 'onaylandi').reduce((a, b) => a + b.total_price, 0);
+
+  // 🔥 AKILLI HESAPLAMA MATEMATİĞİ 🔥
+  const hsSaatlikKisi = hesap.maas / 176;
+  const hsToplamSure = hesap.yolSaati + hesap.arizaSaati;
+  const hsIscilikMaliyeti = hsToplamSure * hsSaatlikKisi * hesap.kisiSayisi;
+  const hsYolMaliyeti = hesap.mesafeKm * hesap.kmMaliyeti;
+  
+  const hsTabanMaliyet = hsIscilikMaliyeti + hsYolMaliyeti + hesap.yemekMaliyeti;
+  const hsGenelGiderli = hsTabanMaliyet * (1 + (hesap.genelGiderYuzdesi / 100));
+  const hsSatisFiyati = hsGenelGiderli * (1 + (hesap.karMarji / 100));
+  const hsNetKar = hsSatisFiyati - hsTabanMaliyet;
+
+  const handleHesap = (alan: string, deger: number) => {
+      setHesap({...hesap, [alan]: deger});
+  };
 
   if(yukleniyor && teklifler.length === 0) return <div className="h-screen flex justify-center items-center"><Loader2 className="animate-spin text-blue-600"/></div>;
 
@@ -236,7 +270,6 @@ export default function TekliflerSayfasi() {
       {/* LİSTE */}
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
           
-          {/* FİLTRELEME SEKMELERİ VE ARAMA */}
           <div className="p-5 border-b border-slate-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-slate-50/50">
               <div className="flex items-center gap-3">
                   <h3 className="font-bold text-slate-700">📜 Teklif Geçmişi</h3>
@@ -298,7 +331,7 @@ export default function TekliflerSayfasi() {
       <AnimatePresence>
         {modalAcik && (
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-                <div className="bg-white w-full max-w-4xl rounded-[32px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                <div className="bg-white w-full max-w-4xl rounded-[32px] shadow-2xl overflow-hidden max-h-[95vh] flex flex-col">
                     <div className="p-6 md:p-8 bg-slate-900 text-white flex justify-between items-center shrink-0 relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-8 opacity-5"><FileText size={100}/></div>
                         <h2 className="text-2xl font-black flex items-center gap-3 relative z-10"><FileText/> Yeni Teklif Oluştur</h2>
@@ -307,7 +340,7 @@ export default function TekliflerSayfasi() {
                     
                     <div className="p-6 md:p-8 overflow-y-auto space-y-6 bg-slate-50">
                         
-                        {/* 🔥 1. İŞ EMRİ BAĞLANTISI (YENİ) 🔥 */}
+                        {/* 1. İŞ EMRİ BAĞLANTISI */}
                         <div className="bg-orange-50 p-5 rounded-2xl border border-orange-200 shadow-sm relative overflow-hidden">
                             <div className="absolute right-0 top-0 opacity-10"><LinkIcon size={120}/></div>
                             <label className="text-xs font-bold text-orange-600 uppercase block mb-3 relative z-10">Bu Teklif Hangi Arıza / Keşif İçin Veriliyor? (Opsiyonel)</label>
@@ -323,7 +356,6 @@ export default function TekliflerSayfasi() {
                                     </option>
                                 ))}
                             </select>
-                            {seciliBiletId && <p className="text-[10px] text-orange-600 font-bold mt-2 relative z-10 bg-white/50 p-2 rounded inline-block">Bu teklifi oluşturduğunuzda, seçili arıza kaydının durumu otomatik olarak "Teklif Onayı Bekleniyor" aşamasına geçecektir.</p>}
                         </div>
 
                         {/* 2. Şablon Seçimi */}
@@ -358,7 +390,100 @@ export default function TekliflerSayfasi() {
                             </div>
                         </div>
 
-                        {/* 4. Kalemler (Malzeme/İşçilik) */}
+                        {/* 🔥🔥🔥 4. AKILLI SERVİS FİYAT HESAPLAYICI (YENİ) 🔥🔥🔥 */}
+                        <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className="font-black text-indigo-800 flex items-center gap-2"><Calculator size={20}/> Akıllı Servis Fiyatı Hesaplayıcı</h4>
+                                <span className="bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"><Settings size={12}/> Dinamik Veri</span>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                                {/* Girdiler */}
+                                <div className="bg-white p-2 rounded-xl border border-indigo-100">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Maaş (Aylık/Kişi)</label>
+                                    <input type="number" className="w-full font-bold text-sm outline-none text-slate-700" value={hesap.maas} onChange={e => handleHesap('maas', Number(e.target.value))} />
+                                </div>
+                                <div className="bg-white p-2 rounded-xl border border-indigo-100">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Personel Sayısı</label>
+                                    <input type="number" className="w-full font-bold text-sm outline-none text-slate-700" value={hesap.kisiSayisi} onChange={e => handleHesap('kisiSayisi', Number(e.target.value))} />
+                                </div>
+                                <div className="bg-white p-2 rounded-xl border border-indigo-100">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Yol Süresi (Saat)</label>
+                                    <input type="number" className="w-full font-bold text-sm outline-none text-slate-700" value={hesap.yolSaati} onChange={e => handleHesap('yolSaati', Number(e.target.value))} />
+                                </div>
+                                <div className="bg-white p-2 rounded-xl border border-indigo-100">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Arıza Süresi (Saat)</label>
+                                    <input type="number" className="w-full font-bold text-sm outline-none text-slate-700" value={hesap.arizaSaati} onChange={e => handleHesap('arizaSaati', Number(e.target.value))} />
+                                </div>
+                                <div className="bg-white p-2 rounded-xl border border-indigo-100">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Mesafe (Gidiş-Dönüş KM)</label>
+                                    <input type="number" className="w-full font-bold text-sm outline-none text-slate-700" value={hesap.mesafeKm} onChange={e => handleHesap('mesafeKm', Number(e.target.value))} />
+                                </div>
+                                <div className="bg-white p-2 rounded-xl border border-indigo-100">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Araç Gideri (TL/KM)</label>
+                                    <input type="number" className="w-full font-bold text-sm outline-none text-slate-700" value={hesap.kmMaliyeti} onChange={e => handleHesap('kmMaliyeti', Number(e.target.value))} />
+                                </div>
+                                <div className="bg-white p-2 rounded-xl border border-indigo-100">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Yemek Masrafı (Toplam)</label>
+                                    <input type="number" className="w-full font-bold text-sm outline-none text-slate-700" value={hesap.yemekMaliyeti} onChange={e => handleHesap('yemekMaliyeti', Number(e.target.value))} />
+                                </div>
+                                
+                                {/* Kâr Marjları (Select ile) */}
+                                <div className="col-span-2 md:col-span-4 grid grid-cols-2 gap-3 mt-2">
+                                    <div className="bg-indigo-100/50 p-3 rounded-xl border border-indigo-200">
+                                        <label className="text-[10px] font-bold text-indigo-600 uppercase block mb-1">Genel Gider Payı (%)</label>
+                                        <select className="w-full bg-white border border-indigo-200 rounded-lg p-2 font-bold text-sm outline-none" value={hesap.genelGiderYuzdesi} onChange={e => handleHesap('genelGiderYuzdesi', Number(e.target.value))}>
+                                            <option value={10}>%10</option>
+                                            <option value={15}>%15</option>
+                                            <option value={20}>%20</option>
+                                            <option value={25}>%25</option>
+                                        </select>
+                                    </div>
+                                    <div className="bg-green-50 p-3 rounded-xl border border-green-200">
+                                        <label className="text-[10px] font-bold text-green-700 uppercase block mb-1">Hedef Kâr Marjı (%)</label>
+                                        <select className="w-full bg-white border border-green-300 rounded-lg p-2 font-black text-green-700 text-sm outline-none shadow-sm" value={hesap.karMarji} onChange={e => handleHesap('karMarji', Number(e.target.value))}>
+                                            <option value={30}>%30 Kâr</option>
+                                            <option value={40}>%40 Kâr</option>
+                                            <option value={50}>%50 Kâr</option>
+                                            <option value={75}>%75 Kâr</option>
+                                            <option value={100}>%100 Kâr</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Hesaplama Sonuç Tablosu */}
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200 mb-4">
+                                <div className="grid grid-cols-3 gap-4 text-center divide-x divide-slate-100">
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">İşçilik Maliyeti</div>
+                                        <div className="font-bold text-slate-700">{Math.round(hsIscilikMaliyeti).toLocaleString()} ₺</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Yol Maliyeti</div>
+                                        <div className="font-bold text-slate-700">{Math.round(hsYolMaliyeti).toLocaleString()} ₺</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Taban (Sıfır Zarar)</div>
+                                        <div className="font-bold text-red-500">{Math.round(hsTabanMaliyet).toLocaleString()} ₺</div>
+                                    </div>
+                                </div>
+                                <hr className="my-3 border-slate-100"/>
+                                <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                    <div>
+                                        <div className="text-xs font-bold text-slate-500 uppercase">Verilecek Fiyat (Kârlı)</div>
+                                        <div className="text-[10px] text-green-600 font-bold mt-1">Net Kâr: +{Math.round(hsNetKar).toLocaleString()} ₺</div>
+                                    </div>
+                                    <div className="text-2xl font-black text-slate-800">{Math.round(hsSatisFiyati).toLocaleString()} ₺</div>
+                                </div>
+                            </div>
+
+                            <button onClick={() => akilliFiyatiTeklifeEkle(hsSatisFiyati)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-3 rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                                <Plus size={18}/> Hesaplanmış Servis Fiyatını Teklife Ekle
+                            </button>
+                        </div>
+
+                        {/* 5. Kalemler (Malzeme/İşçilik) */}
                         <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
                             <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Box size={16} className="text-blue-500"/> Hizmet ve Ürünler</h4>
                             
@@ -372,7 +497,7 @@ export default function TekliflerSayfasi() {
                                     {stok.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
                                 <input type="number" placeholder="Adet" className="w-20 p-2.5 bg-white border border-slate-200 rounded-lg text-center font-bold outline-none" value={tempAdet} onChange={e => setTempAdet(Number(e.target.value))} />
-                                <input type="number" placeholder="Fiyat" className="w-28 p-2.5 bg-white border border-slate-200 rounded-lg font-bold outline-none" value={tempFiyat} onChange={e => setTempFiyat(Number(e.target.value))} />
+                                <input type="number" placeholder="Fiyat" className="w-28 p-2.5 bg-white border border-slate-200 rounded-lg font-bold outline-none" value={tempFiyat || ""} onChange={e => setTempFiyat(Number(e.target.value))} />
                                 <button onClick={kalemEkle} className="bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg transition shadow-md"><Plus/></button>
                             </div>
 
@@ -395,7 +520,7 @@ export default function TekliflerSayfasi() {
                             <div className="clear-both"></div>
                         </div>
 
-                        {/* 5. Notlar */}
+                        {/* 6. Notlar */}
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Teklif Notları / Şartlar</label>
                             <textarea className="w-full p-4 bg-white border border-slate-200 rounded-xl text-sm resize-none outline-none focus:border-blue-400 shadow-sm leading-relaxed" rows={3} placeholder="Ödeme koşulları, garanti süresi vb..." value={yeniTeklif.description} onChange={e => setYeniTeklif({...yeniTeklif, description: e.target.value})}></textarea>
@@ -418,19 +543,15 @@ export default function TekliflerSayfasi() {
                 
                 <div className="bg-slate-200 w-full max-w-5xl h-[95vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden relative">
                     
-                    {/* --- ÜST BAR (Başlık) --- */}
                     <div className="bg-slate-800 text-white p-4 flex justify-between items-center shrink-0 z-50 shadow-md">
                         <h3 className="font-bold flex items-center gap-2"><FileCheck/> Önizleme Modu</h3>
                         <button onClick={() => setOnizlemeAcik(false)} className="hover:bg-slate-700 p-2 rounded-full"><X/></button>
                     </div>
 
-                    {/* --- ORTA KISIM (KAYDIRILABİLİR ALAN) --- */}
                     <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-slate-600/50">
                         
-                        {/* A4 KAĞIDI */}
                         <div ref={printRef} className="bg-white w-[210mm] min-h-[297mm] p-[15mm] shadow-xl relative text-black shrink-0">
                             
-                            {/* HEADER: LOGO VE FİRMA BİLGİSİ */}
                             <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-8">
                                 <div>
                                     <h1 className="text-3xl font-black text-slate-800 tracking-tighter">BUVİSAN</h1>
@@ -443,7 +564,6 @@ export default function TekliflerSayfasi() {
                                 </div>
                             </div>
 
-                            {/* BELGE BAŞLIĞI */}
                             <div className="text-center mb-8">
                                 <h2 className="text-xl font-bold uppercase border-b border-slate-300 inline-block pb-1">
                                     {seciliTeklif.template_type === 'standart' ? 'FİYAT TEKLİF FORMU' : 
@@ -452,7 +572,6 @@ export default function TekliflerSayfasi() {
                                 <p className="text-xs text-slate-400 mt-1">Tarih: {new Date(seciliTeklif.offer_date).toLocaleDateString('tr-TR')}</p>
                             </div>
 
-                            {/* MÜŞTERİ BİLGİLERİ */}
                             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8 text-sm">
                                 <div className="grid grid-cols-[100px_1fr] gap-2 mb-2">
                                     <span className="font-bold text-slate-600">Sayın:</span>
@@ -468,7 +587,6 @@ export default function TekliflerSayfasi() {
                                 </div>
                             </div>
 
-                            {/* TABLO */}
                             <table className="w-full mb-8 border-collapse">
                                 <thead>
                                     <tr className="bg-slate-100 text-slate-700 text-xs uppercase border-y border-slate-300">
@@ -496,7 +614,6 @@ export default function TekliflerSayfasi() {
                                 </tfoot>
                             </table>
 
-                            {/* NOTLAR */}
                             <div className="mb-12">
                                 <h4 className="font-bold text-sm border-b border-slate-200 mb-2 pb-1">Notlar ve Şartlar:</h4>
                                 <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">
@@ -504,7 +621,6 @@ export default function TekliflerSayfasi() {
                                 </div>
                             </div>
 
-                            {/* İMZA */}
                             <div className="flex justify-between mt-auto pt-12 pb-8">
                                 <div className="text-center">
                                     <p className="font-bold text-sm mb-12">Müşteri Onayı</p>
@@ -520,7 +636,6 @@ export default function TekliflerSayfasi() {
                         </div>
                     </div>
 
-                    {/* --- ALT BAR (SABİT AKSİYON BUTONLARI) --- */}
                     <div className="bg-white border-t p-4 flex justify-center gap-4 shrink-0 z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.1)]">
                         <button onClick={yazdir} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 flex items-center gap-2 transform active:scale-95 transition">
                             <Printer size={20}/> Yazdır / PDF Kaydet
