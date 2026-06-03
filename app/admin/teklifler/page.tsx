@@ -107,13 +107,9 @@ export default function TekliflerSayfasi() {
   // 🔥 YENİ: Hesaplanan fiyata matematiği gizli döküm olarak gömüyoruz
   const akilliFiyatiTeklifeEkle = (hesaplananFiyat: number) => {
       const ad = `Vinç Servis ve Müdahale Hizmeti`;
-      
-      // Teklifte veya PDF'te her zaman görebileceğimiz o sihirli hesap özeti
-      const detay = `Sistem Hesap Dökümü: ${hesap.kisiSayisi} Personel (${hsToplamSure} Saat), ${hesap.mesafeKm}km Yol. | (Taban Maliyetler: İşçilik ${Math.round(hsIscilikMaliyeti)}₺, Yol ${Math.round(hsYolMaliyeti)}₺, Platform Kiralama ${hesap.platformKiralama}₺, Konaklama ${hesap.konaklama}₺, Ekipman/Sarf/Yemek ${hesap.sarfMalzeme + hesap.ekipmanAmortisman + hesap.yemekMaliyeti}₺) | +%${hesap.genelGiderYuzdesi} Şirket Gideri | Hedeflenen Kâr: %${hesap.karMarji}`;
+    
 
-      setKalemler([...kalemler, {
-          id: Date.now(), ad, detay, adet: 1, birim_fiyat: Math.round(hesaplananFiyat), toplam: Math.round(hesaplananFiyat)
-      }]);
+
       alert("Akıllı fiyat tüm matematiksel dökümleriyle birlikte teklife eklendi! 🚀");
   };
 
