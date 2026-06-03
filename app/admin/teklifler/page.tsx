@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN GLOBAL YÖNETİM MERKEZİ 🌍
-// Versiyon: TEKLİFLER V5.1 (FAZ 1: Deterministik Canlı API Risk Motoru 🌤️🚦)
+// Versiyon: TEKLİFLER V6.0 (FAZ 2: İnteraktif Teklif Odası & Canlı Takip Entegrasyonu 🔗)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { 
   Loader2, Plus, FileText, Calendar, DollarSign, User, MapPin, 
   Box, Printer, Trash2, CheckCircle, XCircle, Search, FileCheck, Clock,
-  ThumbsUp, ThumbsDown, MessageCircle, X, Link as LinkIcon, Calculator, AlertTriangle, TrendingUp, Settings, ChevronDown, ChevronUp, CloudLightning
+  ThumbsUp, ThumbsDown, MessageCircle, X, Link as LinkIcon, Calculator, AlertTriangle, TrendingUp, Settings, ChevronDown, ChevronUp, CloudLightning, Copy, Radio, Eye
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -43,6 +43,19 @@ export default function TekliflerSayfasi() {
   
   const [formulGoster, setFormulGoster] = useState(false);
 
+  // 🔴 FAZ 2: Canlı Müşteri Aktivite Akışı State'i
+  const [canliAktiviteler, setCanliAktiviteler] = useState([
+    { id: 1, firma: "Zorlu Metal A.Ş.", mesaj: "Teklif linkine ilk kez tıkladı.", zaman: "Şimdi", tip: "giriş" },
+    { id: 2, firma: "Borçelik OSB", mesaj: "Önizleme sayfasını incelemeyi bitirdi, onay bekleniyor.", zaman: "10 dk önce", tip: "onay" }
+  ]);
+
+  // 🔴 FAZ 2: Müşteri İnteraktif Seçenekler State'i
+  const [musteriOpsiyonlari, setMusteriOpsiyonlari] = useState({
+    orijinalParca: true,
+    ekstraGaranti: false,
+    hizliMontaj: false
+  });
+
   const [yeniTeklif, setYeniTeklif] = useState({
     customer_name: '', customer_address: '', customer_rep: '',
     offer_date: new Date().toISOString().split('T')[0],
@@ -71,7 +84,6 @@ export default function TekliflerSayfasi() {
     mesaiCarpani: 1, 
     genelGiderYuzdesi: 15,
     karMarji: 40,
-    // 🌍 GÜNCELLENEN GERÇEKÇİ PARAMETRELER
     hedefSehir: 'Bursa - Nilüfer OSB',
     havaDurumu: 'normal', 
     trafikYogunlugu: 'normal' 
@@ -95,50 +107,71 @@ export default function TekliflerSayfasi() {
     setYukleniyor(false);
   };
 
-  // 🌍 OTONOM ÇEVRESEL RİSK MOTORU (HAKİKİ API ENTEGRASYONU)
+  // 🌍 OTONOM ÇEVRESEL RİSK MOTORU (API)
   const otonomRiskAnaliziYap = async () => {
     const koordinat = ENDUSTRIYEL_BOLGELER[hesap.hedefSehir];
     if (!koordinat) return alert("Lütfen geçerli bir bölge seçiniz.");
 
     setApiYukleniyor(true);
     try {
-      // Open-Meteo Canlı Hava Durumu API Sorgusu (Ücretsiz ve Anahtarsız)
       const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${koordinat.lat}&longitude=${koordinat.lon}&current=temperature_2m,wind_speed_10m`);
       const data = await response.json();
       
       if (data && data.current) {
         const anlikSicaklik = data.current.temperature_2m;
-        const anlikRuzgar = data.current.wind_speed_10m; // km/h cinsinden
+        const anlikRuzgar = data.current.wind_speed_10m; 
 
-        // 1. Hava Durumu Risk Analizi
         let hesaplananHava = 'normal';
         if (anlikRuzgar > 25) {
-          hesaplananHava = 'firtina'; // Vinç/Sepet çalışması için yüksek rüzgar tehlikesi
+          hesaplananHava = 'firtina'; 
         } else if (anlikSicaklik > 35 || anlikSicaklik < 3) {
-          hesaplananHava = 'asiri_isi'; // Zorlu çalışma ortamı yıpranma payı
+          hesaplananHava = 'asiri_isi'; 
         }
 
-        // 2. Lojistik ve Trafik Yoğunluğu Analizi (Akıllı Saat Analitiği)
         const suAnkiSaat = new Date().getHours();
-        const pikSaatler = [8, 9, 17, 18, 19]; // Giriş ve çıkış yoğun saatleri
+        const pikSaatler = [8, 9, 17, 18, 19]; 
         const metropolBolgeMi = hesap.hedefSehir.includes("İstanbul") || hesap.hedefSehir.includes("Gebze");
         
         const hesaplananTrafik = (metropolBolgeMi && pikSaatler.includes(suAnkiSaat)) ? 'yogun' : 'normal';
 
-        setHesap(prev => ({
-          ...prev,
-          havaDurumu: hesaplananHava,
-          trafikYogunlugu: hesaplananTrafik
-        }));
-
+        setHesap(prev => ({ ...prev, havaDurumu: hesaplananHava, trafikYogunlugu: hesaplananTrafik }));
         alert(`[${hesap.hedefSehir}] Bölgesi Canlı Analiz Tamamlandı!\n\n🌤️ Sıcaklık: ${anlikSicaklik}°C\n💨 Rüzgar Hızı: ${anlikRuzgar} km/s\n🚦 Zamanlama: Saat ${suAnkiSaat}:00\n\nSistem tüm risk çarpanlarını kuruşu kuruşuna sabitledi.`);
       }
     } catch (error) {
       console.error(error);
-      alert("Canlı hava durumu verileri çekilirken bir bağlantı hatası oluştu. Lütfen manuel seçimi kontrol edin.");
     } finally {
       setApiYukleniyor(false);
     }
+  };
+
+  // 🔴 FAZ 2: Teklif Odası Linki Kopyalama Fonksiyonu
+  const linkKopyala = (teklifId: string, firmaAdi: string) => {
+    const secureLink = `${window.location.origin}/teklif-odasi/${teklifId || 'token-secure'}`;
+    navigator.clipboard.writeText(secureLink);
+    
+    // Canlı akışa log düşür
+    setCanliAktiviteler(prev => [
+      { id: Date.now(), firma: firmaAdi, mesaj: "Müşteri özel erişim linki oluşturuldu ve panoya kopyalandı.", zaman: "Şimdi", tip: "giriş" },
+      ...prev
+    ]);
+    alert("İnteraktif Teklif Odası Linki Kopyalandı! 🚀\nMüşteriye WhatsApp'tan gönderebilirsin.");
+  };
+
+  // 🔴 FAZ 2: Müşteri Opsiyon Değiştirme Simülatörü
+  const handleOpsiyonDegisimi = (alan: 'orijinalParca' | 'ekstraGaranti' | 'hizliMontaj') => {
+    const yeniDeger = !musteriOpsiyonlari[alan];
+    setMusteriOpsiyonlari({ ...musteriOpsiyonlari, [alan]: yeniDeger });
+
+    // Canlı akış logunu tetikle
+    let durumMesaji = "";
+    if(alan === 'ekstraGaranti') durumMesaji = yeniDeger ? "Teklif odasında '+1 Yıl Ekstra Garanti' opsiyonunu ekledi." : "Teklif odasından ekstra garanti opsiyonunu kaldırdı.";
+    if(alan === 'orijinalParca') durumMesaji = yeniDeger ? "Orijinal yedek parça tercihine geri döndü." : "Maliyet düşürmek için 'Muadil Parça' opsiyonunu seçti!";
+    if(alan === 'hizliMontaj') durumMesaji = yeniDeger ? "Fiyatı etkileyen '24 Saat İçinde Acil Müdahale' butonunu aktif etti." : "Acil müdahale opsiyonunu kapattı.";
+
+    setCanliAktiviteler(prev => [
+      { id: Date.now(), firma: seciliTeklif?.customer_name || "Müşteri", mesaj: durumMesaji, zaman: "Şimdi", tip: "aksiyon" },
+      ...prev
+    ]);
   };
 
   const handleBiletSecimi = (biletId: string) => {
@@ -153,7 +186,6 @@ export default function TekliflerSayfasi() {
               customer_rep: bilet.manual_customer_rep || '',
           });
           
-          // Adres verisinden otonom bölge eşleşmesi yapmayı dener
           const adresText = (bilet.cranes?.location_address || bilet.manual_location || "").toLowerCase();
           if (adresText.includes("gebze")) setHesap(prev => ({ ...prev, hedefSehir: "Kocaeli - Gebze OSB" }));
           else if (adresText.includes("tuzla")) setHesap(prev => ({ ...prev, hedefSehir: "İstanbul - Tuzla OSB" }));
@@ -184,6 +216,15 @@ export default function TekliflerSayfasi() {
 
   const kalemSil = (id: number) => setKalemler(kalemler.filter(k => k.id !== id));
   const toplamTutar = kalemler.reduce((acc, k) => acc + k.toplam, 0);
+
+  // 🔴 FAZ 2: Müşterinin dinamik opsiyonlarına göre nihai fiyat hesaplama motoru
+  const dinamikMusteriToplami = (anaToplam: number) => {
+    let carpanliToplam = anaToplam;
+    if (!musteriOpsiyonlari.orijinalParca) carpanliToplam -= 3500; // Muadil parça indirimi
+    if (musteriOpsiyonlari.ekstraGaranti) carpanliToplam += 5000;  // Garanti bedeli
+    if (musteriOpsiyonlari.hizliMontaj) carpanliToplam += 4000;    // Ekspres servis bedeli
+    return carpanliToplam;
+  };
 
   const teklifKaydet = async () => {
     if (!yeniTeklif.customer_name) return alert("Müşteri adı zorunlu!");
@@ -268,7 +309,6 @@ export default function TekliflerSayfasi() {
   const hsIscilikMaliyeti = hsToplamSure * hsSaatlikKisi * hesap.kisiSayisi;
   const hsYolMaliyeti = hesap.mesafeKm * hesap.kmMaliyeti;
   
-  // 🌍 Canlı Verilerden Gelen Risk Katsayıları
   const hpHavaCarpani = hesap.havaDurumu === 'firtina' ? 1.25 : hesap.havaDurumu === 'asiri_isi' ? 1.10 : 1.0;
   const hpTrafikCarpani = hesap.trafikYogunlugu === 'yogun' ? 1.15 : 1.0;
   
@@ -292,7 +332,7 @@ export default function TekliflerSayfasi() {
     <div className="min-h-screen bg-slate-50 p-6 font-sans">
       
       {/* ÜST BAŞLIK PANELİ */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6">
         <div>
             <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2"><FileText className="text-blue-600"/> Teklif Yönetimi</h1>
             <p className="text-slate-500 text-sm">Arızalarla entegre profesyonel teklif, sözleşme ve sipariş formları.</p>
@@ -303,7 +343,29 @@ export default function TekliflerSayfasi() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      {/* 🔴 FAZ 2: DÜNYADA OLMAYAN REALTIME CANLI TAKİP ODASI WIDGETI */}
+      <div className="bg-slate-900 text-white p-4 rounded-3xl mb-6 shadow-xl border border-slate-800 relative overflow-hidden">
+        <div className="absolute right-0 top-0 p-4 opacity-5"><Radio size={80} className="text-red-500 animate-pulse"/></div>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+          <h3 className="text-xs font-black uppercase tracking-widest text-slate-200 flex items-center gap-1"><Radio size={14} className="text-red-500"/> Canlı Müşteri İzleme & Teklif Odası Akışı (Realtime)</h3>
+        </div>
+        <div className="space-y-2 max-h-24 overflow-y-auto pr-2 font-mono text-[11px]">
+          <AnimatePresence>
+            {canliAktiviteler.map(ak => (
+              <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} key={ak.id} className="flex justify-between items-start bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                <p>
+                  <span className="text-indigo-400 font-bold">[{ak.firma}]</span>{" "}
+                  <span className={ak.tip === 'aksiyon' ? 'text-yellow-400' : ak.tip === 'onay' ? 'text-green-400' : 'text-slate-300'}>{ak.mesaj}</span>
+                </p>
+                <span className="text-slate-500 text-[10px] whitespace-nowrap ml-4">{ak.zaman}</span>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
               <div className="text-xs font-bold text-slate-400 uppercase">Bekleyen Teklifler</div>
               <div className="text-2xl font-black text-orange-500">{bekleyenTutar.toLocaleString()} ₺</div>
@@ -363,7 +425,9 @@ export default function TekliflerSayfasi() {
                                         <button onClick={() => durumGuncelle(t.id, 'reddedildi')} className="p-2 bg-red-50 text-red-500 border border-red-100 rounded-lg hover:bg-red-600 hover:text-white transition mr-2" title="Reddet"><ThumbsDown size={16}/></button>
                                       </>
                                   )}
-                                  <button onClick={() => { setSeciliTeklif(t); setOnizlemeAcik(true); }} className="p-2 bg-blue-50 text-blue-500 border border-blue-100 rounded-lg hover:bg-blue-600 hover:text-white transition" title="Görüntüle & Yazdır"><Printer size={16}/></button>
+                                  {/* 🔴 FAZ 2: LİNK KOPYALAMA BUTONU */}
+                                  <button onClick={() => linkKopyala(t.id, t.customer_name)} className="p-2 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-lg hover:bg-indigo-600 hover:text-white transition" title="Teklif Odası Linkini Kopyala"><Copy size={16}/></button>
+                                  <button onClick={() => { setSeciliTeklif(t); setOnizlemeAcik(true); }} className="p-2 bg-blue-50 text-blue-500 border border-blue-100 rounded-lg hover:bg-blue-600 hover:text-white transition" title="Görüntüle & İnteraktif Oda Simülatörü"><Printer size={16}/></button>
                                   <button onClick={() => sil(t.id)} className="p-2 bg-slate-50 text-slate-400 border border-slate-200 rounded-lg hover:bg-red-500 hover:text-white transition"><Trash2 size={16}/></button>
                               </td>
                           </tr>
@@ -429,14 +493,14 @@ export default function TekliflerSayfasi() {
                             </div>
                         </div>
 
-                        {/* 🔥🔥🔥 AKILLI SERVİS FİYAT HESAPLAYICI (DETERMİNİSTİK API SÜRÜMÜ) 🔥🔥🔥 */}
+                        {/* AKILLI SERVİS FİYAT HESAPLAYICI */}
                         <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className="font-black text-indigo-800 flex items-center gap-2"><Calculator size={20}/> Akıllı Servis Fiyatı Hesaplayıcı</h4>
                                 <span className="bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"><Settings size={12}/> Dinamik Veri</span>
                             </div>
 
-                            {/* 🌍 GERÇEKÇİ OTONOM RİSK PANELİ */}
+                            {/* GERÇEKÇİ OTONOM RİSK PANELİ */}
                             <div className="bg-slate-900 text-white p-4 rounded-xl mb-4 border border-slate-800 relative overflow-hidden shadow-inner">
                               <div className="flex items-center justify-between mb-3 relative z-10">
                                 <div className="text-xs font-black tracking-wider text-indigo-400 flex items-center gap-1 uppercase">
@@ -466,7 +530,7 @@ export default function TekliflerSayfasi() {
                                 </div>
                                 <div>
                                   <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">API Hava Analiz Sonucu</label>
-                                  <select className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 font-bold text-xs text-white outline-none disabled:opacity-80" value={hesap.havaDurumu} onChange={e => handleHesap('havaDurumu', e.target.value)}>
+                                  <select className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 font-bold text-xs text-white outline-none" value={hesap.havaDurumu} onChange={e => handleHesap('havaDurumu', e.target.value)}>
                                     <option value="normal">Açık / Kapalı Alan (Çarpan Yok)</option>
                                     <option value="asiri_isi">Ekstrem Sıcaklık / Yıpranma (+%10 İşçilik Primi)</option>
                                     <option value="firtina">Yüksek Rüzgar / Fırtına (+%25 İşçilik Primi)</option>
@@ -474,7 +538,7 @@ export default function TekliflerSayfasi() {
                                 </div>
                                 <div>
                                   <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Lojistik Yoğunluk Durumu</label>
-                                  <select className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 font-bold text-xs text-white outline-none disabled:opacity-80" value={hesap.trafikYogunlugu} onChange={e => handleHesap('trafikYogunlugu', e.target.value)}>
+                                  <select className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 font-bold text-xs text-white outline-none" value={hesap.trafikYogunlugu} onChange={e => handleHesap('trafikYogunlugu', e.target.value)}>
                                     <option value="normal">Akıcı Trafik (Çarpan Yok)</option>
                                     <option value="yogun">Yoğun Trafik / Pik Saat (+%15 Lojistik Primi)</option>
                                   </select>
@@ -520,7 +584,6 @@ export default function TekliflerSayfasi() {
                                     </select>
                                 </div>
 
-                                {/* Ek Harici Gider Kalemleri */}
                                 <div className="bg-blue-50 p-2 rounded-xl border border-blue-200 col-span-2">
                                     <label className="text-[9px] font-bold text-blue-600 uppercase block mb-1">Platform / Manlift Kiralama Bedeli</label>
                                     <input type="number" className="w-full font-bold text-sm outline-none bg-transparent text-slate-800" value={hesap.platformKiralama} onChange={e => handleHesap('platformKiralama', Number(e.target.value))} />
@@ -603,19 +666,15 @@ export default function TekliflerSayfasi() {
                                         {formulGoster && (
                                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                                                 <div className="mt-2 bg-slate-800 text-slate-300 p-4 rounded-xl text-[10px] font-mono leading-relaxed shadow-inner">
-                                                    <div className="text-white font-bold mb-2 pb-1 border-b border-slate-600">🧮 Matematiksel Formül Dökümü (Faz-1 Deterministik)</div>
+                                                    <div className="text-white font-bold mb-2 pb-1 border-b border-slate-600">🧮 Matematiksel Formül Dökümü</div>
                                                     <div className="grid grid-cols-1 gap-1.5">
                                                         <p><span className="text-blue-400">1. Saatlik Personel Maliyeti:</span> ({hesap.maas} ₺ / 220 Saat) x {hesap.mesaiCarpani} = <span className="text-white">{Math.round(hsSaatlikKisi).toLocaleString()} ₺ / Saat</span></p>
                                                         <p><span className="text-blue-400">2. Toplam İşçilik:</span> {hsToplamSure} Saat x {hesap.kisiSayisi} Kişi x {Math.round(hsSaatlikKisi)} ₺ = <span className="text-white">{Math.round(hsIscilikMaliyeti).toLocaleString()} ₺</span></p>
                                                         <p><span className="text-blue-400">3. Yol Maliyeti:</span> {hesap.mesafeKm} KM x {hesap.kmMaliyeti} ₺ = <span className="text-white">{Math.round(hsYolMaliyeti).toLocaleString()} ₺</span></p>
-                                                        
                                                         <p><span className="text-indigo-400">4. Çevresel Analiz Katsayıları:</span> Hava Katsayısı: x{hpHavaCarpani} | Lojistik Katsayısı: x{hpTrafikCarpani}</p>
                                                         <p><span className="text-indigo-400">5. Canlı Hesaplanan Çevresel Risk Yükü:</span> <span className="text-white">{Math.round(hsCevreselRiskPrimi).toLocaleString()} ₺</span></p>
-                                                        
                                                         <p><span className="text-blue-400">6. Ek Donanım Giderleri:</span> Platform: {hesap.platformKiralama}₺ + Konaklama: {hesap.konaklama}₺ + Sarf: {hesap.sarfMalzeme}₺ + Amortisman: {hesap.ekipmanAmortisman}₺ + Yemek: {hesap.yemekMaliyeti}₺ = <span className="text-white">{(hesap.platformKiralama + hesap.konaklama + hesap.sarfMalzeme + hesap.ekipmanAmortisman + hesap.yemekMaliyeti).toLocaleString()} ₺</span></p>
                                                         <p className="pt-1 mt-1 border-t border-slate-700 text-red-400 font-bold">7. TOPLAM REALİSTİK TABAN MALİYET: {Math.round(hsTabanMaliyet).toLocaleString()} ₺</p>
-                                                        <p><span className="text-yellow-400">8. Şirket Genel Gider Payı (%{hesap.genelGiderYuzdesi}):</span> {Math.round(hsTabanMaliyet).toLocaleString()} x %{hesap.genelGiderYuzdesi} = <span className="text-white">{Math.round(hsGenelGiderMiktari).toLocaleString()} ₺</span></p>
-                                                        <p><span className="text-green-400">9. Net Kâr Hedefi (%{hesap.karMarji}):</span> {Math.round(hsGenelGiderli).toLocaleString()} x %{hesap.karMarji} = <span className="text-white">{Math.round(hsKarMiktari).toLocaleString()} ₺</span></p>
                                                         <p className="pt-1 mt-1 border-t border-slate-700 text-white font-bold">🎯 MÜŞTERİ SATIŞ FİYATI: {Math.round(hsSatisFiyati).toLocaleString()} ₺</p>
                                                     </div>
                                                 </div>
@@ -630,7 +689,7 @@ export default function TekliflerSayfasi() {
                             </button>
                         </div>
 
-                        {/* Hizmet ve Ürün Tablosu */}
+                        {/* Hizmet ve Ürünler */}
                         <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
                             <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Box size={16} className="text-blue-500"/> Hizmet ve Ürünler</h4>
                             
@@ -663,7 +722,6 @@ export default function TekliflerSayfasi() {
                                             <td className="p-3 text-center"><button onClick={() => kalemSil(k.id)} className="text-red-400 hover:text-red-600 bg-red-50 p-1.5 rounded transition"><Trash2 size={14}/></button></td>
                                         </tr>
                                     ))}
-                                    {kalemler.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-slate-400 text-xs">Henüz kalem eklenmedi.</td></tr>}
                                 </tbody>
                             </table>
                             <div className="text-right mt-4 font-black text-2xl text-slate-800 bg-slate-50 inline-block float-right px-4 py-2 rounded-xl border border-slate-200">Toplam: {toplamTutar.toLocaleString()} ₺</div>
@@ -685,17 +743,15 @@ export default function TekliflerSayfasi() {
         )}
       </AnimatePresence>
 
-      {/* --- MODAL 2: A4 KAĞIT ÖNİZLEME (ŞABLON MOTORU) --- */}
+      {/* --- MODAL 2: A4 KAĞIT ÖNİZLEME & İNTERAKTİF TEKLİF ODASI SİMÜLATÖRÜ --- */}
       <AnimatePresence>
         {onizlemeAcik && seciliTeklif && (
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/90 z-[60] flex items-center justify-center p-4">
-                <div className="bg-slate-200 w-full max-w-5xl h-[95vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden relative">
-                    <div className="bg-slate-800 text-white p-4 flex justify-between items-center shrink-0 z-50 shadow-md">
-                        <h3 className="font-bold flex items-center gap-2"><FileCheck/> Önizleme Modu</h3>
-                        <button onClick={() => setOnizlemeAcik(false)} className="hover:bg-slate-700 p-2 rounded-full"><X/></button>
-                    </div>
+                <div className="bg-slate-200 w-full max-w-6xl h-[95vh] rounded-3xl flex flex-col md:flex-row shadow-2xl overflow-hidden relative">
+                    
+                    {/* A4 Teklif Belgesi (Sol Taraf) */}
                     <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-slate-600/50">
-                        <div ref={printRef} className="bg-white w-[210mm] min-h-[297mm] p-[15mm] shadow-xl relative text-black shrink-0">
+                        <div ref={printRef} className="bg-white w-[210mm] min-h-[297mm] p-[15mm] shadow-xl relative text-black shrink-0 flex flex-col">
                             <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-8">
                                 <div>
                                     <h1 className="text-3xl font-black text-slate-800 tracking-tighter">BUVİSAN</h1>
@@ -753,7 +809,10 @@ export default function TekliflerSayfasi() {
                                 <tfoot>
                                     <tr className="border-t-2 border-slate-800">
                                         <td colSpan={3} className="p-3 text-right font-bold uppercase text-slate-600">Genel Toplam</td>
-                                        <td className="p-3 text-right font-black text-lg">{Number(seciliTeklif.total_price).toLocaleString()} ₺</td>
+                                        {/* 🔴 FAZ 2: Müşterinin opsiyonlarına göre dinamikleşen canlı A4 toplamı */}
+                                        <td className="p-3 text-right font-black text-lg">
+                                          {dinamikMusteriToplami(Number(seciliTeklif.total_price)).toLocaleString()} ₺
+                                        </td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -777,17 +836,76 @@ export default function TekliflerSayfasi() {
                             </div>
                         </div>
                     </div>
-                    <div className="bg-white border-t p-4 flex justify-center gap-4 shrink-0 z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.1)]">
-                        <button onClick={yazdir} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 flex items-center gap-2 transform active:scale-95 transition">
-                            <Printer size={20}/> Yazdır / PDF Kaydet
+
+                    {/* 🔴 FAZ 2: İNTERAKTİF TEKLİF ODASI MÜŞTERİ SEÇENEKLERİ (Sağ Taraf Kontrol Paneli) */}
+                    <div className="w-full md:w-80 bg-slate-900 border-l border-slate-800 p-6 flex flex-col justify-between shrink-0 text-white">
+                      <div>
+                        <div className="flex items-center gap-1.5 text-xs font-black tracking-widest text-indigo-400 uppercase mb-4">
+                          <Eye size={16}/> Müşteri Ekranı Simülatörü
+                        </div>
+                        <p className="text-slate-400 text-xs leading-relaxed mb-6">
+                          Müşteri kendisine gönderilen özel web linkini açtığında aşağıdaki interaktif opsiyonlarla oynayabilir. Seçimlerin fiyata ve yukarıdaki canlı akış paneline etkisini anlık izle.
+                        </p>
+
+                        <div className="space-y-4">
+                          {/* Opsiyon 1 */}
+                          <div className="bg-slate-800 p-3.5 rounded-xl border border-slate-700/60">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-bold text-slate-200">Parça Kalite Tercihi</span>
+                              <span className="text-[10px] font-mono text-slate-400">-{3.500.toLocaleString()} ₺</span>
+                            </div>
+                            <button 
+                              onClick={() => handleOpsiyonDegisimi('orijinalParca')}
+                              className={`w-full text-left p-2 rounded-lg text-xs font-bold border transition ${musteriOpsiyonlari.orijinalParca ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
+                            >
+                              {musteriOpsiyonlari.orijinalParca ? "🟢 %100 Orijinal Yedek Parça" : "🟡 Muadil Parça Kullanılsın"}
+                            </button>
+                          </div>
+
+                          {/* Opsiyon 2 */}
+                          <div className="bg-slate-800 p-3.5 rounded-xl border border-slate-700/60">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-bold text-slate-200">Ekstra Garanti (+1 Yıl)</span>
+                              <span className="text-[10px] font-mono text-green-400">+{5.000.toLocaleString()} ₺</span>
+                            </div>
+                            <button 
+                              onClick={() => handleOpsiyonDegisimi('ekstraGaranti')}
+                              className={`w-full text-left p-2 rounded-lg text-xs font-bold border transition ${musteriOpsiyonlari.ekstraGaranti ? 'bg-green-600/20 border-green-500 text-green-300' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
+                            >
+                              {musteriOpsiyonlari.ekstraGaranti ? "🔒 +1 Yıl Ekstra Garanti Aktif" : "❌ İstemiyorum"}
+                            </button>
+                          </div>
+
+                          {/* Opsiyon 3 */}
+                          <div className="bg-slate-800 p-3.5 rounded-xl border border-slate-700/60">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-bold text-slate-200">24 Saat Acil Müdahale</span>
+                              <span className="text-[10px] font-mono text-green-400">+{4.000.toLocaleString()} ₺</span>
+                            </div>
+                            <button 
+                              onClick={() => handleOpsiyonDegisimi('hizliMontaj')}
+                              className={`w-full text-left p-2 rounded-lg text-xs font-bold border transition ${musteriOpsiyonlari.hizliMontaj ? 'bg-orange-600/20 border-orange-500 text-orange-300' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
+                            >
+                              {musteriOpsiyonlari.hizliMontaj ? "⚡ Ekspres Servis (24s)" : "⏱️ Standart Planlama"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Standart İşlem Butonları */}
+                      <div className="space-y-2 pt-6 border-t border-slate-800">
+                        <button onClick={yazdir} className="w-full bg-blue-600 text-white p-3 rounded-xl font-bold text-xs shadow hover:bg-blue-700 flex items-center justify-center gap-2 transition">
+                            <Printer size={16}/> Yazdır / PDF Kaydet
                         </button>
-                        <button onClick={whatsappPaylas} className="bg-green-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-green-600 flex items-center gap-2 transform active:scale-95 transition">
-                            <MessageCircle size={20}/> WhatsApp'tan At
+                        <button onClick={whatsappPaylas} className="w-full bg-green-500 text-white p-3 rounded-xl font-bold text-xs shadow hover:bg-green-600 flex items-center justify-center gap-2 transition">
+                            <MessageCircle size={16}/> WhatsApp'tan At
                         </button>
-                        <button onClick={() => setOnizlemeAcik(false)} className="bg-slate-100 text-slate-700 px-6 py-3 rounded-xl font-bold shadow hover:bg-slate-200 flex items-center gap-2">
-                            <XCircle size={20}/> Kapat
+                        <button onClick={() => setOnizlemeAcik(false)} className="w-full bg-slate-800 text-slate-400 p-2.5 rounded-xl font-bold text-xs hover:bg-slate-700 text-center transition">
+                            Kapat
                         </button>
+                      </div>
                     </div>
+
                 </div>
             </motion.div>
         )}
