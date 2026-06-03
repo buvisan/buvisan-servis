@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN GLOBAL YÖNETİM MERKEZİ 🌍
-// Versiyon: TEKLİFLER V5.0 (FAZ 1: Canlı Çevresel Risk Motoru Entegrasyonu ⚡)
+// Versiyon: TEKLİFLER V5.1 (FAZ 1: Deterministik Canlı API Risk Motoru 🌤️🚦)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -15,11 +15,21 @@ import {
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// 🌍 Endüstriyel Bölgelerin Gerçek Coğrafi Koordinat Haritası
+const ENDUSTRIYEL_BOLGELER: { [key: string]: { lat: number, lon: number } } = {
+  "Bursa - Nilüfer OSB": { lat: 40.21, lon: 28.95 },
+  "Bursa - İnegöl OSB": { lat: 40.08, lon: 29.51 },
+  "Kocaeli - Gebze OSB": { lat: 40.80, lon: 29.43 },
+  "İstanbul - Tuzla OSB": { lat: 40.81, lon: 29.30 },
+  "Yalova - Altınova Tersaneler": { lat: 40.69, lon: 29.47 },
+  "Sakarya - Arifiye OSB": { lat: 40.72, lon: 30.38 }
+};
+
 export default function TekliflerSayfasi() {
   
   // --- STATE ---
   const [yukleniyor, setYukleniyor] = useState(true);
-  const [apiYukleniyor, setApiYukleniyor] = useState(false); // FAZ 1: API Simülasyon Loader'ı
+  const [apiYukleniyor, setApiYukleniyor] = useState(false); 
   const [teklifler, setTeklifler] = useState<any[]>([]);
   const [stok, setStok] = useState<any[]>([]);
   const [aktifBiletler, setAktifBiletler] = useState<any[]>([]); 
@@ -45,7 +55,7 @@ export default function TekliflerSayfasi() {
   const [tempAdet, setTempAdet] = useState(1);
   const [tempFiyat, setTempFiyat] = useState(0);
 
-  // 🔥 AKILLI SERVİS HESAPLAYICI (FAZ 1 PARAMETRELERİ EKLENDİ) 🔥
+  // 🔥 AKILLI SERVİS HESAPLAYICI STATE 🔥
   const [hesap, setHesap] = useState({
     kisiSayisi: 2,
     maas: 50000,
@@ -61,10 +71,10 @@ export default function TekliflerSayfasi() {
     mesaiCarpani: 1, 
     genelGiderYuzdesi: 15,
     karMarji: 40,
-    // 🌍 FAZ 1 DİNAMİKLERİ
-    hedefSehir: 'Bursa',
-    havaDurumu: 'normal', // 'normal' | 'firtina' | 'asiri_isi'
-    trafikYogunlugu: 'normal' // 'normal' | 'yogun'
+    // 🌍 GÜNCELLENEN GERÇEKÇİ PARAMETRELER
+    hedefSehir: 'Bursa - Nilüfer OSB',
+    havaDurumu: 'normal', 
+    trafikYogunlugu: 'normal' 
   });
 
   const printRef = useRef<HTMLDivElement>(null);
@@ -85,22 +95,50 @@ export default function TekliflerSayfasi() {
     setYukleniyor(false);
   };
 
-  // 🌍 FAZ 1: Hava Durumu ve Trafik API Simülasyonu
-  const otonomRiskAnaliziYap = () => {
+  // 🌍 OTONOM ÇEVRESEL RİSK MOTORU (HAKİKİ API ENTEGRASYONU)
+  const otonomRiskAnaliziYap = async () => {
+    const koordinat = ENDUSTRIYEL_BOLGELER[hesap.hedefSehir];
+    if (!koordinat) return alert("Lütfen geçerli bir bölge seçiniz.");
+
     setApiYukleniyor(true);
-    setTimeout(() => {
-      // Örnek akıllı mantık: Mesafe uzaksa veya Bursa dışıysa otonom veri ayarla
-      const yeniHava = Math.random() > 0.5 ? 'firtina' : 'normal';
-      const yeniTrafik = hesap.mesafeKm > 80 ? 'yogun' : 'normal';
+    try {
+      // Open-Meteo Canlı Hava Durumu API Sorgusu (Ücretsiz ve Anahtarsız)
+      const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${koordinat.lat}&longitude=${koordinat.lon}&current=temperature_2m,wind_speed_10m`);
+      const data = await response.json();
       
-      setHesap(prev => ({
-        ...prev,
-        havaDurumu: yeniHava,
-        trafikYogunlugu: yeniTrafik
-      }));
+      if (data && data.current) {
+        const anlikSicaklik = data.current.temperature_2m;
+        const anlikRuzgar = data.current.wind_speed_10m; // km/h cinsinden
+
+        // 1. Hava Durumu Risk Analizi
+        let hesaplananHava = 'normal';
+        if (anlikRuzgar > 25) {
+          hesaplananHava = 'firtina'; // Vinç/Sepet çalışması için yüksek rüzgar tehlikesi
+        } else if (anlikSicaklik > 35 || anlikSicaklik < 3) {
+          hesaplananHava = 'asiri_isi'; // Zorlu çalışma ortamı yıpranma payı
+        }
+
+        // 2. Lojistik ve Trafik Yoğunluğu Analizi (Akıllı Saat Analitiği)
+        const suAnkiSaat = new Date().getHours();
+        const pikSaatler = [8, 9, 17, 18, 19]; // Giriş ve çıkış yoğun saatleri
+        const metropolBolgeMi = hesap.hedefSehir.includes("İstanbul") || hesap.hedefSehir.includes("Gebze");
+        
+        const hesaplananTrafik = (metropolBolgeMi && pikSaatler.includes(suAnkiSaat)) ? 'yogun' : 'normal';
+
+        setHesap(prev => ({
+          ...prev,
+          havaDurumu: hesaplananHava,
+          trafikYogunlugu: hesaplananTrafik
+        }));
+
+        alert(`[${hesap.hedefSehir}] Bölgesi Canlı Analiz Tamamlandı!\n\n🌤️ Sıcaklık: ${anlikSicaklik}°C\n💨 Rüzgar Hızı: ${anlikRuzgar} km/s\n🚦 Zamanlama: Saat ${suAnkiSaat}:00\n\nSistem tüm risk çarpanlarını kuruşu kuruşuna sabitledi.`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Canlı hava durumu verileri çekilirken bir bağlantı hatası oluştu. Lütfen manuel seçimi kontrol edin.");
+    } finally {
       setApiYukleniyor(false);
-      alert("Çevresel API verileri çekildi! Hava durumu ve trafik risk primleri canlı olarak hesaplamaya yansıtıldı. 🌤️🚦");
-    }, 1000);
+    }
   };
 
   const handleBiletSecimi = (biletId: string) => {
@@ -114,11 +152,15 @@ export default function TekliflerSayfasi() {
               customer_address: bilet.cranes?.location_address || bilet.manual_location || '',
               customer_rep: bilet.manual_customer_rep || '',
           });
-          // Otonom olarak adresten şehir tahmini yapıp risk motoruna paslayabiliriz
-          if(bilet.cranes?.location_address) {
-            const sehir = bilet.cranes.location_address.toLowerCase().includes('istanbul') ? 'İstanbul' : 'Bursa';
-            setHesap(prev => ({ ...prev, hedefSehir: sehir }));
-          }
+          
+          // Adres verisinden otonom bölge eşleşmesi yapmayı dener
+          const adresText = (bilet.cranes?.location_address || bilet.manual_location || "").toLowerCase();
+          if (adresText.includes("gebze")) setHesap(prev => ({ ...prev, hedefSehir: "Kocaeli - Gebze OSB" }));
+          else if (adresText.includes("tuzla")) setHesap(prev => ({ ...prev, hedefSehir: "İstanbul - Tuzla OSB" }));
+          else if (adresText.includes("inegöl")) setHesap(prev => ({ ...prev, hedefSehir: "Bursa - İnegöl OSB" }));
+          else if (adresText.includes("altınova")) setHesap(prev => ({ ...prev, hedefSehir: "Yalova - Altınova Tersaneler" }));
+          else if (adresText.includes("arifiye")) setHesap(prev => ({ ...prev, hedefSehir: "Sakarya - Arifiye OSB" }));
+          else setHesap(prev => ({ ...prev, hedefSehir: "Bursa - Nilüfer OSB" }));
       }
   };
 
@@ -132,14 +174,12 @@ export default function TekliflerSayfasi() {
 
   const akilliFiyatiTeklifeEkle = (hesaplananFiyat: number) => {
       const ad = `Vinç Servis ve Müdahale Hizmeti`;
-      
-      // FAZ 1 Eklentili Matematik Hafızası
       const detay = `Çevresel Analiz: ${hesap.hedefSehir} Bölgesi (Hava: ${hesap.havaDurumu === 'firtina' ? 'Şiddetli Rüzgar/Fırtına' : hesap.havaDurumu === 'asiri_isi' ? 'Aşırı Sıcak/Soğuk' : 'Açık/Normal'}, Trafik: ${hesap.trafikYogunlugu === 'yogun' ? 'Yoğun Saat' : 'Akıcı'}). | Maliyetler: İşçilik ${Math.round(hsIscilikMaliyeti)}₺, Yol ${Math.round(hsYolMaliyeti)}₺, Platform ${hesap.platformKiralama}₺, Çevresel Risk Primi: ${Math.round(hsCevreselRiskPrimi)}₺ | +%${hesap.genelGiderYuzdesi} Şirket Gideri | Kâr Marjı: %${hesap.karMarji}`;
 
       setKalemler([...kalemler, {
           id: Date.now(), ad, detay, adet: 1, birim_fiyat: Math.round(hesaplananFiyat), toplam: Math.round(hesaplananFiyat)
       }]);
-      alert("Akıllı fiyat tüm çevresel risk analizleriyle birlikte başarıyla eklendi! 🚀");
+      alert("Akıllı fiyat tüm gerçek risk analizleriyle birlikte başarıyla eklendi! 🚀");
   };
 
   const kalemSil = (id: number) => setKalemler(kalemler.filter(k => k.id !== id));
@@ -220,7 +260,7 @@ export default function TekliflerSayfasi() {
   const bekleyenTutar = teklifler.filter(t => t.status === 'beklemede').reduce((a, b) => a + b.total_price, 0);
   const onayliTutar = teklifler.filter(t => t.status === 'onaylandi').reduce((a, b) => a + b.total_price, 0);
 
-  // 🔥 AKILLI HESAPLAMA MATEMATİĞİ 🔥
+  // --- MATEMATİKSEL MOTOR HESAPLAMALARI ---
   const hsSaatlikKisiTaban = hesap.maas / 220; 
   const hsSaatlikKisi = hsSaatlikKisiTaban * hesap.mesaiCarpani; 
   
@@ -228,14 +268,12 @@ export default function TekliflerSayfasi() {
   const hsIscilikMaliyeti = hsToplamSure * hsSaatlikKisi * hesap.kisiSayisi;
   const hsYolMaliyeti = hesap.mesafeKm * hesap.kmMaliyeti;
   
-  // 🌍 FAZ 1: ÇEVRESEL RİSK ÇARPANLARI HESAPLAMASI
+  // 🌍 Canlı Verilerden Gelen Risk Katsayıları
   const hpHavaCarpani = hesap.havaDurumu === 'firtina' ? 1.25 : hesap.havaDurumu === 'asiri_isi' ? 1.10 : 1.0;
   const hpTrafikCarpani = hesap.trafikYogunlugu === 'yogun' ? 1.15 : 1.0;
   
-  // Risklerin para karşılığı (İşçilikteki yavaşlama ve yoldaki rölanti/zaman kaybı risk primi)
   const hsCevreselRiskPrimi = (hsIscilikMaliyeti * (hpHavaCarpani - 1)) + (hsYolMaliyeti * (hpTrafikCarpani - 1));
 
-  // Taban maliyete risk primi eklendi
   const hsTabanMaliyet = hsIscilikMaliyeti + hsYolMaliyeti + hesap.yemekMaliyeti + hesap.sarfMalzeme + hesap.ekipmanAmortisman + hesap.konaklama + hesap.platformKiralama + hsCevreselRiskPrimi;
   const hsGenelGiderMiktari = hsTabanMaliyet * (hesap.genelGiderYuzdesi / 100);
   const hsGenelGiderli = hsTabanMaliyet + hsGenelGiderMiktari;
@@ -253,7 +291,7 @@ export default function TekliflerSayfasi() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans">
       
-      {/* ÜST BAŞLIK & İSTATİSTİK */}
+      {/* ÜST BAŞLIK PANELİ */}
       <div className="flex justify-between items-center mb-8">
         <div>
             <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2"><FileText className="text-blue-600"/> Teklif Yönetimi</h1>
@@ -280,7 +318,7 @@ export default function TekliflerSayfasi() {
           </div>
       </div>
 
-      {/* LİSTE */}
+      {/* LİSTE GEÇMİŞİ */}
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-slate-50/50">
               <div className="flex items-center gap-3">
@@ -330,13 +368,12 @@ export default function TekliflerSayfasi() {
                               </td>
                           </tr>
                       ))}
-                      {filtrelenmis.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-medium">Bu kategoride gösterilecek kayıt bulunamadı.</td></tr>}
                   </tbody>
               </table>
           </div>
       </div>
 
-      {/* --- MODAL 1: YENİ TEKLİF OLUŞTURMA SİHİRBAZI --- */}
+      {/* --- MODAL 1: TEKLİF SİHİRBAZI --- */}
       <AnimatePresence>
         {modalAcik && (
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
@@ -348,7 +385,7 @@ export default function TekliflerSayfasi() {
                     </div>
                     
                     <div className="p-6 md:p-8 overflow-y-auto space-y-6 bg-slate-50">
-                        {/* 1. İŞ EMRİ BAĞLANTISI */}
+                        {/* İŞ EMRİ BAĞLANTISI */}
                         <div className="bg-orange-50 p-5 rounded-2xl border border-orange-200 shadow-sm relative overflow-hidden">
                             <div className="absolute right-0 top-0 opacity-10"><LinkIcon size={120}/></div>
                             <label className="text-xs font-bold text-orange-600 uppercase block mb-3 relative z-10">Bu Teklif Hangi Arıza / Keşif İçin Veriliyor? (Opsiyonel)</label>
@@ -363,7 +400,7 @@ export default function TekliflerSayfasi() {
                             </select>
                         </div>
 
-                        {/* 2. Şablon & 3. Müşteri */}
+                        {/* Şablon & Müşteri Formu */}
                         <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100">
                             <label className="text-xs font-bold text-blue-600 uppercase block mb-3">Şablon Türü Seçin</label>
                             <div className="flex gap-4">
@@ -392,53 +429,60 @@ export default function TekliflerSayfasi() {
                             </div>
                         </div>
 
-                        {/* 🔥🔥🔥 4. AKILLI SERVİS FİYAT HESAPLAYICI 🔥🔥🔥 */}
+                        {/* 🔥🔥🔥 AKILLI SERVİS FİYAT HESAPLAYICI (DETERMİNİSTİK API SÜRÜMÜ) 🔥🔥🔥 */}
                         <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className="font-black text-indigo-800 flex items-center gap-2"><Calculator size={20}/> Akıllı Servis Fiyatı Hesaplayıcı</h4>
                                 <span className="bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"><Settings size={12}/> Dinamik Veri</span>
                             </div>
 
-                            {/* 🌍 FAZ 1 SİHİRBAZI: OTONOM ÇEVRESEL RİSK PANELİ */}
+                            {/* 🌍 GERÇEKÇİ OTONOM RİSK PANELİ */}
                             <div className="bg-slate-900 text-white p-4 rounded-xl mb-4 border border-slate-800 relative overflow-hidden shadow-inner">
                               <div className="flex items-center justify-between mb-3 relative z-10">
                                 <div className="text-xs font-black tracking-wider text-indigo-400 flex items-center gap-1 uppercase">
-                                  <CloudLightning size={14}/> 🌍 Faz-1: Otonom Çevresel Risk Motoru
+                                  <CloudLightning size={14}/> Canlı Hava Durumu & Lojistik Risk Motoru
                                 </div>
                                 <button 
                                   onClick={otonomRiskAnaliziYap} 
                                   disabled={apiYukleniyor}
-                                  className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 text-white font-bold text-[10px] px-3 py-1 rounded-lg transition flex items-center gap-1 shadow"
+                                  className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg transition flex items-center gap-1 shadow"
                                 >
                                   {apiYukleniyor ? <Loader2 size={10} className="animate-spin"/> : null}
-                                  {apiYukleniyor ? 'API Sorgulanıyor...' : 'Otonom API Risk Analizini Başlat'}
+                                  {apiYukleniyor ? 'Canlı API Bağlantısı Kuruluyor...' : 'Bölgesel Risk Analizini Başlat'}
                                 </button>
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative z-10">
                                 <div>
-                                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Müdahale Bölgesi / Şehri</label>
-                                  <input type="text" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 font-bold text-xs text-white outline-none" value={hesap.hedefSehir} onChange={e => handleHesap('hedefSehir', e.target.value)}/>
-                                </div>
-                                <div>
-                                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Hava Koşulları (Saha Riski)</label>
-                                  <select className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 font-bold text-xs text-white outline-none" value={hesap.havaDurumu} onChange={e => handleHesap('havaDurumu', e.target.value)}>
-                                    <option value="normal">Normal / Kapalı Alan (Çarpan Yok)</option>
-                                    <option value="asiri_isi">Aşırı Sıcak / Soğuk (+%10 Risk Primi)</option>
-                                    <option value="firtina">Şiddetli Rüzgar / Fırtına (+%25 Risk Primi)</option>
+                                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Müdahale Bölgesi / OSB</label>
+                                  <select 
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 font-bold text-xs text-white outline-none cursor-pointer"
+                                    value={hesap.hedefSehir} 
+                                    onChange={e => handleHesap('hedefSehir', e.target.value)}
+                                  >
+                                    {Object.keys(ENDUSTRIYEL_BOLGELER).map(bolge => (
+                                      <option key={bolge} value={bolge}>{bolge}</option>
+                                    ))}
                                   </select>
                                 </div>
                                 <div>
-                                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Lojistik / Trafik Yoğunluğu</label>
-                                  <select className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 font-bold text-xs text-white outline-none" value={hesap.trafikYogunlugu} onChange={e => handleHesap('trafikYogunlugu', e.target.value)}>
-                                    <option value="normal">Akıcı / Standart Trafik (Çarpan Yok)</option>
-                                    <option value="yogun">Pik Saat / Yoğun Güzergah (+%15 Yol Primi)</option>
+                                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">API Hava Analiz Sonucu</label>
+                                  <select className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 font-bold text-xs text-white outline-none disabled:opacity-80" value={hesap.havaDurumu} onChange={e => handleHesap('havaDurumu', e.target.value)}>
+                                    <option value="normal">Açık / Kapalı Alan (Çarpan Yok)</option>
+                                    <option value="asiri_isi">Ekstrem Sıcaklık / Yıpranma (+%10 İşçilik Primi)</option>
+                                    <option value="firtina">Yüksek Rüzgar / Fırtına (+%25 İşçilik Primi)</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Lojistik Yoğunluk Durumu</label>
+                                  <select className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 font-bold text-xs text-white outline-none disabled:opacity-80" value={hesap.trafikYogunlugu} onChange={e => handleHesap('trafikYogunlugu', e.target.value)}>
+                                    <option value="normal">Akıcı Trafik (Çarpan Yok)</option>
+                                    <option value="yogun">Yoğun Trafik / Pik Saat (+%15 Lojistik Primi)</option>
                                   </select>
                                 </div>
                               </div>
                             </div>
                             
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                                {/* Mevcut Girdiler */}
                                 <div className="bg-white p-2 rounded-xl border border-indigo-100">
                                     <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Maaş (Aylık/Kişi)</label>
                                     <input type="number" className="w-full font-bold text-sm outline-none text-slate-700" value={hesap.maas} onChange={e => handleHesap('maas', Number(e.target.value))} />
@@ -476,7 +520,7 @@ export default function TekliflerSayfasi() {
                                     </select>
                                 </div>
 
-                                {/* Gizli Giderler */}
+                                {/* Ek Harici Gider Kalemleri */}
                                 <div className="bg-blue-50 p-2 rounded-xl border border-blue-200 col-span-2">
                                     <label className="text-[9px] font-bold text-blue-600 uppercase block mb-1">Platform / Manlift Kiralama Bedeli</label>
                                     <input type="number" className="w-full font-bold text-sm outline-none bg-transparent text-slate-800" value={hesap.platformKiralama} onChange={e => handleHesap('platformKiralama', Number(e.target.value))} />
@@ -494,7 +538,6 @@ export default function TekliflerSayfasi() {
                                     <input type="number" className="w-full font-bold text-sm outline-none bg-transparent text-slate-800" value={hesap.ekipmanAmortisman} onChange={e => handleHesap('ekipmanAmortisman', Number(e.target.value))} />
                                 </div>
                                 
-                                {/* Kâr Marjları */}
                                 <div className="col-span-2 md:col-span-4 grid grid-cols-2 gap-3 mt-2">
                                     <div className="bg-indigo-100/50 p-3 rounded-xl border border-indigo-200">
                                         <label className="text-[10px] font-bold text-indigo-600 uppercase block mb-1">Genel Gider Payı (%)</label>
@@ -529,9 +572,8 @@ export default function TekliflerSayfasi() {
                                         <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">Yol / Lojistik</div>
                                         <div className="font-bold text-xs text-slate-700">{Math.round(hsYolMaliyeti).toLocaleString()} ₺</div>
                                     </div>
-                                    {/* FAZ 1 ÖN PANEL GÖSTERİMİ */}
                                     <div>
-                                        <div className="text-[9px] font-bold text-indigo-500 uppercase mb-1">Çevresel Risk Primi</div>
+                                        <div className="text-[9px] font-bold text-indigo-500 uppercase mb-1">Otonom Risk Primi</div>
                                         <div className="font-bold text-xs text-indigo-600">+{Math.round(hsCevreselRiskPrimi).toLocaleString()} ₺</div>
                                     </div>
                                     <div>
@@ -548,7 +590,6 @@ export default function TekliflerSayfasi() {
                                     <div className="text-2xl font-black text-slate-800">{Math.round(hsSatisFiyati).toLocaleString()} ₺</div>
                                 </div>
 
-                                {/* FAZ 1 MATEMATİKSAL TABLO DETAYLANDIRMASI */}
                                 <div className="mt-3">
                                     <button 
                                         onClick={() => setFormulGoster(!formulGoster)} 
@@ -562,21 +603,20 @@ export default function TekliflerSayfasi() {
                                         {formulGoster && (
                                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                                                 <div className="mt-2 bg-slate-800 text-slate-300 p-4 rounded-xl text-[10px] font-mono leading-relaxed shadow-inner">
-                                                    <div className="text-white font-bold mb-2 pb-1 border-b border-slate-600">🧮 Matematiksel Formül Dökümü (Faz 1 Entegreli)</div>
+                                                    <div className="text-white font-bold mb-2 pb-1 border-b border-slate-600">🧮 Matematiksel Formül Dökümü (Faz-1 Deterministik)</div>
                                                     <div className="grid grid-cols-1 gap-1.5">
                                                         <p><span className="text-blue-400">1. Saatlik Personel Maliyeti:</span> ({hesap.maas} ₺ / 220 Saat) x {hesap.mesaiCarpani} = <span className="text-white">{Math.round(hsSaatlikKisi).toLocaleString()} ₺ / Saat</span></p>
                                                         <p><span className="text-blue-400">2. Toplam İşçilik:</span> {hsToplamSure} Saat x {hesap.kisiSayisi} Kişi x {Math.round(hsSaatlikKisi)} ₺ = <span className="text-white">{Math.round(hsIscilikMaliyeti).toLocaleString()} ₺</span></p>
                                                         <p><span className="text-blue-400">3. Yol Maliyeti:</span> {hesap.mesafeKm} KM x {hesap.kmMaliyeti} ₺ = <span className="text-white">{Math.round(hsYolMaliyeti).toLocaleString()} ₺</span></p>
                                                         
-                                                        {/* FAZ 1 FORMÜL SATIRLARI */}
-                                                        <p><span className="text-indigo-400">4. Çevresel Çarpan Analizi:</span> Hava Çarpanı: x{hpHavaCarpani} | Trafik Çarpanı: x{hpTrafikCarpani}</p>
-                                                        <p><span className="text-indigo-400">5. Çevresel Hesaplanan Risk Primi:</span> <span className="text-white">{Math.round(hsCevreselRiskPrimi).toLocaleString()} ₺</span></p>
+                                                        <p><span className="text-indigo-400">4. Çevresel Analiz Katsayıları:</span> Hava Katsayısı: x{hpHavaCarpani} | Lojistik Katsayısı: x{hpTrafikCarpani}</p>
+                                                        <p><span className="text-indigo-400">5. Canlı Hesaplanan Çevresel Risk Yükü:</span> <span className="text-white">{Math.round(hsCevreselRiskPrimi).toLocaleString()} ₺</span></p>
                                                         
-                                                        <p><span className="text-blue-400">6. Sabit Ek Giderler:</span> Platform: {hesap.platformKiralama}₺ + Otel: {hesap.konaklama}₺ + Sarf: {hesap.sarfMalzeme}₺ + Amortisman: {hesap.ekipmanAmortisman}₺ + Yemek: {hesap.yemekMaliyeti}₺ = <span className="text-white">{(hesap.platformKiralama + hesap.konaklama + hesap.sarfMalzeme + hesap.ekipmanAmortisman + hesap.yemekMaliyeti).toLocaleString()} ₺</span></p>
-                                                        <p className="pt-1 mt-1 border-t border-slate-700 text-red-400 font-bold">7. TOPLAM TABAN MALİYET (Risk Primli): {Math.round(hsTabanMaliyet).toLocaleString()} ₺</p>
+                                                        <p><span className="text-blue-400">6. Ek Donanım Giderleri:</span> Platform: {hesap.platformKiralama}₺ + Konaklama: {hesap.konaklama}₺ + Sarf: {hesap.sarfMalzeme}₺ + Amortisman: {hesap.ekipmanAmortisman}₺ + Yemek: {hesap.yemekMaliyeti}₺ = <span className="text-white">{(hesap.platformKiralama + hesap.konaklama + hesap.sarfMalzeme + hesap.ekipmanAmortisman + hesap.yemekMaliyeti).toLocaleString()} ₺</span></p>
+                                                        <p className="pt-1 mt-1 border-t border-slate-700 text-red-400 font-bold">7. TOPLAM REALİSTİK TABAN MALİYET: {Math.round(hsTabanMaliyet).toLocaleString()} ₺</p>
                                                         <p><span className="text-yellow-400">8. Şirket Genel Gider Payı (%{hesap.genelGiderYuzdesi}):</span> {Math.round(hsTabanMaliyet).toLocaleString()} x %{hesap.genelGiderYuzdesi} = <span className="text-white">{Math.round(hsGenelGiderMiktari).toLocaleString()} ₺</span></p>
-                                                        <p><span className="text-green-400">9. Şirket Net Kâr Hedefi (%{hesap.karMarji}):</span> {Math.round(hsGenelGiderli).toLocaleString()} x %{hesap.karMarji} = <span className="text-white">{Math.round(hsKarMiktari).toLocaleString()} ₺</span></p>
-                                                        <p className="pt-1 mt-1 border-t border-slate-700 text-white font-bold">🎯 NİHAİ TEKLİF FİYATI: {Math.round(hsSatisFiyati).toLocaleString()} ₺</p>
+                                                        <p><span className="text-green-400">9. Net Kâr Hedefi (%{hesap.karMarji}):</span> {Math.round(hsGenelGiderli).toLocaleString()} x %{hesap.karMarji} = <span className="text-white">{Math.round(hsKarMiktari).toLocaleString()} ₺</span></p>
+                                                        <p className="pt-1 mt-1 border-t border-slate-700 text-white font-bold">🎯 MÜŞTERİ SATIŞ FİYATI: {Math.round(hsSatisFiyati).toLocaleString()} ₺</p>
                                                     </div>
                                                 </div>
                                             </motion.div>
@@ -590,7 +630,7 @@ export default function TekliflerSayfasi() {
                             </button>
                         </div>
 
-                        {/* 5. Kalemler */}
+                        {/* Hizmet ve Ürün Tablosu */}
                         <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
                             <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Box size={16} className="text-blue-500"/> Hizmet ve Ürünler</h4>
                             
@@ -630,7 +670,6 @@ export default function TekliflerSayfasi() {
                             <div className="clear-both"></div>
                         </div>
 
-                        {/* 6. Notlar */}
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Teklif Notları / Şartlar</label>
                             <textarea className="w-full p-4 bg-white border border-slate-200 rounded-xl text-sm resize-none outline-none focus:border-blue-400 shadow-sm leading-relaxed" rows={3} placeholder="Ödeme koşulları, garanti süresi vb..." value={yeniTeklif.description} onChange={e => setYeniTeklif({...yeniTeklif, description: e.target.value})}></textarea>
@@ -646,7 +685,7 @@ export default function TekliflerSayfasi() {
         )}
       </AnimatePresence>
 
-      {/* --- MODAL 2: A4 KAĞIT ÖNİZLEME (SHABLON MOTORU) --- */}
+      {/* --- MODAL 2: A4 KAĞIT ÖNİZLEME (ŞABLON MOTORU) --- */}
       <AnimatePresence>
         {onizlemeAcik && seciliTeklif && (
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/90 z-[60] flex items-center justify-center p-4">
