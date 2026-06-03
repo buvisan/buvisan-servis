@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN GLOBAL YÖNETİM MERKEZİ 🌍
-// Versiyon: TEKLİFLER V4.0 (İş Emirleri & Akıllı Servis Maliyet Otomasyonu 🔄)
+// Versiyon: TEKLİFLER V4.1 (Gelişmiş Mesai ve 10 Saatlik Vardiya Entegrasyonu 🔄)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -51,7 +51,7 @@ export default function TekliflerSayfasi() {
   const [tempAdet, setTempAdet] = useState(1);
   const [tempFiyat, setTempFiyat] = useState(0);
 
-  // 🔥 YENİ: AKILLI SERVİS HESAPLAYICI STATE'İ 🔥
+  // 🔥 YENİ: AKILLI SERVİS HESAPLAYICI STATE'İ (MESAİ ÇARPANI EKLENDİ) 🔥
   const [hesap, setHesap] = useState({
     kisiSayisi: 2,
     maas: 50000,
@@ -60,6 +60,7 @@ export default function TekliflerSayfasi() {
     mesafeKm: 100,
     kmMaliyeti: 6,
     yemekMaliyeti: 600,
+    mesaiCarpani: 1, // 1: Hafta İçi, 1.5: Cumartesi, 2: Pazar
     genelGiderYuzdesi: 15,
     karMarji: 40
   });
@@ -219,8 +220,11 @@ export default function TekliflerSayfasi() {
   const bekleyenTutar = teklifler.filter(t => t.status === 'beklemede').reduce((a, b) => a + b.total_price, 0);
   const onayliTutar = teklifler.filter(t => t.status === 'onaylandi').reduce((a, b) => a + b.total_price, 0);
 
-  // 🔥 AKILLI HESAPLAMA MATEMATİĞİ 🔥
-  const hsSaatlikKisi = hesap.maas / 176;
+  // 🔥 AKILLI HESAPLAMA MATEMATİĞİ (GÜNCELLENDİ) 🔥
+  // Günde 10 saat, haftada 5 günden ayda ortalama 22 iş günü = 220 saat temel alınmıştır.
+  const hsSaatlikKisiTaban = hesap.maas / 220; 
+  const hsSaatlikKisi = hsSaatlikKisiTaban * hesap.mesaiCarpani; // Hafta sonuna göre çarpan uygulanır
+  
   const hsToplamSure = hesap.yolSaati + hesap.arizaSaati;
   const hsIscilikMaliyeti = hsToplamSure * hsSaatlikKisi * hesap.kisiSayisi;
   const hsYolMaliyeti = hesap.mesafeKm * hesap.kmMaliyeti;
@@ -390,7 +394,7 @@ export default function TekliflerSayfasi() {
                             </div>
                         </div>
 
-                        {/* 🔥🔥🔥 4. AKILLI SERVİS FİYAT HESAPLAYICI (YENİ) 🔥🔥🔥 */}
+                        {/* 🔥🔥🔥 4. AKILLI SERVİS FİYAT HESAPLAYICI (GÜNCELLENDİ) 🔥🔥🔥 */}
                         <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className="font-black text-indigo-800 flex items-center gap-2"><Calculator size={20}/> Akıllı Servis Fiyatı Hesaplayıcı</h4>
@@ -424,8 +428,18 @@ export default function TekliflerSayfasi() {
                                     <input type="number" className="w-full font-bold text-sm outline-none text-slate-700" value={hesap.kmMaliyeti} onChange={e => handleHesap('kmMaliyeti', Number(e.target.value))} />
                                 </div>
                                 <div className="bg-white p-2 rounded-xl border border-indigo-100">
-                                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Yemek Masrafı (Toplam)</label>
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Yemek Masrafı</label>
                                     <input type="number" className="w-full font-bold text-sm outline-none text-slate-700" value={hesap.yemekMaliyeti} onChange={e => handleHesap('yemekMaliyeti', Number(e.target.value))} />
+                                </div>
+                                
+                                {/* 🔥 YENİ: Müdahale Günü / Mesai Seçimi 🔥 */}
+                                <div className="bg-red-50 p-2 rounded-xl border border-red-200">
+                                    <label className="text-[9px] font-bold text-red-600 uppercase block mb-1">Müdahale Günü</label>
+                                    <select className="w-full font-bold text-xs outline-none bg-transparent text-slate-800" value={hesap.mesaiCarpani} onChange={e => handleHesap('mesaiCarpani', Number(e.target.value))}>
+                                        <option value={1}>Hafta İçi (Normal)</option>
+                                        <option value={1.5}>Cumartesi (%50)</option>
+                                        <option value={2}>Pazar (%100)</option>
+                                    </select>
                                 </div>
                                 
                                 {/* Kâr Marjları (Select ile) */}
