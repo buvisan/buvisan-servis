@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN GLOBAL YÖNETİM MERKEZİ 🌍
-// Versiyon: TEKLİFLER V6.0 (FAZ 2: İnteraktif Teklif Odası & Canlı Takip Entegrasyonu 🔗)
+// Versiyon: TEKLİFLER V6.0 (FAZ 3: Satış Zekası & AI Kazanma Olasılığı Motoru 🧠)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { 
   Loader2, Plus, FileText, Calendar, DollarSign, User, MapPin, 
   Box, Printer, Trash2, CheckCircle, XCircle, Search, FileCheck, Clock,
-  ThumbsUp, ThumbsDown, MessageCircle, X, Link as LinkIcon, Calculator, AlertTriangle, TrendingUp, Settings, ChevronDown, ChevronUp, CloudLightning, Copy, Radio, Eye
+  ThumbsUp, ThumbsDown, MessageCircle, X, Link as LinkIcon, Calculator, AlertTriangle, TrendingUp, Settings, ChevronDown, ChevronUp, CloudLightning, Copy, Radio, Eye, Brain
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -149,7 +149,6 @@ export default function TekliflerSayfasi() {
     const secureLink = `${window.location.origin}/teklif-odasi/${teklifId || 'token-secure'}`;
     navigator.clipboard.writeText(secureLink);
     
-    // Canlı akışa log düşür
     setCanliAktiviteler(prev => [
       { id: Date.now(), firma: firmaAdi, mesaj: "Müşteri özel erişim linki oluşturuldu ve panoya kopyalandı.", zaman: "Şimdi", tip: "giriş" },
       ...prev
@@ -162,7 +161,6 @@ export default function TekliflerSayfasi() {
     const yeniDeger = !musteriOpsiyonlari[alan];
     setMusteriOpsiyonlari({ ...musteriOpsiyonlari, [alan]: yeniDeger });
 
-    // Canlı akış logunu tetikle
     let durumMesaji = "";
     if(alan === 'ekstraGaranti') durumMesaji = yeniDeger ? "Teklif odasında '+1 Yıl Ekstra Garanti' opsiyonunu ekledi." : "Teklif odasından ekstra garanti opsiyonunu kaldırdı.";
     if(alan === 'orijinalParca') durumMesaji = yeniDeger ? "Orijinal yedek parça tercihine geri döndü." : "Maliyet düşürmek için 'Muadil Parça' opsiyonunu seçti!";
@@ -321,6 +319,16 @@ export default function TekliflerSayfasi() {
   const hsKarMiktari = hsGenelGiderli * (hesap.karMarji / 100);
   const hsSatisFiyati = hsGenelGiderli + hsKarMiktari;
   const hsNetKar = hsSatisFiyati - hsTabanMaliyet;
+
+  // 🧠 FAZ 3: YAPAY ZEKA SATIŞ ZEKASI / KAZANMA OLASILIĞI MOTORU
+  const getAiKazanmaOlasiligi = (marj: number) => {
+    if (marj <= 30) return { skor: 94, renk: 'bg-green-500', text: 'text-green-700', bg: 'bg-green-50', mesaj: "Kankacım bu oran harika! Sektör ortalamasına çok uygun, bu teklifi büyük ihtimalle havada kaparlar.", risk: "Düşük Risk", border: 'border-green-200' };
+    if (marj === 40) return { skor: 78, renk: 'bg-yellow-500', text: 'text-yellow-700', bg: 'bg-yellow-50', mesaj: "Güzel marj. Sistem verilerine göre iyi bir noktadasın ama müşteri ufak bir indirim veya pazarlık isteyebilir, hazırlıklı ol.", risk: "Orta Risk", border: 'border-yellow-200' };
+    if (marj === 50) return { skor: 45, renk: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50', mesaj: "Riskli: Bu sektördeki geçmiş tekliflerde %50 marj %80 oranında reddedildi. Olasılık düşük, iş kaçabilir, dikkat!", risk: "Yüksek Risk", border: 'border-red-200' };
+    if (marj >= 75) return { skor: 12, renk: 'bg-rose-600', text: 'text-rose-700', bg: 'bg-rose-50', mesaj: "Kankacım n'aptın? Bu fiyatı verirsek iş kesin kaçar, rakip firmalara hediye etmiş oluruz. Kesinlikle revize etmelisin!", risk: "Çok Yüksek Risk", border: 'border-rose-200' };
+    return { skor: 85, renk: 'bg-blue-500', text: 'text-blue-700', bg: 'bg-blue-50', mesaj: "Sistem analizi yapılıyor...", risk: "Bilinmiyor", border: 'border-blue-200' };
+  };
+  const aiAnaliz = getAiKazanmaOlasiligi(hesap.karMarji);
 
   const handleHesap = (alan: string, deger: any) => {
       setHesap({...hesap, [alan]: deger});
@@ -651,6 +659,31 @@ export default function TekliflerSayfasi() {
                                         <div className="text-[10px] text-green-600 font-bold mt-1">Net Kâr: +{Math.round(hsNetKar).toLocaleString()} ₺</div>
                                     </div>
                                     <div className="text-2xl font-black text-slate-800">{Math.round(hsSatisFiyati).toLocaleString()} ₺</div>
+                                </div>
+
+                                {/* 🧠 FAZ 3: YAPAY ZEKA SATIŞ KOÇU & KAZANMA OLASILIĞI MOTORU */}
+                                <div className={`mt-4 mb-4 p-4 rounded-xl border transition-all duration-300 ${aiAnaliz.bg} ${aiAnaliz.border}`}>
+                                    <div className="flex justify-between items-end mb-3">
+                                        <div>
+                                            <h5 className={`font-black text-sm flex items-center gap-1.5 ${aiAnaliz.text}`}>
+                                                <Brain size={18} className={aiAnaliz.skor > 50 ? 'animate-pulse' : ''} />
+                                                AI Satış Zekası & Kazanma İhtimali
+                                            </h5>
+                                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md mt-1.5 inline-block text-white shadow-sm ${aiAnaliz.renk}`}>
+                                                Risk: {aiAnaliz.risk}
+                                            </span>
+                                        </div>
+                                        <div className={`text-4xl font-black tracking-tighter ${aiAnaliz.text}`}>%{aiAnaliz.skor}</div>
+                                    </div>
+                                    
+                                    <div className="w-full bg-white rounded-full h-3 mb-3 overflow-hidden shadow-inner border border-slate-100">
+                                        <div className={`h-full rounded-full transition-all duration-1000 ease-out ${aiAnaliz.renk}`} style={{ width: `${aiAnaliz.skor}%` }}></div>
+                                    </div>
+                                    
+                                    <div className={`text-xs font-bold leading-relaxed flex items-start gap-2 ${aiAnaliz.text}`}>
+                                        <AlertTriangle size={16} className="shrink-0 mt-0.5"/>
+                                        <p>{aiAnaliz.mesaj}</p>
+                                    </div>
                                 </div>
 
                                 <div className="mt-3">
