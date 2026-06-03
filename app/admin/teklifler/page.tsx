@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN GLOBAL YÖNETİM MERKEZİ 🌍
-// Versiyon: TEKLİFLER V4.2 (Görünmez Giderler & Şeffaf Matematik Entegrasyonu 🔄)
+// Versiyon: TEKLİFLER V4.3 (Genişletilmiş Giderler & Matematiksel Hafıza Entegrasyonu 🧠)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -40,12 +40,13 @@ export default function TekliflerSayfasi() {
     template_type: 'standart', description: '', total_price: 0
   });
 
-  const [kalemler, setKalemler] = useState<{id: number, ad: string, adet: number, birim_fiyat: number, toplam: number}[]>([]);
+  // Kalemler state'ine detay (hesap dökümü) parametresi eklendi
+  const [kalemler, setKalemler] = useState<{id: number, ad: string, detay?: string, adet: number, birim_fiyat: number, toplam: number}[]>([]);
   const [secilenStokId, setSecilenStokId] = useState("");
   const [tempAdet, setTempAdet] = useState(1);
   const [tempFiyat, setTempFiyat] = useState(0);
 
-  // 🔥 AKILLI SERVİS HESAPLAYICI STATE'İ (GÖRÜNMEZ GİDERLER EKLENDİ) 🔥
+  // 🔥 AKILLI SERVİS HESAPLAYICI STATE'İ (GÖRÜNMEZ GİDERLER GENİŞLETİLDİ) 🔥
   const [hesap, setHesap] = useState({
     kisiSayisi: 2,
     maas: 50000,
@@ -54,8 +55,10 @@ export default function TekliflerSayfasi() {
     mesafeKm: 100,
     kmMaliyeti: 6,
     yemekMaliyeti: 600,
-    sarfMalzeme: 500, // YENİ: Balata spreyi, yağ, eldiven vb.
-    ekipmanAmortisman: 300, // YENİ: Hilti, tork anahtarı, İSG yıpranma payı
+    konaklama: 0, // YENİ: Şehir dışı veya uzun süreli işler için
+    platformKiralama: 0, // YENİ: Makaslı platform, manlift veya sepetli vinç kiralama
+    sarfMalzeme: 500, 
+    ekipmanAmortisman: 300, 
     mesaiCarpani: 1, 
     genelGiderYuzdesi: 15,
     karMarji: 40
@@ -101,12 +104,17 @@ export default function TekliflerSayfasi() {
     setSecilenStokId(""); setTempAdet(1); setTempFiyat(0);
   };
 
+  // 🔥 YENİ: Hesaplanan fiyata matematiği gizli döküm olarak gömüyoruz
   const akilliFiyatiTeklifeEkle = (hesaplananFiyat: number) => {
-      const ad = `Vinç Servis ve Müdahale Hizmeti (İşçilik, Yol, Donanım ve Konaklama Dahil)`;
+      const ad = `Vinç Servis ve Müdahale Hizmeti`;
+      
+      // Teklifte veya PDF'te her zaman görebileceğimiz o sihirli hesap özeti
+      const detay = `Sistem Hesap Dökümü: ${hesap.kisiSayisi} Personel (${hsToplamSure} Saat), ${hesap.mesafeKm}km Yol. | (Taban Maliyetler: İşçilik ${Math.round(hsIscilikMaliyeti)}₺, Yol ${Math.round(hsYolMaliyeti)}₺, Platform Kiralama ${hesap.platformKiralama}₺, Konaklama ${hesap.konaklama}₺, Ekipman/Sarf/Yemek ${hesap.sarfMalzeme + hesap.ekipmanAmortisman + hesap.yemekMaliyeti}₺) | +%${hesap.genelGiderYuzdesi} Şirket Gideri | Hedeflenen Kâr: %${hesap.karMarji}`;
+
       setKalemler([...kalemler, {
-          id: Date.now(), ad, adet: 1, birim_fiyat: Math.round(hesaplananFiyat), toplam: Math.round(hesaplananFiyat)
+          id: Date.now(), ad, detay, adet: 1, birim_fiyat: Math.round(hesaplananFiyat), toplam: Math.round(hesaplananFiyat)
       }]);
-      alert("Akıllı fiyat başarıyla teklife eklendi! 🚀");
+      alert("Akıllı fiyat tüm matematiksel dökümleriyle birlikte teklife eklendi! 🚀");
   };
 
   const kalemSil = (id: number) => setKalemler(kalemler.filter(k => k.id !== id));
@@ -187,7 +195,7 @@ export default function TekliflerSayfasi() {
   const bekleyenTutar = teklifler.filter(t => t.status === 'beklemede').reduce((a, b) => a + b.total_price, 0);
   const onayliTutar = teklifler.filter(t => t.status === 'onaylandi').reduce((a, b) => a + b.total_price, 0);
 
-  // 🔥 AKILLI HESAPLAMA MATEMATİĞİ 🔥
+  // 🔥 AKILLI HESAPLAMA MATEMATİĞİ (GÜNCELLENDİ) 🔥
   const hsSaatlikKisiTaban = hesap.maas / 220; 
   const hsSaatlikKisi = hsSaatlikKisiTaban * hesap.mesaiCarpani; 
   
@@ -195,8 +203,8 @@ export default function TekliflerSayfasi() {
   const hsIscilikMaliyeti = hsToplamSure * hsSaatlikKisi * hesap.kisiSayisi;
   const hsYolMaliyeti = hesap.mesafeKm * hesap.kmMaliyeti;
   
-  // YENİ: Sarf malzeme ve ekipman amortismanı eklendi
-  const hsTabanMaliyet = hsIscilikMaliyeti + hsYolMaliyeti + hesap.yemekMaliyeti + hesap.sarfMalzeme + hesap.ekipmanAmortisman;
+  // YENİ: Konaklama ve Platform kiralama dahil edildi
+  const hsTabanMaliyet = hsIscilikMaliyeti + hsYolMaliyeti + hesap.yemekMaliyeti + hesap.sarfMalzeme + hesap.ekipmanAmortisman + hesap.konaklama + hesap.platformKiralama;
   const hsGenelGiderMiktari = hsTabanMaliyet * (hesap.genelGiderYuzdesi / 100);
   const hsGenelGiderli = hsTabanMaliyet + hsGenelGiderMiktari;
   
@@ -213,7 +221,7 @@ export default function TekliflerSayfasi() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans">
       
-      {/* ÜST BAŞLIK & İSTATİSTİK (Aynı Bırakıldı) */}
+      {/* ÜST BAŞLIK & İSTATİSTİK */}
       <div className="flex justify-between items-center mb-8">
         <div>
             <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2"><FileText className="text-blue-600"/> Teklif Yönetimi</h1>
@@ -323,7 +331,7 @@ export default function TekliflerSayfasi() {
                             </select>
                         </div>
 
-                        {/* 2. Şablon & 3. Müşteri (Aynı Bırakıldı) */}
+                        {/* 2. Şablon & 3. Müşteri */}
                         <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100">
                             <label className="text-xs font-bold text-blue-600 uppercase block mb-3">Şablon Türü Seçin</label>
                             <div className="flex gap-4">
@@ -352,7 +360,7 @@ export default function TekliflerSayfasi() {
                             </div>
                         </div>
 
-                        {/* 🔥🔥🔥 4. AKILLI SERVİS FİYAT HESAPLAYICI (GÜNCELLENDİ) 🔥🔥🔥 */}
+                        {/* 🔥🔥🔥 4. AKILLI SERVİS FİYAT HESAPLAYICI 🔥🔥🔥 */}
                         <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className="font-black text-indigo-800 flex items-center gap-2"><Calculator size={20}/> Akıllı Servis Fiyatı Hesaplayıcı</h4>
@@ -398,7 +406,15 @@ export default function TekliflerSayfasi() {
                                     </select>
                                 </div>
 
-                                {/* YENİ GİDER KALEMLERİ */}
+                                {/* YENİ GİDER KALEMLERİ (Gizli Giderler - Konaklama & Kiralama eklendi) */}
+                                <div className="bg-blue-50 p-2 rounded-xl border border-blue-200 col-span-2">
+                                    <label className="text-[9px] font-bold text-blue-600 uppercase block mb-1">Platform / Manlift Kiralama Bedeli</label>
+                                    <input type="number" className="w-full font-bold text-sm outline-none bg-transparent text-slate-800" value={hesap.platformKiralama} onChange={e => handleHesap('platformKiralama', Number(e.target.value))} />
+                                </div>
+                                <div className="bg-blue-50 p-2 rounded-xl border border-blue-200 col-span-2">
+                                    <label className="text-[9px] font-bold text-blue-600 uppercase block mb-1">Otel / Konaklama Bedeli</label>
+                                    <input type="number" className="w-full font-bold text-sm outline-none bg-transparent text-slate-800" value={hesap.konaklama} onChange={e => handleHesap('konaklama', Number(e.target.value))} />
+                                </div>
                                 <div className="bg-orange-50 p-2 rounded-xl border border-orange-200 col-span-2">
                                     <label className="text-[9px] font-bold text-orange-600 uppercase block mb-1">Sarf Malzeme (Sprey, Yağ, vb.)</label>
                                     <input type="number" className="w-full font-bold text-sm outline-none bg-transparent text-slate-800" value={hesap.sarfMalzeme} onChange={e => handleHesap('sarfMalzeme', Number(e.target.value))} />
@@ -457,7 +473,7 @@ export default function TekliflerSayfasi() {
                                     <div className="text-2xl font-black text-slate-800">{Math.round(hsSatisFiyati).toLocaleString()} ₺</div>
                                 </div>
 
-                                {/* 🔥 YENİ: MATEMATİKSEL DÖKÜM KISMI 🔥 */}
+                                {/* 🔥 YENİ: MATEMATİKSEL DÖKÜM KISMI (GÜNCELLENDİ) 🔥 */}
                                 <div className="mt-3">
                                     <button 
                                         onClick={() => setFormulGoster(!formulGoster)} 
@@ -476,8 +492,8 @@ export default function TekliflerSayfasi() {
                                                         <p><span className="text-blue-400">1. Saatlik Personel Maliyeti:</span> ({hesap.maas} ₺ / 220 Saat) x {hesap.mesaiCarpani} (Mesai Çarpanı) = <span className="text-white">{Math.round(hsSaatlikKisi).toLocaleString()} ₺ / Saat</span></p>
                                                         <p><span className="text-blue-400">2. Toplam İşçilik:</span> {hsToplamSure} Saat x {hesap.kisiSayisi} Kişi x {Math.round(hsSaatlikKisi)} ₺ = <span className="text-white">{Math.round(hsIscilikMaliyeti).toLocaleString()} ₺</span></p>
                                                         <p><span className="text-blue-400">3. Yol Maliyeti:</span> {hesap.mesafeKm} KM x {hesap.kmMaliyeti} ₺ = <span className="text-white">{Math.round(hsYolMaliyeti).toLocaleString()} ₺</span></p>
-                                                        <p><span className="text-blue-400">4. Toplam Donanım & Yemek:</span> {hesap.sarfMalzeme} ₺ (Sarf) + {hesap.ekipmanAmortisman} ₺ (Ekipman) + {hesap.yemekMaliyeti} ₺ (Yemek) = <span className="text-white">{(hesap.sarfMalzeme + hesap.ekipmanAmortisman + hesap.yemekMaliyeti).toLocaleString()} ₺</span></p>
-                                                        <p className="pt-1 mt-1 border-t border-slate-700 text-red-400 font-bold">5. TABAN MALİYET: {Math.round(hsIscilikMaliyeti).toLocaleString()} + {Math.round(hsYolMaliyeti).toLocaleString()} + {(hesap.sarfMalzeme + hesap.ekipmanAmortisman + hesap.yemekMaliyeti).toLocaleString()} = {Math.round(hsTabanMaliyet).toLocaleString()} ₺</p>
+                                                        <p><span className="text-blue-400">4. Toplam Donanım, Kiralama & Yemek:</span> Platform: {hesap.platformKiralama} ₺ + Konaklama: {hesap.konaklama} ₺ + Sarf: {hesap.sarfMalzeme} ₺ + Amortisman: {hesap.ekipmanAmortisman} ₺ + Yemek: {hesap.yemekMaliyeti} ₺ = <span className="text-white">{(hesap.platformKiralama + hesap.konaklama + hesap.sarfMalzeme + hesap.ekipmanAmortisman + hesap.yemekMaliyeti).toLocaleString()} ₺</span></p>
+                                                        <p className="pt-1 mt-1 border-t border-slate-700 text-red-400 font-bold">5. TABAN MALİYET: {Math.round(hsIscilikMaliyeti).toLocaleString()} + {Math.round(hsYolMaliyeti).toLocaleString()} + {(hesap.platformKiralama + hesap.konaklama + hesap.sarfMalzeme + hesap.ekipmanAmortisman + hesap.yemekMaliyeti).toLocaleString()} = {Math.round(hsTabanMaliyet).toLocaleString()} ₺</p>
                                                         <p><span className="text-yellow-400">6. Genel Gider Payı (%{hesap.genelGiderYuzdesi}):</span> {Math.round(hsTabanMaliyet).toLocaleString()} x %{hesap.genelGiderYuzdesi} = <span className="text-white">{Math.round(hsGenelGiderMiktari).toLocaleString()} ₺</span></p>
                                                         <p><span className="text-green-400">7. Hedef Kâr (%{hesap.karMarji}):</span> {Math.round(hsGenelGiderli).toLocaleString()} (Genel Giderli) x %{hesap.karMarji} = <span className="text-white">{Math.round(hsKarMiktari).toLocaleString()} ₺</span></p>
                                                         <p className="pt-1 mt-1 border-t border-slate-700 text-white font-bold">🎯 NİHAİ FİYAT: {Math.round(hsGenelGiderli).toLocaleString()} ₺ + {Math.round(hsKarMiktari).toLocaleString()} ₺ = {Math.round(hsSatisFiyati).toLocaleString()} ₺</p>
@@ -494,7 +510,7 @@ export default function TekliflerSayfasi() {
                             </button>
                         </div>
 
-                        {/* 5. Kalemler & 6. Notlar (Aynı Bırakıldı) */}
+                        {/* 5. Kalemler */}
                         <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
                             <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Box size={16} className="text-blue-500"/> Hizmet ve Ürünler</h4>
                             
@@ -517,10 +533,14 @@ export default function TekliflerSayfasi() {
                                 <tbody>
                                     {kalemler.map(k => (
                                         <tr key={k.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
-                                            <td className="p-3 font-medium text-slate-700">{k.ad}</td>
+                                            <td className="p-3">
+                                                <div className="font-medium text-slate-700">{k.ad}</div>
+                                                {/* YENİ: Hesaplanmış Kalemin Detayları Formda Gösteriliyor */}
+                                                {k.detay && <div className="text-[9px] text-slate-400 mt-1 pr-4 leading-relaxed">{k.detay}</div>}
+                                            </td>
                                             <td className="p-3 text-center text-slate-500">{k.adet}</td>
-                                            <td className="p-3 text-right text-slate-500">{k.birim_fiyat.toLocaleString()} ₺</td>
-                                            <td className="p-3 text-right font-bold text-slate-800">{k.toplam.toLocaleString()} ₺</td>
+                                            <td className="p-3 text-right text-slate-500 whitespace-nowrap">{k.birim_fiyat.toLocaleString()} ₺</td>
+                                            <td className="p-3 text-right font-bold text-slate-800 whitespace-nowrap">{k.toplam.toLocaleString()} ₺</td>
                                             <td className="p-3 text-center"><button onClick={() => kalemSil(k.id)} className="text-red-400 hover:text-red-600 bg-red-50 p-1.5 rounded transition"><Trash2 size={14}/></button></td>
                                         </tr>
                                     ))}
@@ -531,6 +551,7 @@ export default function TekliflerSayfasi() {
                             <div className="clear-both"></div>
                         </div>
 
+                        {/* 6. Notlar */}
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1 block">Teklif Notları / Şartlar</label>
                             <textarea className="w-full p-4 bg-white border border-slate-200 rounded-xl text-sm resize-none outline-none focus:border-blue-400 shadow-sm leading-relaxed" rows={3} placeholder="Ödeme koşulları, garanti süresi vb..." value={yeniTeklif.description} onChange={e => setYeniTeklif({...yeniTeklif, description: e.target.value})}></textarea>
@@ -546,7 +567,7 @@ export default function TekliflerSayfasi() {
         )}
       </AnimatePresence>
 
-      {/* --- MODAL 2: A4 KAĞIT ÖNİZLEME (ŞABLON MOTORU) (Aynı Bırakıldı) --- */}
+      {/* --- MODAL 2: A4 KAĞIT ÖNİZLEME (ŞABLON MOTORU) --- */}
       <AnimatePresence>
         {onizlemeAcik && seciliTeklif && (
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/90 z-[60] flex items-center justify-center p-4">
@@ -601,7 +622,11 @@ export default function TekliflerSayfasi() {
                                 <tbody className="text-sm">
                                     {seciliTeklif.items && seciliTeklif.items.map((item: any, i: number) => (
                                         <tr key={i} className="border-b border-slate-100">
-                                            <td className="p-3">{item.ad}</td>
+                                            <td className="p-3">
+                                                <div className="font-bold text-slate-800">{item.ad}</div>
+                                                {/* YENİ: A4 Kağıdına Çıktı Alırken Şık Bir Şekilde Hesap Dokümü Yazdırılır */}
+                                                {item.detay && <div className="text-[10px] text-slate-500 italic mt-0.5 leading-tight">{item.detay}</div>}
+                                            </td>
                                             <td className="p-3 text-center">{item.adet}</td>
                                             <td className="p-3 text-right">{Number(item.birim_fiyat).toLocaleString()} ₺</td>
                                             <td className="p-3 text-right font-bold">{Number(item.toplam).toLocaleString()} ₺</td>
