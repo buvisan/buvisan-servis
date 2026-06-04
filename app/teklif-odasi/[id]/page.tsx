@@ -53,9 +53,9 @@ export default function TeklifOdasiMusteriEkrani() {
     let anaTutar = Number(teklif.total_price);
     let ekstraHizmetler = 0;
 
-    if (opsiyonlar.hizliMudahale) ekstraHizmetler += 2500;
-    if (opsiyonlar.uzatilmisGaranti) ekstraHizmetler += 1500;
-    if (opsiyonlar.genelBakim) ekstraHizmetler += 1000;
+    if (opsiyonlar.hizliMudahale) ekstraHizmetler += 4500;
+    if (opsiyonlar.uzatilmisGaranti) ekstraHizmetler += 5500;
+    if (opsiyonlar.genelBakim) ekstraHizmetler += 8500;
 
     let araToplam = anaTutar + ekstraHizmetler;
 
