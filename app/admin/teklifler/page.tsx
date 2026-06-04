@@ -26,6 +26,12 @@ const ENDUSTRIYEL_BOLGELER: { [key: string]: { lat: number, lon: number } } = {
   "Sakarya - Arifiye OSB": { lat: 40.72, lon: 30.38 }
 };
 
+// 🔴 YENİ: Tam tarih ve saat formatı üreten yardımcı fonksiyon
+const tamZamanGetir = () => {
+  const now = new Date();
+  return now.toLocaleDateString('tr-TR') + ' ' + now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+};
+
 export default function TekliflerSayfasi() {
   
   // --- STATE ---
@@ -44,11 +50,10 @@ export default function TekliflerSayfasi() {
   
   const [formulGoster, setFormulGoster] = useState(false);
 
-  // 🔴 FAZ 2: Canlı Müşteri Aktivite Akışı State'i
-  const [canliAktiviteler, setCanliAktiviteler] = useState([
-    { id: 1, firma: "Zorlu Metal A.Ş.", mesaj: "Teklif linkine ilk kez tıkladı.", zaman: "Şimdi", tip: "giriş" },
-    { id: 2, firma: "Borçelik OSB", mesaj: "Önizleme sayfasını incelemeyi bitirdi, onay bekleniyor.", zaman: "10 dk önce", tip: "onay" }
-  ]);
+  // 🔴 FAZ 2: Canlı Müşteri Aktivite Akışı State'i (Başlangıç boş, useEffect ile dolacak)
+  const [canliAktiviteler, setCanliAktiviteler] = useState<any[]>([]);
+  // 🔴 YENİ: Canlı izleme ekranı için filtreleme state'i
+  const [aktiviteArama, setAktiviteArama] = useState("");
 
   // 🔴 YENİ: Müşteri İnteraktif Seçenekler State'i (Müşteri ekranıyla birebir aynı)
   const [musteriOpsiyonlari, setMusteriOpsiyonlari] = useState({
@@ -80,7 +85,15 @@ export default function TekliflerSayfasi() {
 
   const printRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { verileriGetir(); }, []);
+  useEffect(() => { 
+    verileriGetir(); 
+    
+    // 🔴 YENİ: Sayfa yüklendiğinde F5 korumalı aktiviteleri getir
+    const kayitliAktiviteler = localStorage.getItem('buvisan_canli_aktiviteler');
+    if (kayitliAktiviteler) {
+      setCanliAktiviteler(JSON.parse(kayitliAktiviteler));
+    }
+  }, []);
 
   const verileriGetir = async () => {
     const { data: teklifData } = await supabase.from('offers').select('*').order('created_at', { ascending: false });
@@ -132,10 +145,15 @@ export default function TekliflerSayfasi() {
     const secureLink = `${window.location.origin}/teklif-odasi/${teklifId || 'token-secure'}`;
     navigator.clipboard.writeText(secureLink);
     
-    setCanliAktiviteler(prev => [
-      { id: Date.now(), firma: firmaAdi, mesaj: "Müşteri özel erişim linki oluşturuldu ve panoya kopyalandı.", zaman: "Şimdi", tip: "giriş" },
-      ...prev
-    ]);
+    // 🔴 YENİ: LocalStorage kayıt mantığı eklendi ve tarih güncellendi
+    setCanliAktiviteler(prev => {
+      const yeniVeri = [
+        { id: Date.now(), firma: firmaAdi, mesaj: "Müşteri özel erişim linki oluşturuldu ve panoya kopyalandı.", zaman: tamZamanGetir(), tip: "giriş" },
+        ...prev
+      ];
+      localStorage.setItem('buvisan_canli_aktiviteler', JSON.stringify(yeniVeri));
+      return yeniVeri;
+    });
     alert("İnteraktif Teklif Odası Linki Kopyalandı! 🚀\nMüşteriye WhatsApp'tan gönderebilirsin.");
   };
 
@@ -150,10 +168,15 @@ export default function TekliflerSayfasi() {
     if(alan === 'genelKontrol') durumMesaji = yeniDeger ? "⚙️ Teklife 'Genel Kontrol' ekledi." : "Genel kontrol opsiyonunu çıkardı.";
     if(alan === 'pesinOdeme') durumMesaji = yeniDeger ? "💵 '%5 Peşin Ödeme İndirimi'ni aktif etti." : "Vadeli ödemeye geri döndü.";
 
-    setCanliAktiviteler(prev => [
-      { id: Date.now(), firma: seciliTeklif?.customer_name || "Müşteri", mesaj: durumMesaji, zaman: "Şimdi", tip: "aksiyon" },
-      ...prev
-    ]);
+    // 🔴 YENİ: LocalStorage kayıt mantığı eklendi ve tarih güncellendi
+    setCanliAktiviteler(prev => {
+      const yeniVeri = [
+        { id: Date.now(), firma: seciliTeklif?.customer_name || "Müşteri", mesaj: durumMesaji, zaman: tamZamanGetir(), tip: "aksiyon" },
+        ...prev
+      ];
+      localStorage.setItem('buvisan_canli_aktiviteler', JSON.stringify(yeniVeri));
+      return yeniVeri;
+    });
   };
 
   const handleBiletSecimi = (biletId: string) => {
@@ -278,6 +301,11 @@ export default function TekliflerSayfasi() {
       return aramaUyumu && t.status === aktifSekme;
   });
 
+  // 🔴 YENİ: Aktiviteleri arama kutusuna göre filtreleyen yardımcı değişken
+  const filtrelenmisAktiviteler = canliAktiviteler.filter(ak => 
+    ak.firma.toLowerCase().includes(aktiviteArama.toLowerCase())
+  );
+
   const bekleyenTutar = teklifler.filter(t => t.status === 'beklemede').reduce((a, b) => a + (b.final_price || b.total_price), 0);
   const onayliTutar = teklifler.filter(t => t.status === 'onaylandi').reduce((a, b) => a + (b.final_price || b.total_price), 0);
 
@@ -331,21 +359,41 @@ export default function TekliflerSayfasi() {
       {/* 🔴 FAZ 2: DÜNYADA OLMAYAN REALTIME CANLI TAKİP ODASI WIDGETI */}
       <div className="bg-slate-900 text-white p-4 rounded-3xl mb-6 shadow-xl border border-slate-800 relative overflow-hidden">
         <div className="absolute right-0 top-0 p-4 opacity-5"><Radio size={80} className="text-red-500 animate-pulse"/></div>
-        <div className="flex items-center gap-2 mb-3">
-          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
-          <h3 className="text-xs font-black uppercase tracking-widest text-slate-200 flex items-center gap-1"><Radio size={14} className="text-red-500"/> Canlı Müşteri İzleme & Teklif Odası Akışı (Realtime)</h3>
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-200 flex items-center gap-1"><Radio size={14} className="text-red-500"/> Canlı Müşteri İzleme & Teklif Odası Akışı (Realtime)</h3>
+          </div>
+          
+          {/* 🔴 YENİ: Arama Filtresi */}
+          <div className="relative w-full md:w-64 z-10">
+            <Search className="absolute left-2.5 top-2 text-slate-400 w-3.5 h-3.5"/>
+            <input 
+              type="text" 
+              placeholder="Müşteri ismine göre filtrele..." 
+              value={aktiviteArama} 
+              onChange={e => setAktiviteArama(e.target.value)} 
+              className="w-full pl-8 pr-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs outline-none focus:border-indigo-500 text-white transition"
+            />
+          </div>
         </div>
-        <div className="space-y-2 max-h-24 overflow-y-auto pr-2 font-mono text-[11px]">
+
+        <div className="space-y-2 max-h-32 overflow-y-auto pr-2 font-mono text-[11px] relative z-10">
           <AnimatePresence>
-            {canliAktiviteler.map(ak => (
-              <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} key={ak.id} className="flex justify-between items-start bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                <p>
-                  <span className="text-indigo-400 font-bold">[{ak.firma}]</span>{" "}
-                  <span className={ak.tip === 'aksiyon' ? 'text-yellow-400' : ak.tip === 'onay' ? 'text-green-400' : 'text-slate-300'}>{ak.mesaj}</span>
-                </p>
-                <span className="text-slate-500 text-[10px] whitespace-nowrap ml-4">{ak.zaman}</span>
-              </motion.div>
-            ))}
+            {filtrelenmisAktiviteler.length > 0 ? (
+              filtrelenmisAktiviteler.map(ak => (
+                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} key={ak.id} className="flex justify-between items-start bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                  <p>
+                    <span className="text-indigo-400 font-bold">[{ak.firma}]</span>{" "}
+                    <span className={ak.tip === 'aksiyon' ? 'text-yellow-400' : ak.tip === 'onay' ? 'text-green-400' : 'text-slate-300'}>{ak.mesaj}</span>
+                  </p>
+                  <span className="text-slate-500 text-[10px] whitespace-nowrap ml-4 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">{ak.zaman}</span>
+                </motion.div>
+              ))
+            ) : (
+              <div className="text-slate-500 text-center py-4 italic">Henüz bir aktivite yok veya filtrelemeye uygun kayıt bulunamadı.</div>
+            )}
           </AnimatePresence>
         </div>
       </div>
