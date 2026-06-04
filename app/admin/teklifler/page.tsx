@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN GLOBAL YÖNETİM MERKEZİ 🌍
-// Versiyon: TEKLİFLER V6.0 (FAZ 3: Satış Zekası & AI Kazanma Olasılığı Motoru 🧠)
+// Versiyon: TEKLİFLER V6.1 (FAZ 3: Satış Zekası & İnteraktif Müşteri Takibi 🧠)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -10,7 +10,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { 
   Loader2, Plus, FileText, Calendar, DollarSign, User, MapPin, 
   Box, Printer, Trash2, CheckCircle, XCircle, Search, FileCheck, Clock,
-  ThumbsUp, ThumbsDown, MessageCircle, X, Link as LinkIcon, Calculator, AlertTriangle, TrendingUp, Settings, ChevronDown, ChevronUp, CloudLightning, Copy, Radio, Eye, Brain
+  ThumbsUp, ThumbsDown, MessageCircle, X, Link as LinkIcon, Calculator, AlertTriangle, TrendingUp, Settings, ChevronDown, ChevronUp, CloudLightning, Copy, Radio, Eye, Brain,
+  Wallet, ShieldCheck, Wrench
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -49,11 +50,12 @@ export default function TekliflerSayfasi() {
     { id: 2, firma: "Borçelik OSB", mesaj: "Önizleme sayfasını incelemeyi bitirdi, onay bekleniyor.", zaman: "10 dk önce", tip: "onay" }
   ]);
 
-  // 🔴 FAZ 2: Müşteri İnteraktif Seçenekler State'i
+  // 🔴 YENİ: Müşteri İnteraktif Seçenekler State'i (Müşteri ekranıyla birebir aynı)
   const [musteriOpsiyonlari, setMusteriOpsiyonlari] = useState({
-    orijinalParca: true,
-    ekstraGaranti: false,
-    hizliMontaj: false
+    pesinOdeme: false,
+    servisOnceligi: false,
+    iscilikGarantisi: false,
+    genelKontrol: false
   });
 
   const [yeniTeklif, setYeniTeklif] = useState({
@@ -70,23 +72,10 @@ export default function TekliflerSayfasi() {
 
   // 🔥 AKILLI SERVİS HESAPLAYICI STATE 🔥
   const [hesap, setHesap] = useState({
-    kisiSayisi: 2,
-    maas: 50000,
-    yolSaati: 2,
-    arizaSaati: 3,
-    mesafeKm: 100,
-    kmMaliyeti: 6,
-    yemekMaliyeti: 600,
-    konaklama: 0, 
-    platformKiralama: 0, 
-    sarfMalzeme: 500, 
-    ekipmanAmortisman: 300, 
-    mesaiCarpani: 1, 
-    genelGiderYuzdesi: 15,
-    karMarji: 40,
-    hedefSehir: 'Bursa - Nilüfer OSB',
-    havaDurumu: 'normal', 
-    trafikYogunlugu: 'normal' 
+    kisiSayisi: 2, maas: 50000, yolSaati: 2, arizaSaati: 3, mesafeKm: 100, kmMaliyeti: 6,
+    yemekMaliyeti: 600, konaklama: 0, platformKiralama: 0, sarfMalzeme: 500, ekipmanAmortisman: 300, 
+    mesaiCarpani: 1, genelGiderYuzdesi: 15, karMarji: 40,
+    hedefSehir: 'Bursa - Nilüfer OSB', havaDurumu: 'normal', trafikYogunlugu: 'normal' 
   });
 
   const printRef = useRef<HTMLDivElement>(null);
@@ -107,7 +96,6 @@ export default function TekliflerSayfasi() {
     setYukleniyor(false);
   };
 
-  // 🌍 OTONOM ÇEVRESEL RİSK MOTORU (API)
   const otonomRiskAnaliziYap = async () => {
     const koordinat = ENDUSTRIYEL_BOLGELER[hesap.hedefSehir];
     if (!koordinat) return alert("Lütfen geçerli bir bölge seçiniz.");
@@ -122,20 +110,16 @@ export default function TekliflerSayfasi() {
         const anlikRuzgar = data.current.wind_speed_10m; 
 
         let hesaplananHava = 'normal';
-        if (anlikRuzgar > 25) {
-          hesaplananHava = 'firtina'; 
-        } else if (anlikSicaklik > 35 || anlikSicaklik < 3) {
-          hesaplananHava = 'asiri_isi'; 
-        }
+        if (anlikRuzgar > 25) hesaplananHava = 'firtina'; 
+        else if (anlikSicaklik > 35 || anlikSicaklik < 3) hesaplananHava = 'asiri_isi'; 
 
         const suAnkiSaat = new Date().getHours();
         const pikSaatler = [8, 9, 17, 18, 19]; 
         const metropolBolgeMi = hesap.hedefSehir.includes("İstanbul") || hesap.hedefSehir.includes("Gebze");
-        
         const hesaplananTrafik = (metropolBolgeMi && pikSaatler.includes(suAnkiSaat)) ? 'yogun' : 'normal';
 
         setHesap(prev => ({ ...prev, havaDurumu: hesaplananHava, trafikYogunlugu: hesaplananTrafik }));
-        alert(`[${hesap.hedefSehir}] Bölgesi Canlı Analiz Tamamlandı!\n\n🌤️ Sıcaklık: ${anlikSicaklik}°C\n💨 Rüzgar Hızı: ${anlikRuzgar} km/s\n🚦 Zamanlama: Saat ${suAnkiSaat}:00\n\nSistem tüm risk çarpanlarını kuruşu kuruşuna sabitledi.`);
+        alert(`[${hesap.hedefSehir}] Bölgesi Canlı Analiz Tamamlandı!\n\n🌤️ Sıcaklık: ${anlikSicaklik}°C\n💨 Rüzgar Hızı: ${anlikRuzgar} km/s\n🚦 Zamanlama: Saat ${suAnkiSaat}:00\n\nSistem risk çarpanlarını güncelledi.`);
       }
     } catch (error) {
       console.error(error);
@@ -144,7 +128,6 @@ export default function TekliflerSayfasi() {
     }
   };
 
-  // 🔴 FAZ 2: Teklif Odası Linki Kopyalama Fonksiyonu
   const linkKopyala = (teklifId: string, firmaAdi: string) => {
     const secureLink = `${window.location.origin}/teklif-odasi/${teklifId || 'token-secure'}`;
     navigator.clipboard.writeText(secureLink);
@@ -156,15 +139,16 @@ export default function TekliflerSayfasi() {
     alert("İnteraktif Teklif Odası Linki Kopyalandı! 🚀\nMüşteriye WhatsApp'tan gönderebilirsin.");
   };
 
-  // 🔴 FAZ 2: Müşteri Opsiyon Değiştirme Simülatörü
-  const handleOpsiyonDegisimi = (alan: 'orijinalParca' | 'ekstraGaranti' | 'hizliMontaj') => {
+  // 🔴 YENİ: Müşteri Opsiyon Değiştirme Simülatörü (İstenen fiyatlara göre güncellendi)
+  const handleOpsiyonDegisimi = (alan: 'pesinOdeme' | 'servisOnceligi' | 'iscilikGarantisi' | 'genelKontrol') => {
     const yeniDeger = !musteriOpsiyonlari[alan];
     setMusteriOpsiyonlari({ ...musteriOpsiyonlari, [alan]: yeniDeger });
 
     let durumMesaji = "";
-    if(alan === 'ekstraGaranti') durumMesaji = yeniDeger ? "Teklif odasında '+1 Yıl Ekstra Garanti' opsiyonunu ekledi." : "Teklif odasından ekstra garanti opsiyonunu kaldırdı.";
-    if(alan === 'orijinalParca') durumMesaji = yeniDeger ? "Orijinal yedek parça tercihine geri döndü." : "Maliyet düşürmek için 'Muadil Parça' opsiyonunu seçti!";
-    if(alan === 'hizliMontaj') durumMesaji = yeniDeger ? "Fiyatı etkileyen '24 Saat İçinde Acil Müdahale' butonunu aktif etti." : "Acil müdahale opsiyonunu kapattı.";
+    if(alan === 'servisOnceligi') durumMesaji = yeniDeger ? "🚀 'Aynı Gün Öncelikli Müdahale' opsiyonunu ekledi." : "Servis önceliği opsiyonunu kaldırdı.";
+    if(alan === 'iscilikGarantisi') durumMesaji = yeniDeger ? "🛡️ '3 Aylık İşçilik Garantisi'ni seçti." : "Garantiyi standart pakete çevirdi.";
+    if(alan === 'genelKontrol') durumMesaji = yeniDeger ? "⚙️ Teklife 'Genel Kontrol' ekledi." : "Genel kontrol opsiyonunu çıkardı.";
+    if(alan === 'pesinOdeme') durumMesaji = yeniDeger ? "💵 '%5 Peşin Ödeme İndirimi'ni aktif etti." : "Vadeli ödemeye geri döndü.";
 
     setCanliAktiviteler(prev => [
       { id: Date.now(), firma: seciliTeklif?.customer_name || "Müşteri", mesaj: durumMesaji, zaman: "Şimdi", tip: "aksiyon" },
@@ -183,7 +167,6 @@ export default function TekliflerSayfasi() {
               customer_address: bilet.cranes?.location_address || bilet.manual_location || '',
               customer_rep: bilet.manual_customer_rep || '',
           });
-          
           const adresText = (bilet.cranes?.location_address || bilet.manual_location || "").toLowerCase();
           if (adresText.includes("gebze")) setHesap(prev => ({ ...prev, hedefSehir: "Kocaeli - Gebze OSB" }));
           else if (adresText.includes("tuzla")) setHesap(prev => ({ ...prev, hedefSehir: "İstanbul - Tuzla OSB" }));
@@ -204,23 +187,26 @@ export default function TekliflerSayfasi() {
 
   const akilliFiyatiTeklifeEkle = (hesaplananFiyat: number) => {
       const ad = `Vinç Servis ve Müdahale Hizmeti`;
-      const detay = `Çevresel Analiz: ${hesap.hedefSehir} Bölgesi (Hava: ${hesap.havaDurumu === 'firtina' ? 'Şiddetli Rüzgar/Fırtına' : hesap.havaDurumu === 'asiri_isi' ? 'Aşırı Sıcak/Soğuk' : 'Açık/Normal'}, Trafik: ${hesap.trafikYogunlugu === 'yogun' ? 'Yoğun Saat' : 'Akıcı'}). | Maliyetler: İşçilik ${Math.round(hsIscilikMaliyeti)}₺, Yol ${Math.round(hsYolMaliyeti)}₺, Platform ${hesap.platformKiralama}₺, Çevresel Risk Primi: ${Math.round(hsCevreselRiskPrimi)}₺ | +%${hesap.genelGiderYuzdesi} Şirket Gideri | Kâr Marjı: %${hesap.karMarji}`;
+      const detay = `Çevresel Analiz: ${hesap.hedefSehir} Bölgesi (Hava: ${hesap.havaDurumu === 'firtina' ? 'Şiddetli Rüzgar' : hesap.havaDurumu === 'asiri_isi' ? 'Aşırı Sıcak' : 'Açık/Normal'}, Trafik: ${hesap.trafikYogunlugu === 'yogun' ? 'Yoğun Saat' : 'Akıcı'}). | Maliyetler: İşçilik ${Math.round(hsIscilikMaliyeti)}₺, Yol ${Math.round(hsYolMaliyeti)}₺, Platform ${hesap.platformKiralama}₺, Çevresel Risk Primi: ${Math.round(hsCevreselRiskPrimi)}₺ | +%${hesap.genelGiderYuzdesi} Şirket Gideri | Kâr Marjı: %${hesap.karMarji}`;
 
-      setKalemler([...kalemler, {
-          id: Date.now(), ad, detay, adet: 1, birim_fiyat: Math.round(hesaplananFiyat), toplam: Math.round(hesaplananFiyat)
-      }]);
-      alert("Akıllı fiyat tüm gerçek risk analizleriyle birlikte başarıyla eklendi! 🚀");
+      setKalemler([...kalemler, { id: Date.now(), ad, detay, adet: 1, birim_fiyat: Math.round(hesaplananFiyat), toplam: Math.round(hesaplananFiyat) }]);
+      alert("Akıllı fiyat teklife eklendi! 🚀");
   };
 
   const kalemSil = (id: number) => setKalemler(kalemler.filter(k => k.id !== id));
   const toplamTutar = kalemler.reduce((acc, k) => acc + k.toplam, 0);
 
-  // 🔴 FAZ 2: Müşterinin dinamik opsiyonlarına göre nihai fiyat hesaplama motoru
+  // 🔴 YENİ: Simülatör için Fiyat Hesaplama Motoru
   const dinamikMusteriToplami = (anaToplam: number) => {
     let carpanliToplam = anaToplam;
-    if (!musteriOpsiyonlari.orijinalParca) carpanliToplam -= 3500; // Muadil parça indirimi
-    if (musteriOpsiyonlari.ekstraGaranti) carpanliToplam += 5000;  // Garanti bedeli
-    if (musteriOpsiyonlari.hizliMontaj) carpanliToplam += 4000;    // Ekspres servis bedeli
+    if (musteriOpsiyonlari.servisOnceligi) carpanliToplam += 4500;
+    if (musteriOpsiyonlari.iscilikGarantisi) carpanliToplam += 5500;
+    if (musteriOpsiyonlari.genelKontrol) carpanliToplam += 8500;
+    
+    // Peşin ödeme %5 İndirimi
+    if (musteriOpsiyonlari.pesinOdeme) {
+        carpanliToplam -= (carpanliToplam * 0.05);
+    }
     return carpanliToplam;
   };
 
@@ -233,13 +219,9 @@ export default function TekliflerSayfasi() {
     if (error) {
         alert("Hata: " + error.message);
     } else {
-        if (seciliBiletId) {
-            await supabase.from('service_tickets').update({ pipeline_status: 'teklif_bekliyor', status: 'bekliyor' }).eq('id', seciliBiletId);
-        }
+        if (seciliBiletId) await supabase.from('service_tickets').update({ pipeline_status: 'teklif_bekliyor', status: 'bekliyor' }).eq('id', seciliBiletId);
         alert("Teklif Oluşturuldu! Ana ekrandaki iş emri güncellendi. 📄");
-        setModalAcik(false);
-        verileriGetir();
-        formuSifirla();
+        setModalAcik(false); verileriGetir(); formuSifirla();
     }
     setYukleniyor(false);
   };
@@ -267,7 +249,7 @@ export default function TekliflerSayfasi() {
 
   const whatsappPaylas = () => {
       if(!seciliTeklif) return;
-      const mesaj = `Sayın ${seciliTeklif.customer_rep || 'Yetkili'}, ${seciliTeklif.template_type === 'standart' ? 'Fiyat Teklifiniz' : 'Sözleşmeniz'} ektedir. Toplam Tutar: ${seciliTeklif.total_price.toLocaleString()} TL. Saygılarımızla, Buvisan Vinç.`;
+      const mesaj = `Sayın ${seciliTeklif.customer_rep || 'Yetkili'}, ${seciliTeklif.template_type === 'standart' ? 'Fiyat Teklifiniz' : 'Sözleşmeniz'} ektedir. Toplam Tutar: ${(seciliTeklif.final_price || seciliTeklif.total_price).toLocaleString()} TL. Saygılarımızla, Buvisan Vinç.`;
       const url = `https://wa.me/?text=${encodeURIComponent(mesaj)}`;
       window.open(url, '_blank');
   };
@@ -296,36 +278,31 @@ export default function TekliflerSayfasi() {
       return aramaUyumu && t.status === aktifSekme;
   });
 
-  const bekleyenTutar = teklifler.filter(t => t.status === 'beklemede').reduce((a, b) => a + b.total_price, 0);
-  const onayliTutar = teklifler.filter(t => t.status === 'onaylandi').reduce((a, b) => a + b.total_price, 0);
+  const bekleyenTutar = teklifler.filter(t => t.status === 'beklemede').reduce((a, b) => a + (b.final_price || b.total_price), 0);
+  const onayliTutar = teklifler.filter(t => t.status === 'onaylandi').reduce((a, b) => a + (b.final_price || b.total_price), 0);
 
   // --- MATEMATİKSEL MOTOR HESAPLAMALARI ---
   const hsSaatlikKisiTaban = hesap.maas / 220; 
   const hsSaatlikKisi = hsSaatlikKisiTaban * hesap.mesaiCarpani; 
-  
   const hsToplamSure = hesap.yolSaati + hesap.arizaSaati;
   const hsIscilikMaliyeti = hsToplamSure * hsSaatlikKisi * hesap.kisiSayisi;
   const hsYolMaliyeti = hesap.mesafeKm * hesap.kmMaliyeti;
-  
   const hpHavaCarpani = hesap.havaDurumu === 'firtina' ? 1.25 : hesap.havaDurumu === 'asiri_isi' ? 1.10 : 1.0;
   const hpTrafikCarpani = hesap.trafikYogunlugu === 'yogun' ? 1.15 : 1.0;
-  
   const hsCevreselRiskPrimi = (hsIscilikMaliyeti * (hpHavaCarpani - 1)) + (hsYolMaliyeti * (hpTrafikCarpani - 1));
-
   const hsTabanMaliyet = hsIscilikMaliyeti + hsYolMaliyeti + hesap.yemekMaliyeti + hesap.sarfMalzeme + hesap.ekipmanAmortisman + hesap.konaklama + hesap.platformKiralama + hsCevreselRiskPrimi;
   const hsGenelGiderMiktari = hsTabanMaliyet * (hesap.genelGiderYuzdesi / 100);
   const hsGenelGiderli = hsTabanMaliyet + hsGenelGiderMiktari;
-  
   const hsKarMiktari = hsGenelGiderli * (hesap.karMarji / 100);
   const hsSatisFiyati = hsGenelGiderli + hsKarMiktari;
   const hsNetKar = hsSatisFiyati - hsTabanMaliyet;
 
   // 🧠 FAZ 3: YAPAY ZEKA SATIŞ ZEKASI / KAZANMA OLASILIĞI MOTORU
   const getAiKazanmaOlasiligi = (marj: number) => {
-    if (marj <= 30) return { skor: 94, renk: 'bg-green-500', text: 'text-green-700', bg: 'bg-green-50', mesaj: "Kankacım bu oran harika! Sektör ortalamasına çok uygun, bu teklifi büyük ihtimalle havada kaparlar.", risk: "Düşük Risk", border: 'border-green-200' };
-    if (marj === 40) return { skor: 78, renk: 'bg-yellow-500', text: 'text-yellow-700', bg: 'bg-yellow-50', mesaj: "Güzel marj. Sistem verilerine göre iyi bir noktadasın ama müşteri ufak bir indirim veya pazarlık isteyebilir, hazırlıklı ol.", risk: "Orta Risk", border: 'border-yellow-200' };
-    if (marj === 50) return { skor: 45, renk: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50', mesaj: "Riskli: Bu sektördeki geçmiş tekliflerde %50 marj %80 oranında reddedildi. Olasılık düşük, iş kaçabilir, dikkat!", risk: "Yüksek Risk", border: 'border-red-200' };
-    if (marj >= 75) return { skor: 12, renk: 'bg-rose-600', text: 'text-rose-700', bg: 'bg-rose-50', mesaj: "Kankacım n'aptın? Bu fiyatı verirsek iş kesin kaçar, rakip firmalara hediye etmiş oluruz. Kesinlikle revize etmelisin!", risk: "Çok Yüksek Risk", border: 'border-rose-200' };
+    if (marj <= 30) return { skor: 94, renk: 'bg-green-500', text: 'text-green-700', bg: 'bg-green-50', mesaj: "Kankacım bu oran harika! Sektör ortalamasına çok uygun.", risk: "Düşük Risk", border: 'border-green-200' };
+    if (marj === 40) return { skor: 78, renk: 'bg-yellow-500', text: 'text-yellow-700', bg: 'bg-yellow-50', mesaj: "Güzel marj. Müşteri ufak bir indirim veya pazarlık isteyebilir.", risk: "Orta Risk", border: 'border-yellow-200' };
+    if (marj === 50) return { skor: 45, renk: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50', mesaj: "Riskli: Bu sektördeki geçmiş tekliflerde %50 marj genelde reddedildi.", risk: "Yüksek Risk", border: 'border-red-200' };
+    if (marj >= 75) return { skor: 12, renk: 'bg-rose-600', text: 'text-rose-700', bg: 'bg-rose-50', mesaj: "Kankacım n'aptın? Rakip firmalara hediye etmiş oluruz, revize et!", risk: "Çok Yüksek Risk", border: 'border-rose-200' };
     return { skor: 85, renk: 'bg-blue-500', text: 'text-blue-700', bg: 'bg-blue-50', mesaj: "Sistem analizi yapılıyor...", risk: "Bilinmiyor", border: 'border-blue-200' };
   };
   const aiAnaliz = getAiKazanmaOlasiligi(hesap.karMarji);
@@ -409,7 +386,7 @@ export default function TekliflerSayfasi() {
           <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                   <thead className="bg-slate-50/50 text-slate-500 font-bold uppercase text-[10px]">
-                      <tr><th className="p-4 pl-6">Tarih</th><th className="p-4">Müşteri</th><th className="p-4">Şablon</th><th className="p-4">Tutar</th><th className="p-4">Durum</th><th className="p-4 text-right pr-6">İşlem</th></tr>
+                      <tr><th className="p-4 pl-6">Tarih</th><th className="p-4">Müşteri</th><th className="p-4">Şablon</th><th className="p-4">Tutar (Son Durum)</th><th className="p-4">Durum</th><th className="p-4 text-right pr-6">İşlem</th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                       {filtrelenmis.map(t => (
@@ -420,7 +397,25 @@ export default function TekliflerSayfasi() {
                                   {t.related_ticket_id && <div className="text-[9px] text-blue-500 mt-1 flex items-center gap-1"><LinkIcon size={10}/> Arızaya Bağlı Teklif</div>}
                               </td>
                               <td className="p-4"><span className="bg-blue-50 text-blue-600 border border-blue-100 px-2.5 py-1 rounded text-[10px] uppercase font-bold">{t.template_type}</span></td>
-                              <td className="p-4 font-black text-slate-700">{t.total_price.toLocaleString()} ₺</td>
+                              
+                              {/* 🔴 YENİ: Akıllı Fiyat ve Opsiyon Rozetleri Gösterimi */}
+                              <td className="p-4">
+                                  <div className="font-black text-slate-800 text-base">{(t.final_price || t.total_price).toLocaleString()} ₺</div>
+                                  
+                                  {t.final_price && t.final_price !== t.total_price && (
+                                    <div className="text-[10px] text-slate-400 line-through mt-0.5">İlk Teklif: {t.total_price.toLocaleString()} ₺</div>
+                                  )}
+
+                                  {t.selected_options && (
+                                    <div className="flex flex-wrap gap-1 mt-1.5 max-w-[150px]">
+                                      {t.selected_options.servisOnceligi && <span className="bg-red-100 text-red-600 border border-red-200 text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">🚀 Acil</span>}
+                                      {t.selected_options.iscilikGarantisi && <span className="bg-blue-100 text-blue-600 border border-blue-200 text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">🛡️ Garanti</span>}
+                                      {t.selected_options.genelKontrol && <span className="bg-orange-100 text-orange-600 border border-orange-200 text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">⚙️ Bakım</span>}
+                                      {t.selected_options.pesinOdeme && <span className="bg-emerald-100 text-emerald-600 border border-emerald-200 text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">💵 Peşin %5</span>}
+                                    </div>
+                                  )}
+                              </td>
+
                               <td className="p-4">
                                   {t.status === 'beklemede' && <span className="text-orange-500 bg-orange-50 border border-orange-100 px-2.5 py-1 rounded-full font-bold text-[10px] flex items-center gap-1 w-max"><Clock size={12}/> BEKLİYOR</span>}
                                   {t.status === 'onaylandi' && <span className="text-green-600 bg-green-50 border border-green-100 px-2.5 py-1 rounded-full font-bold text-[10px] flex items-center gap-1 w-max"><CheckCircle size={12}/> ONAYLANDI</span>}
@@ -433,7 +428,6 @@ export default function TekliflerSayfasi() {
                                         <button onClick={() => durumGuncelle(t.id, 'reddedildi')} className="p-2 bg-red-50 text-red-500 border border-red-100 rounded-lg hover:bg-red-600 hover:text-white transition mr-2" title="Reddet"><ThumbsDown size={16}/></button>
                                       </>
                                   )}
-                                  {/* 🔴 FAZ 2: LİNK KOPYALAMA BUTONU */}
                                   <button onClick={() => linkKopyala(t.id, t.customer_name)} className="p-2 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-lg hover:bg-indigo-600 hover:text-white transition" title="Teklif Odası Linkini Kopyala"><Copy size={16}/></button>
                                   <button onClick={() => { setSeciliTeklif(t); setOnizlemeAcik(true); }} className="p-2 bg-blue-50 text-blue-500 border border-blue-100 rounded-lg hover:bg-blue-600 hover:text-white transition" title="Görüntüle & İnteraktif Oda Simülatörü"><Printer size={16}/></button>
                                   <button onClick={() => sil(t.id)} className="p-2 bg-slate-50 text-slate-400 border border-slate-200 rounded-lg hover:bg-red-500 hover:text-white transition"><Trash2 size={16}/></button>
@@ -842,7 +836,7 @@ export default function TekliflerSayfasi() {
                                 <tfoot>
                                     <tr className="border-t-2 border-slate-800">
                                         <td colSpan={3} className="p-3 text-right font-bold uppercase text-slate-600">Genel Toplam</td>
-                                        {/* 🔴 FAZ 2: Müşterinin opsiyonlarına göre dinamikleşen canlı A4 toplamı */}
+                                        {/* 🔴 YENİ: Müşterinin opsiyonlarına göre dinamikleşen canlı A4 toplamı */}
                                         <td className="p-3 text-right font-black text-lg">
                                           {dinamikMusteriToplami(Number(seciliTeklif.total_price)).toLocaleString()} ₺
                                         </td>
@@ -870,63 +864,79 @@ export default function TekliflerSayfasi() {
                         </div>
                     </div>
 
-                    {/* 🔴 FAZ 2: İNTERAKTİF TEKLİF ODASI MÜŞTERİ SEÇENEKLERİ (Sağ Taraf Kontrol Paneli) */}
-                    <div className="w-full md:w-80 bg-slate-900 border-l border-slate-800 p-6 flex flex-col justify-between shrink-0 text-white">
+                    {/* 🔴 YENİ: İNTERAKTİF TEKLİF ODASI MÜŞTERİ SEÇENEKLERİ (Müşteri ile Birebir) */}
+                    <div className="w-full md:w-80 bg-slate-900 border-l border-slate-800 p-6 flex flex-col justify-between shrink-0 text-white overflow-y-auto">
                       <div>
                         <div className="flex items-center gap-1.5 text-xs font-black tracking-widest text-indigo-400 uppercase mb-4">
                           <Eye size={16}/> Müşteri Ekranı Simülatörü
                         </div>
                         <p className="text-slate-400 text-xs leading-relaxed mb-6">
-                          Müşteri kendisine gönderilen özel web linkini açtığında aşağıdaki interaktif opsiyonlarla oynayabilir. Seçimlerin fiyata ve yukarıdaki canlı akış paneline etkisini anlık izle.
+                          Müşteri kendisine gönderilen özel web linkini açtığında aşağıdaki interaktif opsiyonlarla oynayabilir. Seçimlerin fiyata etkisini anlık test edin.
                         </p>
 
                         <div className="space-y-4">
-                          {/* Opsiyon 1 */}
+                          
+                          {/* Opsiyon 1: Ödeme Vadesi */}
                           <div className="bg-slate-800 p-3.5 rounded-xl border border-slate-700/60">
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-bold text-slate-200">Parça Kalite Tercihi</span>
-                              <span className="text-[10px] font-mono text-slate-400">-{3.500.toLocaleString()} ₺</span>
+                              <span className="text-xs font-bold text-slate-200 flex items-center gap-1"><Wallet size={12} className="text-emerald-400"/> Ödeme Vadesi</span>
+                              <span className="text-[10px] font-mono text-emerald-400 font-bold">%5 İndirim</span>
                             </div>
                             <button 
-                              onClick={() => handleOpsiyonDegisimi('orijinalParca')}
-                              className={`w-full text-left p-2 rounded-lg text-xs font-bold border transition ${musteriOpsiyonlari.orijinalParca ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
+                              onClick={() => handleOpsiyonDegisimi('pesinOdeme')}
+                              className={`w-full text-left p-2 rounded-lg text-[11px] font-bold border transition ${musteriOpsiyonlari.pesinOdeme ? 'bg-emerald-600/20 border-emerald-500 text-emerald-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
                             >
-                              {musteriOpsiyonlari.orijinalParca ? "🟢 %100 Orijinal Yedek Parça" : "🟡 Muadil Parça Kullanılsın"}
+                              {musteriOpsiyonlari.pesinOdeme ? "💵 Peşin Ödeme İndirimi" : "⏱️ Vadeli Ödeme (Standart)"}
                             </button>
                           </div>
 
-                          {/* Opsiyon 2 */}
+                          {/* Opsiyon 2: Servis Önceliği */}
                           <div className="bg-slate-800 p-3.5 rounded-xl border border-slate-700/60">
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-bold text-slate-200">Ekstra Garanti (+1 Yıl)</span>
-                              <span className="text-[10px] font-mono text-green-400">+{5.000.toLocaleString()} ₺</span>
+                              <span className="text-xs font-bold text-slate-200 flex items-center gap-1"><Clock size={12} className="text-red-400"/> Servis Önceliği</span>
+                              <span className="text-[10px] font-mono text-slate-400">+{4.500.toLocaleString()} ₺</span>
                             </div>
                             <button 
-                              onClick={() => handleOpsiyonDegisimi('ekstraGaranti')}
-                              className={`w-full text-left p-2 rounded-lg text-xs font-bold border transition ${musteriOpsiyonlari.ekstraGaranti ? 'bg-green-600/20 border-green-500 text-green-300' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
+                              onClick={() => handleOpsiyonDegisimi('servisOnceligi')}
+                              className={`w-full text-left p-2 rounded-lg text-[11px] font-bold border transition ${musteriOpsiyonlari.servisOnceligi ? 'bg-red-600/20 border-red-500 text-red-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
                             >
-                              {musteriOpsiyonlari.ekstraGaranti ? "🔒 +1 Yıl Ekstra Garanti Aktif" : "❌ İstemiyorum"}
+                              {musteriOpsiyonlari.servisOnceligi ? "🚀 Aynı Gün Öncelikli Müdahale" : "⏳ Standart Servis Planlaması"}
                             </button>
                           </div>
 
-                          {/* Opsiyon 3 */}
+                          {/* Opsiyon 3: İşçilik Garantisi */}
                           <div className="bg-slate-800 p-3.5 rounded-xl border border-slate-700/60">
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-bold text-slate-200">24 Saat Acil Müdahale</span>
-                              <span className="text-[10px] font-mono text-green-400">+{4.000.toLocaleString()} ₺</span>
+                              <span className="text-xs font-bold text-slate-200 flex items-center gap-1"><ShieldCheck size={12} className="text-blue-400"/> İşçilik Garantisi</span>
+                              <span className="text-[10px] font-mono text-slate-400">+{5.500.toLocaleString()} ₺</span>
                             </div>
                             <button 
-                              onClick={() => handleOpsiyonDegisimi('hizliMontaj')}
-                              className={`w-full text-left p-2 rounded-lg text-xs font-bold border transition ${musteriOpsiyonlari.hizliMontaj ? 'bg-orange-600/20 border-orange-500 text-orange-300' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
+                              onClick={() => handleOpsiyonDegisimi('iscilikGarantisi')}
+                              className={`w-full text-left p-2 rounded-lg text-[11px] font-bold border transition ${musteriOpsiyonlari.iscilikGarantisi ? 'bg-blue-600/20 border-blue-500 text-blue-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
                             >
-                              {musteriOpsiyonlari.hizliMontaj ? "⚡ Ekspres Servis (24s)" : "⏱️ Standart Planlama"}
+                              {musteriOpsiyonlari.iscilikGarantisi ? "🛡️ 3 Aylık Uzatılmış Garanti" : "📋 Standart Garanti (3 Hafta)"}
                             </button>
                           </div>
+
+                          {/* Opsiyon 4: Genel Kontrol */}
+                          <div className="bg-slate-800 p-3.5 rounded-xl border border-slate-700/60">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-bold text-slate-200 flex items-center gap-1"><Wrench size={12} className="text-orange-400"/> Genel Kontrol</span>
+                              <span className="text-[10px] font-mono text-slate-400">+{8.500.toLocaleString()} ₺</span>
+                            </div>
+                            <button 
+                              onClick={() => handleOpsiyonDegisimi('genelKontrol')}
+                              className={`w-full text-left p-2 rounded-lg text-[11px] font-bold border transition ${musteriOpsiyonlari.genelKontrol ? 'bg-orange-600/20 border-orange-500 text-orange-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
+                            >
+                              {musteriOpsiyonlari.genelKontrol ? "⚙️ Genel Yağlama ve Fiziksel Kontrol" : "❌ Sadece Arıza Giderimi"}
+                            </button>
+                          </div>
+
                         </div>
                       </div>
 
                       {/* Standart İşlem Butonları */}
-                      <div className="space-y-2 pt-6 border-t border-slate-800">
+                      <div className="space-y-2 pt-6 border-t border-slate-800 mt-6">
                         <button onClick={yazdir} className="w-full bg-blue-600 text-white p-3 rounded-xl font-bold text-xs shadow hover:bg-blue-700 flex items-center justify-center gap-2 transition">
                             <Printer size={16}/> Yazdır / PDF Kaydet
                         </button>
