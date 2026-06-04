@@ -14,12 +14,12 @@ export default function TeklifOdasiMusteriEkrani() {
   const [hata, setHata] = useState(false);
   const [islemYukleniyor, setIslemYukleniyor] = useState(false);
 
-  // Müşterinin kendi ekranında oynayacağı, firmanızın iş modeline uygun YENİ opsiyonlar
+  // Opsiyon isimleri Admin paneliyle birebir eşleştirildi!
   const [opsiyonlar, setOpsiyonlar] = useState({
     pesinOdeme: false,
-    hizliMudahale: false,
-    uzatilmisGaranti: false,
-    genelBakim: false
+    servisOnceligi: false,
+    iscilikGarantisi: false,
+    genelKontrol: false
   });
 
   useEffect(() => {
@@ -53,9 +53,9 @@ export default function TeklifOdasiMusteriEkrani() {
     let anaTutar = Number(teklif.total_price);
     let ekstraHizmetler = 0;
 
-    if (opsiyonlar.hizliMudahale) ekstraHizmetler += 4500;
-    if (opsiyonlar.uzatilmisGaranti) ekstraHizmetler += 5500;
-    if (opsiyonlar.genelBakim) ekstraHizmetler += 8500;
+    if (opsiyonlar.servisOnceligi) ekstraHizmetler += 4500;
+    if (opsiyonlar.iscilikGarantisi) ekstraHizmetler += 5500;
+    if (opsiyonlar.genelKontrol) ekstraHizmetler += 8500;
 
     let araToplam = anaTutar + ekstraHizmetler;
 
@@ -71,9 +71,9 @@ export default function TeklifOdasiMusteriEkrani() {
     if (!teklif || !opsiyonlar.pesinOdeme) return 0;
     let anaTutar = Number(teklif.total_price);
     let ekstraHizmetler = 0;
-    if (opsiyonlar.hizliMudahale) ekstraHizmetler += 4500;
-    if (opsiyonlar.uzatilmisGaranti) ekstraHizmetler += 5500;
-    if (opsiyonlar.genelBakim) ekstraHizmetler += 8500;
+    if (opsiyonlar.servisOnceligi) ekstraHizmetler += 4500;
+    if (opsiyonlar.iscilikGarantisi) ekstraHizmetler += 5500;
+    if (opsiyonlar.genelKontrol) ekstraHizmetler += 8500;
     
     return (anaTutar + ekstraHizmetler) * 0.05;
   };
@@ -93,12 +93,15 @@ export default function TeklifOdasiMusteriEkrani() {
         })
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Hatası:", error); // Hatayı konsolda da görebilmek için
+        throw error;
+      }
 
       setTeklif({ ...teklif, status: yeniDurum });
       
     } catch (err) {
-      alert("İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.");
+      alert("İşlem sırasında bir hata oluştu, lütfen tekrar deneyin. (Konsolu kontrol et)");
     } finally {
       setIslemYukleniyor(false);
     }
@@ -165,7 +168,7 @@ export default function TeklifOdasiMusteriEkrani() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* Sol Taraf: Teklif Detayları (Maliyet kısımları tamamen gizlendi) */}
+          {/* Sol Taraf: Teklif Detayları */}
           <div className="lg:col-span-2 bg-slate-800 rounded-3xl p-6 md:p-10 shadow-xl border border-slate-700">
             <h3 className="text-xl font-bold text-white mb-6 border-b border-slate-700 pb-4">Hizmet ve Malzeme Dökümü</h3>
             
@@ -174,7 +177,6 @@ export default function TeklifOdasiMusteriEkrani() {
                 <div key={i} className="flex justify-between items-center bg-slate-900/50 p-5 rounded-2xl border border-slate-700/50 hover:border-slate-600 transition-colors">
                   <div>
                     <div className="font-bold text-slate-200 text-lg">{item.ad}</div>
-                    {/* İÇ MALİYETLERİ GÖSTEREN item.detay KISMI BURADAN KALDIRILDI */}
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-slate-500 font-mono mb-1">{item.adet} x {Number(item.birim_fiyat).toLocaleString()} ₺</div>
@@ -192,7 +194,7 @@ export default function TeklifOdasiMusteriEkrani() {
             </div>
           </div>
 
-          {/* Sağ Taraf: Müşteriye Özel Yenilenmiş İnteraktif Opsiyon Paneli */}
+          {/* Sağ Taraf: Opsiyonel Hizmetler */}
           <div className="space-y-6">
             <div className={`bg-slate-800 rounded-3xl p-6 shadow-xl border border-slate-700 transition-opacity ${islemTamamlandi ? 'opacity-50 pointer-events-none' : ''}`}>
               <h3 className="text-sm font-black text-white uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -203,7 +205,7 @@ export default function TeklifOdasiMusteriEkrani() {
 
               <div className="space-y-4">
                 
-                {/* Opsiyon 1: Ödeme Şekli (Korundu) */}
+                {/* Opsiyon 1: Ödeme Şekli */}
                 <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-colors">
                   <div className="flex justify-between items-start mb-3">
                     <span className="text-sm font-bold text-slate-200 flex items-center gap-1.5"><Wallet size={14} className="text-emerald-400"/> Ödeme Vadesi</span>
@@ -217,45 +219,45 @@ export default function TeklifOdasiMusteriEkrani() {
                   </button>
                 </div>
 
-                {/* YENİ Opsiyon 2: Acil Müdahale */}
+                {/* Opsiyon 2: Acil Müdahale */}
                 <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-colors">
                   <div className="flex justify-between items-start mb-3">
                     <span className="text-sm font-bold text-slate-200 flex items-center gap-1.5"><Clock size={14} className="text-red-400"/> Servis Önceliği</span>
                     <span className="text-xs font-mono text-slate-400">+{ (4500).toLocaleString() } ₺</span>
                   </div>
                   <button 
-                    onClick={() => setOpsiyonlar({...opsiyonlar, hizliMudahale: !opsiyonlar.hizliMudahale})}
-                    className={`w-full text-left p-3 rounded-xl text-sm font-bold border transition ${opsiyonlar.hizliMudahale ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-slate-800 border-slate-600 text-slate-400 hover:bg-slate-700'}`}
+                    onClick={() => setOpsiyonlar({...opsiyonlar, servisOnceligi: !opsiyonlar.servisOnceligi})}
+                    className={`w-full text-left p-3 rounded-xl text-sm font-bold border transition ${opsiyonlar.servisOnceligi ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-slate-800 border-slate-600 text-slate-400 hover:bg-slate-700'}`}
                   >
-                    {opsiyonlar.hizliMudahale ? "🚀 Aynı Gün Öncelikli Müdahale" : "⏳ Standart Servis Planlaması"}
+                    {opsiyonlar.servisOnceligi ? "🚀 Aynı Gün Öncelikli Müdahale" : "⏳ Standart Servis Planlaması"}
                   </button>
                 </div>
 
-                {/* YENİ Opsiyon 3: Uzatılmış Garanti */}
+                {/* Opsiyon 3: Uzatılmış Garanti */}
                 <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-colors">
                   <div className="flex justify-between items-start mb-3">
                     <span className="text-sm font-bold text-slate-200 flex items-center gap-1.5"><ShieldCheck size={14} className="text-blue-400"/> İşçilik Garantisi</span>
                     <span className="text-xs font-mono text-slate-400">+{ (5500).toLocaleString() } ₺</span>
                   </div>
                   <button 
-                    onClick={() => setOpsiyonlar({...opsiyonlar, uzatilmisGaranti: !opsiyonlar.uzatilmisGaranti})}
-                    className={`w-full text-left p-3 rounded-xl text-sm font-bold border transition ${opsiyonlar.uzatilmisGaranti ? 'bg-blue-500/20 border-blue-500/50 text-blue-400' : 'bg-slate-800 border-slate-600 text-slate-400 hover:bg-slate-700'}`}
+                    onClick={() => setOpsiyonlar({...opsiyonlar, iscilikGarantisi: !opsiyonlar.iscilikGarantisi})}
+                    className={`w-full text-left p-3 rounded-xl text-sm font-bold border transition ${opsiyonlar.iscilikGarantisi ? 'bg-blue-500/20 border-blue-500/50 text-blue-400' : 'bg-slate-800 border-slate-600 text-slate-400 hover:bg-slate-700'}`}
                   >
-                    {opsiyonlar.uzatilmisGaranti ? "🛡️ 3 Aylık Uzatılmış İşçilik Garantisi" : "📋 Standart Garanti (3 Hafta)"}
+                    {opsiyonlar.iscilikGarantisi ? "🛡️ 3 Aylık Uzatılmış İşçilik Garantisi" : "📋 Standart Garanti (3 Hafta)"}
                   </button>
                 </div>
 
-                {/* YENİ Opsiyon 4: Genel Bakım & Yağlama */}
+                {/* Opsiyon 4: Genel Bakım & Yağlama */}
                 <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-colors">
                   <div className="flex justify-between items-start mb-3">
                     <span className="text-sm font-bold text-slate-200 flex items-center gap-1.5"><Wrench size={14} className="text-orange-400"/> Genel Kontrol</span>
                     <span className="text-xs font-mono text-slate-400">+{ (8500).toLocaleString() } ₺</span>
                   </div>
                   <button 
-                    onClick={() => setOpsiyonlar({...opsiyonlar, genelBakim: !opsiyonlar.genelBakim})}
-                    className={`w-full text-left p-3 rounded-xl text-sm font-bold border transition ${opsiyonlar.genelBakim ? 'bg-orange-500/20 border-orange-500/50 text-orange-400' : 'bg-slate-800 border-slate-600 text-slate-400 hover:bg-slate-700'}`}
+                    onClick={() => setOpsiyonlar({...opsiyonlar, genelKontrol: !opsiyonlar.genelKontrol})}
+                    className={`w-full text-left p-3 rounded-xl text-sm font-bold border transition ${opsiyonlar.genelKontrol ? 'bg-orange-500/20 border-orange-500/50 text-orange-400' : 'bg-slate-800 border-slate-600 text-slate-400 hover:bg-slate-700'}`}
                   >
-                    {opsiyonlar.genelBakim ? "⚙️ Genel Yağlama ve Fiziksel Check-up Eklendi" : "❌ Sadece İlgili Arıza Giderimi"}
+                    {opsiyonlar.genelKontrol ? "⚙️ Genel Yağlama ve Fiziksel Check-up Eklendi" : "❌ Sadece İlgili Arıza Giderimi"}
                   </button>
                 </div>
 
