@@ -87,7 +87,9 @@ export default function TeklifOdasiMusteriEkrani() {
       const { error } = await supabase
         .from('offers')
         .update({ 
-            status: yeniDurum
+            status: yeniDurum,
+            final_price: dinamikToplamHesapla(),
+            selected_options: opsiyonlar
         })
         .eq('id', id);
 
