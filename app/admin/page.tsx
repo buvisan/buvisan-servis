@@ -13,7 +13,7 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock
 } from 'lucide-react';
 
 const PERSONEL_LISTESI = [
@@ -290,6 +290,20 @@ export default function AdminPanel() {
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/analiz')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-green-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-green-50 text-green-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-colors"><TrendingUp size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Finans</h3><p className="text-[10px] text-slate-400">Gelir raporları</p></div></motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/malzemeler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-yellow-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-yellow-50 text-yellow-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-yellow-500 group-hover:text-white transition-colors"><Package size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Depo</h3><p className="text-[10px] text-slate-400">Stok & Fiyat</p></div></motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/teklifler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-purple-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-purple-50 text-purple-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors"><FileText size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Teklif</h3><p className="text-[10px] text-slate-400">Sözleşme & Form</p></div></motion.button>
+                
+                {/* YENİ EKLENEN MENÜLER */}
+                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/mimli-sirketler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-red-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
+                    <div className="bg-red-50 text-red-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-colors"><Ban size={20}/></div>
+                    <div><h3 className="font-bold text-slate-700 text-sm">Mimli Şirketler</h3><p className="text-[10px] text-slate-400">Gidilmeyecek yerler</p></div>
+                </motion.button>
+                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/periyodik-bakim')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-teal-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
+                    <div className="bg-teal-50 text-teal-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors"><CalendarClock size={20}/></div>
+                    <div><h3 className="font-bold text-slate-700 text-sm">Bakım Takibi</h3><p className="text-[10px] text-slate-400">Periyodik bakımlar</p></div>
+                </motion.button>
+                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/araclar')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-cyan-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
+                    <div className="bg-cyan-50 text-cyan-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-cyan-600 group-hover:text-white transition-colors"><Car size={20}/></div>
+                    <div><h3 className="font-bold text-slate-700 text-sm">Araçlar</h3><p className="text-[10px] text-slate-400">Filo yönetimi</p></div>
+                </motion.button>
             </div>
         </div>
 
