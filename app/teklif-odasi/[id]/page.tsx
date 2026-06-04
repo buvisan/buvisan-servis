@@ -219,7 +219,7 @@ export default function TeklifOdasiMusteriEkrani() {
                 <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-colors">
                   <div className="flex justify-between items-start mb-3">
                     <span className="text-sm font-bold text-slate-200 flex items-center gap-1.5"><Clock size={14} className="text-red-400"/> Servis Önceliği</span>
-                    <span className="text-xs font-mono text-slate-400">+{ (2500).toLocaleString() } ₺</span>
+                    <span className="text-xs font-mono text-slate-400">+{ (4500).toLocaleString() } ₺</span>
                   </div>
                   <button 
                     onClick={() => setOpsiyonlar({...opsiyonlar, hizliMudahale: !opsiyonlar.hizliMudahale})}
@@ -233,7 +233,7 @@ export default function TeklifOdasiMusteriEkrani() {
                 <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-colors">
                   <div className="flex justify-between items-start mb-3">
                     <span className="text-sm font-bold text-slate-200 flex items-center gap-1.5"><ShieldCheck size={14} className="text-blue-400"/> İşçilik Garantisi</span>
-                    <span className="text-xs font-mono text-slate-400">+{ (1500).toLocaleString() } ₺</span>
+                    <span className="text-xs font-mono text-slate-400">+{ (5500).toLocaleString() } ₺</span>
                   </div>
                   <button 
                     onClick={() => setOpsiyonlar({...opsiyonlar, uzatilmisGaranti: !opsiyonlar.uzatilmisGaranti})}
@@ -247,7 +247,7 @@ export default function TeklifOdasiMusteriEkrani() {
                 <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-colors">
                   <div className="flex justify-between items-start mb-3">
                     <span className="text-sm font-bold text-slate-200 flex items-center gap-1.5"><Wrench size={14} className="text-orange-400"/> Genel Kontrol</span>
-                    <span className="text-xs font-mono text-slate-400">+{ (1000).toLocaleString() } ₺</span>
+                    <span className="text-xs font-mono text-slate-400">+{ (8500).toLocaleString() } ₺</span>
                   </div>
                   <button 
                     onClick={() => setOpsiyonlar({...opsiyonlar, genelBakim: !opsiyonlar.genelBakim})}
