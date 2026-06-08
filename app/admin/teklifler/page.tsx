@@ -210,9 +210,6 @@ export default function TekliflerSayfasi() {
 
   const akilliFiyatiTeklifeEkle = (hesaplananFiyat: number) => {
       const ad = `Vinç Servis ve Müdahale Hizmeti`;
-      const detay = `Çevresel Analiz: ${hesap.hedefSehir} Bölgesi (Hava: ${hesap.havaDurumu === 'firtina' ? 'Şiddetli Rüzgar' : hesap.havaDurumu === 'asiri_isi' ? 'Aşırı Sıcak' : 'Açık/Normal'}, Trafik: ${hesap.trafikYogunlugu === 'yogun' ? 'Yoğun Saat' : 'Akıcı'}). | Maliyetler: İşçilik ${Math.round(hsIscilikMaliyeti)}₺, Yol ${Math.round(hsYolMaliyeti)}₺, Platform ${hesap.platformKiralama}₺, Çevresel Risk Primi: ${Math.round(hsCevreselRiskPrimi)}₺ | +%${hesap.genelGiderYuzdesi} Şirket Gideri | Kâr Marjı: %${hesap.karMarji}`;
-
-      setKalemler([...kalemler, { id: Date.now(), ad, detay, adet: 1, birim_fiyat: Math.round(hesaplananFiyat), toplam: Math.round(hesaplananFiyat) }]);
       alert("Akıllı fiyat teklife eklendi! 🚀");
   };
 
