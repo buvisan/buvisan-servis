@@ -18,7 +18,7 @@ import {
 } from 'recharts';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import html2canvas from 'html2canvas';
+import { toJpeg, toPng } from 'html-to-image';
 
 // 🔥 SABİT PERSONEL LİSTESİ
 const PERSONEL_LISTESI = [
@@ -317,42 +317,49 @@ export default function AnalizSayfasi() {
     setYukleniyor(false);
   };
 
-  const fisiIndir = async () => {
+const fisiIndir = async () => {
     if (!modalRef.current || !seciliKayit) return;
     setIndiriliyor(true);
     try {
-      const canvas = await html2canvas(modalRef.current, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-      const link = document.createElement("a"); link.href = canvas.toDataURL("image/png");
-      link.download = `ServisFisi-${seciliKayit.customer_text}.png`; link.click();
-    } catch (error) { console.error(error); alert("Hata oluştu."); }
+      // html-to-image kullanarak PNG alıyoruz
+      const dataUrl = await toPng(modalRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' });
+      const link = document.createElement("a"); 
+      link.href = dataUrl;
+      link.download = `ServisFisi-${seciliKayit.customer_text}.png`; 
+      link.click();
+    } catch (error) { 
+      console.error(error); 
+      alert("Fiş indirilirken hata oluştu."); 
+    }
     setIndiriliyor(false);
   };
 
-const detayGorseliIndir = async () => {
+// 2. Yeni Detay Görseli İndir Fonksiyonu
+  const detayGorseliIndir = async () => {
     if (!detayModalRef.current || !seciliKayit) return;
     setIndiriliyor(true);
     try {
       const targetElement = detayModalRef.current;
 
-      // KANITLANMIŞ ÇÖZÜM: HTML2Canvas'ın scroll olan alanları kesmemesi ve 
-      // animasyondan patlamaması için geçici olarak overflow'u kaldırıyoruz.
+      // Modal içi kaydırmalarda (scroll) kesilme olmaması için geçici ayar
       const originalOverflow = targetElement.style.overflow;
       targetElement.style.overflow = 'visible';
 
-      // DOM'un kendini güncellemesi için ufacık bir bekleme süresi
+      // Sistemin toparlanması için minik bir nefes payı
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      const canvas = await html2canvas(targetElement, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true,
+      // html-to-image kullanarak yüksek çözünürlüklü JPEG alıyoruz
+      const dataUrl = await toJpeg(targetElement, { 
+        pixelRatio: 2, 
+        backgroundColor: '#ffffff', 
+        quality: 0.9 
       });
 
-      // İşlem bitince scroll ayarını eski haline (orijinaline) döndürüyoruz
+      // İşlem bitince scroll ayarını eski haline alıyoruz
       targetElement.style.overflow = originalOverflow;
 
       const link = document.createElement("a"); 
-      link.href = canvas.toDataURL("image/jpeg", 0.9);
+      link.href = dataUrl;
       
       const formNoStr = seciliKayit.form_number ? `${seciliKayit.form_number} ` : '';
       const musteriAdiStr = seciliKayit.customer_text ? seciliKayit.customer_text.trim() : 'Bilinmeyen_Musteri';
