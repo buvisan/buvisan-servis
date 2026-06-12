@@ -328,27 +328,43 @@ export default function AnalizSayfasi() {
     setIndiriliyor(false);
   };
 
-  // 🔥 YENİ: Otomatik İsımlendirme ve Ekran Görüntüsü Alma Fonksiyonu
-  const detayGorseliIndir = async () => {
+const detayGorseliIndir = async () => {
     if (!detayModalRef.current || !seciliKayit) return;
     setIndiriliyor(true);
     try {
-      // Çözünürlüğün net olması için scale: 2 ve JPEG çıktısı alıyoruz
-      const canvas = await html2canvas(detayModalRef.current, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+      const targetElement = detayModalRef.current;
+
+      // KANITLANMIŞ ÇÖZÜM: HTML2Canvas'ın scroll olan alanları kesmemesi ve 
+      // animasyondan patlamaması için geçici olarak overflow'u kaldırıyoruz.
+      const originalOverflow = targetElement.style.overflow;
+      targetElement.style.overflow = 'visible';
+
+      // DOM'un kendini güncellemesi için ufacık bir bekleme süresi
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const canvas = await html2canvas(targetElement, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+      });
+
+      // İşlem bitince scroll ayarını eski haline (orijinaline) döndürüyoruz
+      targetElement.style.overflow = originalOverflow;
+
       const link = document.createElement("a"); 
       link.href = canvas.toDataURL("image/jpeg", 0.9);
       
-      // Form No ve Müşteri Adını birleştiriyoruz (Örn: "4832 TARA BORU.jpg")
       const formNoStr = seciliKayit.form_number ? `${seciliKayit.form_number} ` : '';
       const musteriAdiStr = seciliKayit.customer_text ? seciliKayit.customer_text.trim() : 'Bilinmeyen_Musteri';
       
       link.download = `${formNoStr}${musteriAdiStr}.jpg`; 
       link.click();
-    } catch (error) { 
-      console.error(error); 
-      alert("Ekran görüntüsü kaydedilirken hata oluştu."); 
+    } catch (error: any) { 
+      console.error("Görüntü Alma Hatası:", error); 
+      alert(`Ekran görüntüsü kaydedilirken bir hata oluştu: ${error.message}`); 
+    } finally {
+      setIndiriliyor(false);
     }
-    setIndiriliyor(false);
   };
 
   const sil = async (e: any, id: string) => { e.stopPropagation(); if(confirm("Silmek istediğine emin misin?")) { await supabase.from('completed_services').delete().eq('id', id); tumVerileriGetir(); if (seciliKayit?.id === id) setSeciliKayit(null); }};
