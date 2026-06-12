@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - PRO ANALİZ MODÜLÜ 🛠️
-// Versiyon: 9.5 (Ekip Performansı: Toplu Yarım Kalan İş Ekleme Modülü 👥)
+// Versiyon: 9.6 (Detay Ekranı Otomatik Görüntü Kaydetme Eklendi 📸)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -28,6 +28,7 @@ const PERSONEL_LISTESI = [
 export default function AnalizSayfasi() {
   
   const modalRef = useRef<HTMLDivElement>(null);
+  const detayModalRef = useRef<HTMLDivElement>(null); // YENİ: Detay modalı için referans
   
   // STATE YÖNETİMİ
   const [indiriliyor, setIndiriliyor] = useState(false);
@@ -324,6 +325,29 @@ export default function AnalizSayfasi() {
       const link = document.createElement("a"); link.href = canvas.toDataURL("image/png");
       link.download = `ServisFisi-${seciliKayit.customer_text}.png`; link.click();
     } catch (error) { console.error(error); alert("Hata oluştu."); }
+    setIndiriliyor(false);
+  };
+
+  // 🔥 YENİ: Otomatik İsımlendirme ve Ekran Görüntüsü Alma Fonksiyonu
+  const detayGorseliIndir = async () => {
+    if (!detayModalRef.current || !seciliKayit) return;
+    setIndiriliyor(true);
+    try {
+      // Çözünürlüğün net olması için scale: 2 ve JPEG çıktısı alıyoruz
+      const canvas = await html2canvas(detayModalRef.current, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+      const link = document.createElement("a"); 
+      link.href = canvas.toDataURL("image/jpeg", 0.9);
+      
+      // Form No ve Müşteri Adını birleştiriyoruz (Örn: "4832 TARA BORU.jpg")
+      const formNoStr = seciliKayit.form_number ? `${seciliKayit.form_number} ` : '';
+      const musteriAdiStr = seciliKayit.customer_text ? seciliKayit.customer_text.trim() : 'Bilinmeyen_Musteri';
+      
+      link.download = `${formNoStr}${musteriAdiStr}.jpg`; 
+      link.click();
+    } catch (error) { 
+      console.error(error); 
+      alert("Ekran görüntüsü kaydedilirken hata oluştu."); 
+    }
     setIndiriliyor(false);
   };
 
@@ -771,7 +795,14 @@ export default function AnalizSayfasi() {
       <AnimatePresence>
         {seciliKayit && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setSeciliKayit(null)}>
-            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-[95%] md:w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <motion.div 
+              ref={detayModalRef} // YENİ: Ekran görüntüsü almak için modalı işaretliyoruz
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.95, opacity: 0, y: 20 }} 
+              className="bg-white w-[95%] md:w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" 
+              onClick={e => e.stopPropagation()}
+            >
               
               <div className="bg-slate-900 text-white p-6 flex justify-between items-start shrink-0">
                   <div>
@@ -854,6 +885,11 @@ export default function AnalizSayfasi() {
                   )}
               </div>
               <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
+                  {/* YENİ: Ekranı Kaydet Butonu */}
+                  <button onClick={detayGorseliIndir} disabled={indiriliyor} className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition flex items-center gap-2 shadow-lg text-sm">
+                      {indiriliyor ? <Loader2 size={16} className="animate-spin"/> : <Download size={16}/>} 
+                      {indiriliyor ? 'Kaydediliyor...' : 'Ekranı Kaydet'}
+                  </button>
                   <button onClick={(e) => { setSeciliKayit(null); duzenle(e, seciliKayit); }} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition flex items-center gap-2 shadow-lg text-sm"><Edit2 size={16}/> Düzenle</button>
                   <button onClick={() => setSeciliKayit(null)} className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition text-sm">Kapat</button>
               </div>
