@@ -804,8 +804,7 @@ const detayGorseliIndir = async () => {
             </motion.div>
         )}
       </AnimatePresence>
-
-      {/* =========================================================================
+{/* =========================================================================
           🔥 DETAY MODALI (POP-UP PENCERE) 
           ========================================================================= */}
       <AnimatePresence>
@@ -815,95 +814,97 @@ const detayGorseliIndir = async () => {
               initial={{ scale: 0.95, opacity: 0, y: 20 }} 
               animate={{ scale: 1, opacity: 1, y: 0 }} 
               exit={{ scale: 0.95, opacity: 0, y: 20 }} 
-              className="bg-white w-[95%] md:w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" 
+              className="bg-white w-[95%] md:w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" 
               onClick={e => e.stopPropagation()}
             >
               
+              {/* YENİ: REF BURAYA ALINDI. Sadece başlık ve içerik çekilecek. */}
               <div ref={detayModalRef} className="flex flex-col overflow-y-auto w-full bg-white">
-              
-              <div className="bg-slate-900 text-white p-6 flex justify-between items-start shrink-0">
-                  <div>
-                      <div className="flex items-center gap-3 mb-2">
-                          <h2 className="text-2xl font-bold">{seciliKayit.customer_text}</h2>
-                          <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/10">{seciliKayit.service_type}</span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-4 text-slate-400 text-xs mt-1">
-                          <span className="flex items-center gap-1"><MapPin size={14}/> {seciliKayit.company_address || 'Adres Girilmedi'}</span>
-                          <span className="flex items-center gap-1"><User size={14}/> {seciliKayit.customer_rep || 'Yetkili Girilmedi'}</span>
-                          {seciliKayit.form_number && (
-                              <span className="flex items-center gap-1 text-blue-300 font-bold bg-blue-500/20 px-2.5 py-1 rounded-md border border-blue-500/30">
-                                  <FileText size={14}/> Form No: {seciliKayit.form_number}
-                              </span>
-                          )}
-                      </div>
+                
+                <div className="bg-slate-900 text-white p-6 flex justify-between items-start shrink-0">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <h2 className="text-2xl font-bold">{seciliKayit.customer_text}</h2>
+                            <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/10">{seciliKayit.service_type}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4 text-slate-400 text-xs mt-1">
+                            <span className="flex items-center gap-1"><MapPin size={14}/> {seciliKayit.company_address || 'Adres Girilmedi'}</span>
+                            <span className="flex items-center gap-1"><User size={14}/> {seciliKayit.customer_rep || 'Yetkili Girilmedi'}</span>
+                            {seciliKayit.form_number && (
+                                <span className="flex items-center gap-1 text-blue-300 font-bold bg-blue-500/20 px-2.5 py-1 rounded-md border border-blue-500/30">
+                                    <FileText size={14}/> Form No: {seciliKayit.form_number}
+                                </span>
+                            )}
+                        </div>
                     </div>
-                  </div>
-                  <button onClick={() => setSeciliKayit(null)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><X size={24}/></button>
-              </div>
+                    {/* Çarpı butonu resimde görünmesin diye data-html2canvas-ignore="true" eklendi */}
+                    <button data-html2canvas-ignore="true" onClick={() => setSeciliKayit(null)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><X size={24}/></button>
+                </div>
 
-              <div className="p-6 space-y-6 overflow-y-auto">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                          <div className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2"><Wrench size={14}/> Teknik</div>
-                          <div className="space-y-2 text-sm text-slate-700">
-                              <div className="flex justify-between border-b pb-1"><span>Kapasite:</span> <b>{seciliKayit.crane_capacity}</b></div>
-                              <div className="flex justify-between border-b pb-1"><span>Süre:</span> <b>{seciliKayit.work_hours} Saat</b></div>
-                              <div className="flex justify-between"><span>Ekip:</span> <b>{seciliKayit.technician}</b></div>
-                          </div>
-                      </div>
-                      <div className="p-4 bg-green-50 rounded-2xl border border-green-100 flex flex-col justify-center">
-                          <div className="text-xs font-bold text-green-600 uppercase mb-2 flex items-center gap-2"><DollarSign size={14}/> Tutar</div>
-                          <div className="text-3xl font-black text-green-700">{Number(seciliKayit.price).toLocaleString('tr-TR')} ₺</div>
-                          <div className="text-xs text-green-600/70 mt-1">{new Date(seciliKayit.service_date).toLocaleDateString('tr-TR')}</div>
-                      </div>
-                  </div>
-                  
-                  <div>
-                      <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><FileText size={18}/> Detay</h3>
-                      <div className="bg-slate-50 p-5 rounded-2xl text-sm text-slate-600 whitespace-pre-line">{seciliKayit.description}</div>
-                  </div>
+                <div className="p-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                            <div className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2"><Wrench size={14}/> Teknik</div>
+                            <div className="space-y-2 text-sm text-slate-700">
+                                <div className="flex justify-between border-b pb-1"><span>Kapasite:</span> <b>{seciliKayit.crane_capacity}</b></div>
+                                <div className="flex justify-between border-b pb-1"><span>Süre:</span> <b>{seciliKayit.work_hours} Saat</b></div>
+                                <div className="flex justify-between"><span>Ekip:</span> <b>{seciliKayit.technician}</b></div>
+                            </div>
+                        </div>
+                        <div className="p-4 bg-green-50 rounded-2xl border border-green-100 flex flex-col justify-center">
+                            <div className="text-xs font-bold text-green-600 uppercase mb-2 flex items-center gap-2"><DollarSign size={14}/> Tutar</div>
+                            <div className="text-3xl font-black text-green-700">{Number(seciliKayit.price).toLocaleString('tr-TR')} ₺</div>
+                            <div className="text-xs text-green-600/70 mt-1">{new Date(seciliKayit.service_date).toLocaleDateString('tr-TR')}</div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><FileText size={18}/> Detay</h3>
+                        <div className="bg-slate-50 p-5 rounded-2xl text-sm text-slate-600 whitespace-pre-line">{seciliKayit.description}</div>
+                    </div>
 
-                  {/* 🔥 İŞTE BURASI: YILLAR SONRA BİLE AÇIP BAKABİLECEĞİN KALICI FOTOĞRAF GALERİSİ 🔥 */}
-                  {seciliKayit.image_urls && seciliKayit.image_urls.length > 0 && (
-                      <div>
-                          <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Camera size={18} className="text-blue-600"/> Olay Yeri / Form Fotoğrafları</h3>
-                          <div className="flex gap-4 overflow-x-auto pb-2">
-                              {seciliKayit.image_urls.map((url: string, i: number) => (
-                                  <a href={url} target="_blank" rel="noreferrer" key={i} className="shrink-0 block">
-                                      <img src={url} alt={`Kanıt ${i+1}`} className="w-48 h-32 object-cover rounded-xl border border-slate-200 shadow-sm hover:scale-105 transition duration-300" />
-                                  </a>
-                              ))}
-                          </div>
-                      </div>
-                  )}
+                    {seciliKayit.image_urls && seciliKayit.image_urls.length > 0 && (
+                        <div>
+                            <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Camera size={18} className="text-blue-600"/> Olay Yeri / Form Fotoğrafları</h3>
+                            <div className="flex gap-4 overflow-x-auto pb-2">
+                                {seciliKayit.image_urls.map((url: string, i: number) => (
+                                    <a href={url} target="_blank" rel="noreferrer" key={i} className="shrink-0 block">
+                                        <img src={url} alt={`Kanıt ${i+1}`} className="w-48 h-32 object-cover rounded-xl border border-slate-200 shadow-sm hover:scale-105 transition duration-300" />
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
-                  {seciliKayit.materials && Array.isArray(seciliKayit.materials) && seciliKayit.materials.length > 0 && (
-                      <div>
-                          <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Box size={18} className="text-yellow-600"/> Kullanılan Malzemeler</h3>
-                          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                              <table className="w-full text-sm">
-                                  <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200"><tr><th className="p-3 text-left pl-4">Malzeme</th><th className="p-3 text-center">Adet</th><th className="p-3 text-right">Birim</th><th className="p-3 text-right pr-4">Toplam</th></tr></thead>
-                                  <tbody className="divide-y divide-slate-100 bg-white">
-                                      {seciliKayit.materials.map((m: any, i: number) => (
-                                          <tr key={i}>
-                                              <td className="p-3 pl-4 text-slate-700 font-medium">{m.ad}</td>
-                                              <td className="p-3 text-center text-slate-500">{m.adet}</td>
-                                              <td className="p-3 text-right text-slate-400 text-xs">{Number(m.birim_fiyat).toLocaleString()} ₺</td>
-                                              <td className="p-3 pr-4 text-right font-bold text-slate-900">{Number(m.toplam_fiyat).toLocaleString()} ₺</td>
-                                          </tr>
-                                      ))}
-                                      <tr className="bg-yellow-50">
-                                          <td colSpan={3} className="p-3 pl-4 font-bold text-yellow-800 text-right uppercase text-xs">Genel Toplam</td>
-                                          <td className="p-3 pr-4 text-right font-black text-yellow-800">{seciliKayit.materials.reduce((a:any, b:any) => a + Number(b.toplam_fiyat), 0).toLocaleString()} ₺</td>
-                                      </tr>
-                                  </tbody>
-                              </table>
-                          </div>
-                      </div>
-                  )}
-              </div>
+                    {seciliKayit.materials && Array.isArray(seciliKayit.materials) && seciliKayit.materials.length > 0 && (
+                        <div>
+                            <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Box size={18} className="text-yellow-600"/> Kullanılan Malzemeler</h3>
+                            <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200"><tr><th className="p-3 text-left pl-4">Malzeme</th><th className="p-3 text-center">Adet</th><th className="p-3 text-right">Birim</th><th className="p-3 text-right pr-4">Toplam</th></tr></thead>
+                                    <tbody className="divide-y divide-slate-100 bg-white">
+                                        {seciliKayit.materials.map((m: any, i: number) => (
+                                            <tr key={i}>
+                                                <td className="p-3 pl-4 text-slate-700 font-medium">{m.ad}</td>
+                                                <td className="p-3 text-center text-slate-500">{m.adet}</td>
+                                                <td className="p-3 text-right text-slate-400 text-xs">{Number(m.birim_fiyat).toLocaleString()} ₺</td>
+                                                <td className="p-3 pr-4 text-right font-bold text-slate-900">{Number(m.toplam_fiyat).toLocaleString()} ₺</td>
+                                            </tr>
+                                        ))}
+                                        <tr className="bg-yellow-50">
+                                            <td colSpan={3} className="p-3 pl-4 font-bold text-yellow-800 text-right uppercase text-xs">Genel Toplam</td>
+                                            <td className="p-3 pr-4 text-right font-black text-yellow-800">{seciliKayit.materials.reduce((a:any, b:any) => a + Number(b.toplam_fiyat), 0).toLocaleString()} ₺</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+              </div> {/* REF'Lİ DİV BURADA BİTİYOR */}
+
+              {/* BUTONLAR (Resme Dahil Edilmeyecek Alan) */}
               <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
-                  {/* YENİ: Ekranı Kaydet Butonu */}
                   <button onClick={detayGorseliIndir} disabled={indiriliyor} className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition flex items-center gap-2 shadow-lg text-sm">
                       {indiriliyor ? <Loader2 size={16} className="animate-spin"/> : <Download size={16}/>} 
                       {indiriliyor ? 'Kaydediliyor...' : 'Ekranı Kaydet'}
@@ -911,6 +912,7 @@ const detayGorseliIndir = async () => {
                   <button onClick={(e) => { setSeciliKayit(null); duzenle(e, seciliKayit); }} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition flex items-center gap-2 shadow-lg text-sm"><Edit2 size={16}/> Düzenle</button>
                   <button onClick={() => setSeciliKayit(null)} className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition text-sm">Kapat</button>
               </div>
+              
             </motion.div>
           </motion.div>
         )}
