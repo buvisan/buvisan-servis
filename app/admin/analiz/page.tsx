@@ -812,13 +812,14 @@ const detayGorseliIndir = async () => {
         {seciliKayit && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setSeciliKayit(null)}>
             <motion.div 
-              ref={detayModalRef} // YENİ: Ekran görüntüsü almak için modalı işaretliyoruz
               initial={{ scale: 0.95, opacity: 0, y: 20 }} 
               animate={{ scale: 1, opacity: 1, y: 0 }} 
               exit={{ scale: 0.95, opacity: 0, y: 20 }} 
               className="bg-white w-[95%] md:w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" 
               onClick={e => e.stopPropagation()}
             >
+              
+              <div ref={detayModalRef} className="flex flex-col overflow-y-auto w-full bg-white">
               
               <div className="bg-slate-900 text-white p-6 flex justify-between items-start shrink-0">
                   <div>
@@ -835,6 +836,7 @@ const detayGorseliIndir = async () => {
                               </span>
                           )}
                       </div>
+                    </div>
                   </div>
                   <button onClick={() => setSeciliKayit(null)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><X size={24}/></button>
               </div>
