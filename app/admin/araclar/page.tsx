@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { 
   Car, ShieldAlert, Wrench, Calendar, Plus, X, Edit2, Trash2, Loader2, 
   Map, Key, Radio, Disc, AlertTriangle, CheckCircle2, FileText, FileWarning, 
-  Settings, Banknote, BarChart3, UserCheck, Fuel, MapPin, Save, Activity, User
+  Settings, Banknote, BarChart3, UserCheck, Fuel, MapPin, Save, Activity, User, Printer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -222,126 +222,175 @@ export default function FiloYonetimEkrani() {
   if (yukleniyor) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-600 w-12 h-12"/></div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans pb-24">
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans pb-24 print:p-0 print:bg-white print:pb-0">
       
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div className="flex items-center gap-3">
-            <div className="bg-slate-900 p-3 rounded-2xl text-white shadow-lg"><Car size={28}/></div>
-            <div>
-                <h1 className="text-2xl font-black text-slate-800 tracking-tight">Araç Filosu & Sicil</h1>
-                <p className="text-slate-500 text-sm font-medium">Vize, Ceza, Lastik, Bakım ve Yakıt Merkezi</p>
+      {/* EKRAN İÇERİĞİ (Yazdırırken Gizlenecek Ana Kapsayıcı) */}
+      <div className="print:hidden">
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div className="flex items-center gap-3">
+              <div className="bg-slate-900 p-3 rounded-2xl text-white shadow-lg"><Car size={28}/></div>
+              <div>
+                  <h1 className="text-2xl font-black text-slate-800 tracking-tight">Araç Filosu & Sicil</h1>
+                  <p className="text-slate-500 text-sm font-medium">Vize, Ceza, Lastik, Bakım ve Yakıt Merkezi</p>
+              </div>
+          </div>
+          <div className="flex gap-2 w-full md:w-auto flex-wrap">
+              <button onClick={() => window.print()} className="flex-1 md:flex-none bg-slate-800 hover:bg-slate-900 text-white border border-slate-700 px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95 shadow-lg">
+                  <Printer size={20}/> PDF Çıkar
+              </button>
+              <button onClick={() => setYakitRaporuAcik(true)} className="flex-1 md:flex-none bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95">
+                  <Fuel size={20}/> Yakıt Analizi
+              </button>
+              <button onClick={() => setCezaRaporuAcik(true)} className="flex-1 md:flex-none bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95">
+                  <BarChart3 size={20}/> Şoför Ceza Analizi
+              </button>
+              <button onClick={() => { formSifirla(); setFormAcik(true); }} className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-200 transition active:scale-95">
+                  <Plus size={20}/> Yeni Araç Ekle
+              </button>
+          </div>
+        </div>
+
+        {/* İSTATİSTİKLER */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
+                <p className="text-xs font-bold text-slate-400 uppercase">Toplam Araç</p><p className="text-3xl font-black text-slate-800 mt-1">{istatistikler.toplam}</p>
+            </div>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
+                <p className="text-xs font-bold text-slate-400 uppercase">Muayene / Sigorta Sorunlu</p>
+                <p className={`text-3xl font-black mt-1 ${(istatistikler.acilMuayene + istatistikler.acilSigorta) > 0 ? 'text-red-600 animate-pulse' : 'text-emerald-600'}`}>
+                    {istatistikler.acilMuayene + istatistikler.acilSigorta}
+                </p>
+            </div>
+            <div className="bg-gradient-to-br from-red-500 to-red-700 p-5 rounded-2xl shadow-md text-white flex flex-col justify-center">
+                <p className="text-xs font-bold text-red-200 uppercase">Toplam Ceza (Genel)</p><p className="text-3xl font-black mt-1">{tumCezalar.reduce((a, b) => a + Number(b.amount), 0).toLocaleString()} ₺</p>
+            </div>
+            <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-5 rounded-2xl shadow-md text-white flex flex-col justify-center">
+                <p className="text-xs font-bold text-orange-100 uppercase">Bu Ayki Mazot Gideri</p><p className="text-3xl font-black mt-1">{istatistikler.buAyYakit.toLocaleString()} ₺</p>
             </div>
         </div>
-        <div className="flex gap-2 w-full md:w-auto flex-wrap">
-            <button onClick={() => setYakitRaporuAcik(true)} className="flex-1 md:flex-none bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95">
-                <Fuel size={20}/> Yakıt Analizi
-            </button>
-            <button onClick={() => setCezaRaporuAcik(true)} className="flex-1 md:flex-none bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95">
-                <BarChart3 size={20}/> Şoför Ceza Analizi
-            </button>
-            <button onClick={() => { formSifirla(); setFormAcik(true); }} className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-200 transition active:scale-95">
-                <Plus size={20}/> Yeni Araç Ekle
-            </button>
+
+        {/* ARAÇ KARTLARI (GRID) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {araclar.map(arac => {
+                const muayeneGun = kalanGunHesapla(arac.inspection_date);
+                const sigortaGun = kalanGunHesapla(arac.insurance_date);
+                const kaskoGun = kalanGunHesapla(arac.casco_date);
+                const izinGun = kalanGunHesapla(arac.route_permit_date);
+
+                return (
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={arac.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl transition-all overflow-hidden flex flex-col relative group">
+                        
+                        {/* Kart Header */}
+                        <div className="bg-slate-900 p-5 flex justify-between items-start relative overflow-hidden">
+                            <div className="absolute -right-4 -top-4 opacity-10"><Car size={100}/></div>
+                            <div className="relative z-10 w-full">
+                                <div className="flex justify-between w-full items-start">
+                                    <div className="bg-white text-slate-900 font-black text-xl px-4 py-1.5 rounded-lg border-2 border-slate-300 shadow-sm inline-block mb-2 tracking-widest uppercase">
+                                        {arac.plate}
+                                    </div>
+                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
+                                        <button onClick={() => duzenleAc(arac)} className="p-1.5 bg-white/10 hover:bg-blue-500 text-white rounded-lg transition"><Edit2 size={14}/></button>
+                                        <button onClick={() => sil(arac.id, arac.plate)} className="p-1.5 bg-white/10 hover:bg-red-500 text-white rounded-lg transition"><Trash2 size={14}/></button>
+                                    </div>
+                                </div>
+                                <h3 className="text-white font-bold">{arac.vehicle_name} <span className="text-slate-400 text-sm font-normal">({arac.model_year || 'Model Yok'})</span></h3>
+                                {arac.assigned_driver && <p className="text-blue-400 text-xs mt-1 flex items-center gap-1"><User size={12}/> Şoför / Sorumlu: {arac.assigned_driver}</p>}
+                            </div>
+                        </div>
+
+                        {/* Mini Donanım Bilgileri */}
+                        <div className="flex divide-x divide-slate-100 border-b border-slate-100 bg-slate-50 text-[10px] font-bold text-slate-500">
+                            <div className="flex-1 p-2 flex justify-center items-center gap-1.5"><Radio size={12} className={arac.has_arvento ? 'text-green-500' : 'text-slate-300'}/> {arac.has_arvento ? 'Arvento Var' : 'Arvento Yok'}</div>
+                            <div className="flex-1 p-2 flex justify-center items-center gap-1.5"><Key size={12} className="text-orange-400"/> {arac.spare_key}</div>
+                            <div className="flex-1 p-2 flex justify-center items-center gap-1.5"><Disc size={12} className="text-slate-700"/> {arac.tire_status}</div>
+                        </div>
+
+                        {/* Kritik Tarihler */}
+                        <div className="p-5 space-y-3 flex-1 pb-20 relative">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-500 flex items-center gap-2"><Wrench size={14}/> Muayene</span>
+                                <div className={`text-xs font-bold px-3 py-1 rounded-full border ${durumRengi(muayeneGun)}`}>
+                                    {muayeneGun === null ? 'Girilmemiş' : muayeneGun < 0 ? 'SÜRESİ GEÇTİ!' : muayeneGun + ' Gün Kaldı'}
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-500 flex items-center gap-2"><ShieldAlert size={14}/> Sigorta</span>
+                                <div className={`text-xs font-bold px-3 py-1 rounded-full border ${durumRengi(sigortaGun)}`}>
+                                    {sigortaGun === null ? 'Girilmemiş' : sigortaGun < 0 ? 'SÜRESİ GEÇTİ!' : sigortaGun + ' Gün Kaldı'}
+                                </div>
+                            </div>
+                            
+                            <div className="h-px w-full bg-slate-100 my-2"></div>
+
+                            {/* KM ve Bakım */}
+                            <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 flex justify-between items-center">
+                                <div>
+                                    <p className="text-[10px] text-blue-500 font-bold uppercase">Güncel / Bakım KM</p>
+                                    <p className="text-sm font-black text-blue-800">{Number(arac.current_km).toLocaleString()} <span className="text-blue-300">/</span> {Number(arac.next_oil_km).toLocaleString()}</p>
+                                </div>
+                                <div className="bg-white p-2 rounded-lg shadow-sm">
+                                    {Number(arac.current_km) > 0 && Number(arac.current_km) >= Number(arac.next_oil_km) 
+                                        ? <AlertTriangle size={20} className="text-red-500 animate-pulse"/> 
+                                        : <CheckCircle2 size={20} className="text-emerald-500"/>}
+                                </div>
+                            </div>
+                            
+                            {/* SİCİL BUTONU (ALT KISIMDA SABİT) */}
+                            <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-white via-white to-transparent">
+                                <button onClick={() => sicilAc(arac)} className="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg">
+                                    <FileWarning size={16}/> Araç Sicili & Yakıt Geçmişi
+                                </button>
+                            </div>
+                        </div>
+
+                    </motion.div>
+                )
+            })}
         </div>
       </div>
 
-      {/* İSTATİSTİKLER */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
-              <p className="text-xs font-bold text-slate-400 uppercase">Toplam Araç</p><p className="text-3xl font-black text-slate-800 mt-1">{istatistikler.toplam}</p>
+      {/* =========================================================================
+          🔥 YAZDIRMA İÇİN GİZLİ PDF TABLOSU (Sadece "PDF Çıkar" basıldığında görünür) 
+          ========================================================================= */}
+      <div className="hidden print:block w-full text-black bg-white p-8">
+          <div className="flex items-center justify-between mb-8 border-b-2 border-slate-800 pb-4">
+              <div>
+                  <h1 className="text-3xl font-black text-slate-900 tracking-tight">Araç Filosu Tarih Raporu</h1>
+                  <p className="text-slate-500 font-medium">Sigorta, Kasko ve Muayene Kritik Bitiş Tarihleri</p>
+              </div>
+              <div className="text-right">
+                  <p className="text-sm font-bold text-slate-500">Rapor Tarihi</p>
+                  <p className="text-lg font-black text-slate-800">{new Date().toLocaleDateString('tr-TR')}</p>
+              </div>
           </div>
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
-              <p className="text-xs font-bold text-slate-400 uppercase">Muayene / Sigorta Sorunlu</p>
-              <p className={`text-3xl font-black mt-1 ${(istatistikler.acilMuayene + istatistikler.acilSigorta) > 0 ? 'text-red-600 animate-pulse' : 'text-emerald-600'}`}>
-                  {istatistikler.acilMuayene + istatistikler.acilSigorta}
-              </p>
+
+          <table className="w-full text-left border-collapse border border-slate-300">
+              <thead>
+                  <tr className="bg-slate-100 text-slate-800">
+                      <th className="p-3 border border-slate-300 font-black text-sm uppercase">Plaka</th>
+                      <th className="p-3 border border-slate-300 font-black text-sm uppercase">Araç Adı</th>
+                      <th className="p-3 border border-slate-300 font-black text-sm uppercase">Muayene Bitiş</th>
+                      <th className="p-3 border border-slate-300 font-black text-sm uppercase">Sigorta Bitiş</th>
+                      <th className="p-3 border border-slate-300 font-black text-sm uppercase">Kasko Bitiş</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {araclar.map((arac, index) => (
+                      <tr key={index} className="border-b border-slate-200">
+                          <td className="p-3 border border-slate-300 font-bold whitespace-nowrap">{arac.plate}</td>
+                          <td className="p-3 border border-slate-300 text-sm font-medium text-slate-700">{arac.vehicle_name}</td>
+                          <td className="p-3 border border-slate-300 font-bold text-slate-800">{arac.inspection_date ? new Date(arac.inspection_date).toLocaleDateString('tr-TR') : 'Belirtilmemiş'}</td>
+                          <td className="p-3 border border-slate-300 font-bold text-slate-800">{arac.insurance_date ? new Date(arac.insurance_date).toLocaleDateString('tr-TR') : 'Belirtilmemiş'}</td>
+                          <td className="p-3 border border-slate-300 font-bold text-slate-800">{arac.casco_date ? new Date(arac.casco_date).toLocaleDateString('tr-TR') : 'Belirtilmemiş'}</td>
+                      </tr>
+                  ))}
+              </tbody>
+          </table>
+          
+          <div className="mt-8 text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest border-t border-slate-200 pt-4">
+              Bu sistem Buvısan tarafından yönetilmektedir.
           </div>
-          <div className="bg-gradient-to-br from-red-500 to-red-700 p-5 rounded-2xl shadow-md text-white flex flex-col justify-center">
-              <p className="text-xs font-bold text-red-200 uppercase">Toplam Ceza (Genel)</p><p className="text-3xl font-black mt-1">{tumCezalar.reduce((a, b) => a + Number(b.amount), 0).toLocaleString()} ₺</p>
-          </div>
-          <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-5 rounded-2xl shadow-md text-white flex flex-col justify-center">
-              <p className="text-xs font-bold text-orange-100 uppercase">Bu Ayki Mazot Gideri</p><p className="text-3xl font-black mt-1">{istatistikler.buAyYakit.toLocaleString()} ₺</p>
-          </div>
-      </div>
-
-      {/* ARAÇ KARTLARI (GRID) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {araclar.map(arac => {
-              const muayeneGun = kalanGunHesapla(arac.inspection_date);
-              const sigortaGun = kalanGunHesapla(arac.insurance_date);
-              const kaskoGun = kalanGunHesapla(arac.casco_date);
-              const izinGun = kalanGunHesapla(arac.route_permit_date);
-
-              return (
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={arac.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl transition-all overflow-hidden flex flex-col relative group">
-                      
-                      {/* Kart Header */}
-                      <div className="bg-slate-900 p-5 flex justify-between items-start relative overflow-hidden">
-                          <div className="absolute -right-4 -top-4 opacity-10"><Car size={100}/></div>
-                          <div className="relative z-10 w-full">
-                              <div className="flex justify-between w-full items-start">
-                                  <div className="bg-white text-slate-900 font-black text-xl px-4 py-1.5 rounded-lg border-2 border-slate-300 shadow-sm inline-block mb-2 tracking-widest uppercase">
-                                      {arac.plate}
-                                  </div>
-                                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
-                                      <button onClick={() => duzenleAc(arac)} className="p-1.5 bg-white/10 hover:bg-blue-500 text-white rounded-lg transition"><Edit2 size={14}/></button>
-                                      <button onClick={() => sil(arac.id, arac.plate)} className="p-1.5 bg-white/10 hover:bg-red-500 text-white rounded-lg transition"><Trash2 size={14}/></button>
-                                  </div>
-                              </div>
-                              <h3 className="text-white font-bold">{arac.vehicle_name} <span className="text-slate-400 text-sm font-normal">({arac.model_year || 'Model Yok'})</span></h3>
-                              {arac.assigned_driver && <p className="text-blue-400 text-xs mt-1 flex items-center gap-1"><User size={12}/> Şoför / Sorumlu: {arac.assigned_driver}</p>}
-                          </div>
-                      </div>
-
-                      {/* Mini Donanım Bilgileri */}
-                      <div className="flex divide-x divide-slate-100 border-b border-slate-100 bg-slate-50 text-[10px] font-bold text-slate-500">
-                          <div className="flex-1 p-2 flex justify-center items-center gap-1.5"><Radio size={12} className={arac.has_arvento ? 'text-green-500' : 'text-slate-300'}/> {arac.has_arvento ? 'Arvento Var' : 'Arvento Yok'}</div>
-                          <div className="flex-1 p-2 flex justify-center items-center gap-1.5"><Key size={12} className="text-orange-400"/> {arac.spare_key}</div>
-                          <div className="flex-1 p-2 flex justify-center items-center gap-1.5"><Disc size={12} className="text-slate-700"/> {arac.tire_status}</div>
-                      </div>
-
-                      {/* Kritik Tarihler */}
-                      <div className="p-5 space-y-3 flex-1 pb-20 relative">
-                          <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-500 flex items-center gap-2"><Wrench size={14}/> Muayene</span>
-                              <div className={`text-xs font-bold px-3 py-1 rounded-full border ${durumRengi(muayeneGun)}`}>
-                                  {muayeneGun === null ? 'Girilmemiş' : muayeneGun < 0 ? 'SÜRESİ GEÇTİ!' : muayeneGun + ' Gün Kaldı'}
-                              </div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-500 flex items-center gap-2"><ShieldAlert size={14}/> Sigorta</span>
-                              <div className={`text-xs font-bold px-3 py-1 rounded-full border ${durumRengi(sigortaGun)}`}>
-                                  {sigortaGun === null ? 'Girilmemiş' : sigortaGun < 0 ? 'SÜRESİ GEÇTİ!' : sigortaGun + ' Gün Kaldı'}
-                              </div>
-                          </div>
-                          
-                          <div className="h-px w-full bg-slate-100 my-2"></div>
-
-                          {/* KM ve Bakım */}
-                          <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 flex justify-between items-center">
-                              <div>
-                                  <p className="text-[10px] text-blue-500 font-bold uppercase">Güncel / Bakım KM</p>
-                                  <p className="text-sm font-black text-blue-800">{Number(arac.current_km).toLocaleString()} <span className="text-blue-300">/</span> {Number(arac.next_oil_km).toLocaleString()}</p>
-                              </div>
-                              <div className="bg-white p-2 rounded-lg shadow-sm">
-                                  {Number(arac.current_km) > 0 && Number(arac.current_km) >= Number(arac.next_oil_km) 
-                                      ? <AlertTriangle size={20} className="text-red-500 animate-pulse"/> 
-                                      : <CheckCircle2 size={20} className="text-emerald-500"/>}
-                              </div>
-                          </div>
-                          
-                          {/* SİCİL BUTONU (ALT KISIMDA SABİT) */}
-                          <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-white via-white to-transparent">
-                              <button onClick={() => sicilAc(arac)} className="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg">
-                                  <FileWarning size={16}/> Araç Sicili & Yakıt Geçmişi
-                              </button>
-                          </div>
-                      </div>
-
-                  </motion.div>
-              )
-          })}
       </div>
 
       {/* =========================================================================
