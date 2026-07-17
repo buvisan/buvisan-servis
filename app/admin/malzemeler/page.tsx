@@ -95,34 +95,43 @@ export default function MalzemelerSayfasi() {
     }
   };
 
-  const aylikPerformansHesapla = () => {
+const aylikPerformansHesapla = () => {
       if (tumServisler.length === 0 || malzemeler.length === 0) return;
 
       const [secilenYil, secilenAyIndex] = seciliAy.split('-').map(Number);
-      let toplamCiro = 0;
+      
+      let toplamCiroKdvsiz = 0; // Bu artık Analiz sayfasındaki ana tutarlarla aynı olacak
       let toplamMaliyet = 0;
 
       tumServisler.forEach(servis => {
           if (!servis.service_date) return;
           const islemTarihi = new Date(servis.service_date);
           
+          // Eğer işlem seçtiğimiz ay ve yılda yapıldıysa:
           if (islemTarihi.getFullYear() === secilenYil && (islemTarihi.getMonth() + 1) === secilenAyIndex) {
+              
+              // 1. DOĞRU CİRO HESABI (Analiz sayfasındaki gibi direkt formun toplam fiyatını alıyoruz)
+              if (servis.service_type !== 'Yarım Kalan İş') {
+                  toplamCiroKdvsiz += Number(servis.price) || 0;
+              }
+
+              // 2. MALİYET HESABI (Sadece kullanılan malzemelerin depodaki alış fiyatından doğan gideri hesaplıyoruz)
               if (servis.materials && Array.isArray(servis.materials)) {
                   servis.materials.forEach((satilanMalzeme: any) => {
                       const adet = Number(satilanMalzeme.adet || 1);
-                      const satisFiyati = Number(satilanMalzeme.toplam_fiyat || satilanMalzeme.fiyat || 0);
+                      // Stoktan malzemenin geliş (alış) fiyatını bul
                       const stokMalzemesi = malzemeler.find(m => m.name === (satilanMalzeme.ad || satilanMalzeme.name));
                       const alisFiyati = stokMalzemesi ? Number(stokMalzemesi.buy_price) : 0;
+                      
                       const maliyet = alisFiyati * adet;
-
-                      toplamCiro += satisFiyati;
-                      toplamMaliyet += maliyet;
+                      toplamMaliyet += maliyet; // Sadece maliyeti topluyoruz
                   });
               }
           }
       });
 
-      setAylikMalzemeAnalizi({ ciro: toplamCiro, maliyet: toplamMaliyet, kar: toplamCiro - toplamMaliyet });
+      // Ciro değerine, formlardaki toplam tutarları (KDV'siz ana rakamları) gönderiyoruz.
+      setAylikMalzemeAnalizi({ ciro: toplamCiroKdvsiz, maliyet: toplamMaliyet, kar: toplamCiroKdvsiz - toplamMaliyet });
   };
 
   const genelPerformansHesapla = (stokListesi: any[], servisListesi: any[]) => {
@@ -299,7 +308,7 @@ export default function MalzemelerSayfasi() {
   const grafikVerisi = analizliMalzemeler.slice(0, 5).map(m => ({ name: m.name.substring(0,10), kar: m.performans.toplamKar }));
 
 
-  // ==========================================================================
+// ==========================================================================
   // 🔥 YENİ: OTOMATİK ENTEGRE KÂR ZARAR HESAPLAMASI (HER ŞEY DAHİL) 🔥
   // ==========================================================================
   
@@ -309,22 +318,26 @@ export default function MalzemelerSayfasi() {
       (finansalVeri.yemek || 0) + (finansalVeri.tazminat || 0) + (finansalVeri.mesaiYemek || 0) + 
       (finansalVeri.aracYipranma || 0) + (finansalVeri.aracSigorta || 0) + (finansalVeri.aracBakim || 0);
 
-  // 2. Malzeme Maliyeti (Alış Fiyatlarından)
+  // 2. Malzeme Maliyeti (Depodaki alış fiyatlarından gelen zarar)
   const malzemeMaliyeti = aylikMalzemeAnalizi.maliyet;
 
-  // 3. Şirketin O Ayki Toplam Gideri (Sabit + Malzeme)
+  // 3. Şirketin O Ayki Toplam Gideri (Sabit Giderler + Malzeme Alış Giderleri)
   const genelToplamGider = sabitGiderlerToplami + malzemeMaliyeti;
 
-  // 4. KDV'siz Ciro ve KDV'li Ciro (Satış Fiyatlarından)
+  // 4. KDV'siz Ciro ve KDV'li Ciro (Analiz sayfasındaki ana ciro buraya geldi)
   const ciroKdvsiz = aylikMalzemeAnalizi.ciro;
   const ciroKdvDahil = ciroKdvsiz * 1.20; // %20 KDV eklendi
 
   // 5. Ekstra Gelir (Gayri Resmi vb.)
   const ekstraGelir = Number(finansalVeri.gResmiFatura) || 0;
+  
+  // ŞİRKETİN KASASINA GİREN TOPLAM SICAK PARA (KDV Dahil + Ekstralar)
   const genelToplamGelir = ciroKdvDahil + ekstraGelir;
 
-  // 6. Net Kâr
-  const sirketNetKar = genelToplamGelir - genelToplamGider;
+  // 6. GERÇEK NET KÂR / ZARAR HESABI
+  // Çok Önemli: Kâr hesaplanırken kasaya giren KDV sayılmaz çünkü o devlete gidecektir.
+  // Gerçek Kazanç = (KDV'siz Ciro + Ekstra Gelir) - Toplam Giderler
+  const sirketNetKar = (ciroKdvsiz + ekstraGelir) - genelToplamGider;
 
 
   return (
