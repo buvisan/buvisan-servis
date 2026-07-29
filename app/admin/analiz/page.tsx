@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - PRO ANALİZ MODÜLÜ 🛠️
-// Versiyon: 9.6 (Detay Ekranı Otomatik Görüntü Kaydetme Eklendi 📸)
+// Versiyon: 9.7 (Ekip Performansında Toplam Saat Analizi Eklendi ⏱️)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -67,7 +67,7 @@ export default function AnalizSayfasi() {
   // YENİ KAYIT FORMU 
   const [yeniKayit, setYeniKayit] = useState({
     service_date: new Date().toISOString().split('T')[0],
-    customer_text: '', company_address: '', customer_rep: '',    
+    customer_text: '', company_address: '', customer_rep: '',   
     crane_capacity: '', service_type: 'Servis', 
     work_hours: '', description: '', 
     price: '', technician: '', form_number: '', image_urls: [] as string[]
@@ -175,9 +175,15 @@ export default function AnalizSayfasi() {
 
       return PERSONEL_LISTESI.map(personel => {
           // Bütün işlemleri (Çözülen + Yarım Kalan) filtreliyoruz.
-          // Ortak isim listesini parçalamaya gerek yok, "includes" ile hepsini kusursuz sayar!
           const gittigiIsler = filtrelenmisKayitlar.filter(k => k.technician && k.technician.includes(personel));
-          return { ad: personel, isSayisi: gittigiIsler.length, detaylar: gittigiIsler };
+          
+          // 🔥 YENİ: Toplam çalışma saatini hesaplıyoruz 🔥
+          const toplamSaat = gittigiIsler.reduce((toplam, is) => {
+              const saat = Number(is.work_hours) || 0;
+              return toplam + saat;
+          }, 0);
+
+          return { ad: personel, isSayisi: gittigiIsler.length, toplamSaat: toplamSaat, detaylar: gittigiIsler };
       }).sort((a, b) => b.isSayisi - a.isSayisi);
   };
 
@@ -761,7 +767,12 @@ const fisiIndir = async () => {
                             {personelAnaliziYap().map((p, index) => (
                                 <button key={index} onClick={() => setSeciliPersonelAd(p.ad)} className={`w-full p-4 rounded-2xl flex justify-between items-center transition border ${seciliPersonelAd === p.ad ? 'bg-purple-600 text-white shadow-lg shadow-purple-200 border-purple-600' : 'bg-white text-slate-600 hover:bg-white border-slate-200 hover:border-purple-200'}`}>
                                     <div className="font-bold text-sm">{p.ad}</div>
-                                    <div className={`text-xs font-black px-3 py-1 rounded-full ${seciliPersonelAd === p.ad ? 'bg-white/20' : 'bg-slate-100 text-slate-500'}`}>{p.isSayisi} İş</div>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <div className={`text-xs font-black px-3 py-1 rounded-full ${seciliPersonelAd === p.ad ? 'bg-white/20' : 'bg-slate-100 text-slate-500'}`}>{p.isSayisi} İş</div>
+                                        <div className={`text-[10px] font-bold ${seciliPersonelAd === p.ad ? 'text-purple-200' : 'text-slate-400'}`}>
+                                            <Clock size={10} className="inline mr-1"/>{p.toplamSaat} Saat
+                                        </div>
+                                    </div>
                                 </button>
                             ))}
                         </div>
@@ -775,7 +786,14 @@ const fisiIndir = async () => {
                                             <h3 className="text-2xl font-black text-slate-800">{aktifPersonelDetay.ad}</h3>
                                             <p className="text-sm text-slate-500">{analizTarihi} döneminde atandığı tüm iş emirleri.</p>
                                         </div>
-                                        <div className="text-4xl font-black text-purple-600">{aktifPersonelDetay.isSayisi}</div>
+                                        <div className="text-right">
+                                            <div className="text-4xl font-black text-purple-600">
+                                                {aktifPersonelDetay.isSayisi} <span className="text-xl text-purple-400">İş</span>
+                                            </div>
+                                            <div className="text-sm font-bold text-slate-500 mt-1 flex items-center justify-end gap-1">
+                                                <Clock size={14}/> Toplam {aktifPersonelDetay.toplamSaat} Saat
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {aktifPersonelDetay.detaylar.length > 0 ? (
@@ -787,7 +805,16 @@ const fisiIndir = async () => {
                                                             {is.customer_text}
                                                             {is.form_number && <span className="text-[9px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded font-mono">No: {is.form_number}</span>}
                                                         </div>
-                                                        <div className="text-xs text-slate-400 mt-1 flex items-center gap-2"><Calendar size={12}/> {new Date(is.service_date).toLocaleDateString('tr-TR')}</div>
+                                                        <div className="flex items-center gap-3 mt-1">
+                                                            <div className="text-xs text-slate-400 flex items-center gap-1">
+                                                                <Calendar size={12}/> {new Date(is.service_date).toLocaleDateString('tr-TR')}
+                                                            </div>
+                                                            {Number(is.work_hours) > 0 && (
+                                                                <div className="text-xs text-slate-400 flex items-center gap-1">
+                                                                    <Clock size={12}/> {is.work_hours} Saat
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <div className="text-right">
                                                         {is.service_type === 'Yarım Kalan İş' ? (
