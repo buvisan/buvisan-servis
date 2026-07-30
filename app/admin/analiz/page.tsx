@@ -2,7 +2,7 @@
 
 // ----------------------------------------------------------------------------
 // BUVISAN SERVİS YÖNETİM PANELİ - PRO ANALİZ MODÜLÜ 🛠️
-// Versiyon: 9.7 (Ekip Performansında Toplam Saat Analizi Eklendi ⏱️)
+// Versiyon: 9.8 (Garanti (ZM METAL) Ciro Takibi Eklendi 🟡)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -50,11 +50,13 @@ export default function AnalizSayfasi() {
   const [aktifRaporId, setAktifRaporId] = useState<string | null>(null); 
 
   const [seciliDonem, setSeciliDonem] = useState(new Date().toISOString().slice(0, 7));
+  const [seciliGarantiDonem, setSeciliGarantiDonem] = useState(new Date().toISOString().slice(0, 7)); // YENİ GARANTİ FİLTRESİ
   const [analizTarihi, setAnalizTarihi] = useState(new Date().toISOString().slice(0, 7));
 
   const [istatistik, setIstatistik] = useState({ 
       toplamCiro: 0, seciliAyCiro: 0, buHaftaCiro: 0, 
-      toplamIslem: 0, buHaftaIslem: 0, seciliAyIslem: 0 
+      toplamIslem: 0, buHaftaIslem: 0, seciliAyIslem: 0,
+      garantiToplamCiro: 0, garantiSeciliAyCiro: 0 // YENİ GARANTİ İSTATİSTİKLERİ
   });
   const [grafikVerisi, setGrafikVerisi] = useState<any[]>([]);
 
@@ -93,7 +95,7 @@ export default function AnalizSayfasi() {
 
   useEffect(() => {
       if (kayitlar.length > 0) hesaplamalariYap(kayitlar);
-  }, [seciliDonem, kayitlar]);
+  }, [seciliDonem, seciliGarantiDonem, kayitlar]);
 
   const tumVerileriGetir = async () => {
     try {
@@ -125,6 +127,8 @@ export default function AnalizSayfasi() {
   const hesaplamalariYap = (data: any[]) => {
     const bugun = new Date();
     const [secilenYil, secilenAy] = seciliDonem.split('-').map(Number);
+    const [garSecilenYil, garSecilenAy] = seciliGarantiDonem.split('-').map(Number);
+
     const buHaftaBaslangic = new Date(bugun);
     const day = buHaftaBaslangic.getDay();
     const diff = buHaftaBaslangic.getDate() - day + (day === 0 ? -6 : 1); 
@@ -132,6 +136,8 @@ export default function AnalizSayfasi() {
     buHaftaBaslangic.setHours(0,0,0,0);
 
     let topCiro = 0, seciliAyCiro = 0, haftaCiro = 0, haftaSayi = 0, seciliAySayi = 0;
+    let garTopCiro = 0, garSeciliAyCiro = 0;
+
     const musteriAnalizi: any = {};
 
     data.forEach(item => {
@@ -141,6 +147,14 @@ export default function AnalizSayfasi() {
         const islemTarihi = new Date(item.service_date);
         
         topCiro += fiyat;
+
+        // 🔥 YENİ: GARANTİ (ZM METAL) HESAPLAMALARI 🔥
+        if (item.service_type === 'Garanti (ZM METAL)') {
+            garTopCiro += fiyat;
+            if (islemTarihi.getFullYear() === garSecilenYil && (islemTarihi.getMonth() + 1) === garSecilenAy) {
+                garSeciliAyCiro += fiyat;
+            }
+        }
 
         if (islemTarihi.getFullYear() === secilenYil && (islemTarihi.getMonth() + 1) === secilenAy) { 
             seciliAyCiro += fiyat; 
@@ -157,7 +171,8 @@ export default function AnalizSayfasi() {
 
     setIstatistik({ 
         toplamCiro: topCiro, seciliAyCiro: seciliAyCiro, buHaftaCiro: haftaCiro,
-        toplamIslem: data.length, buHaftaIslem: haftaSayi, seciliAyIslem: seciliAySayi 
+        toplamIslem: data.length, buHaftaIslem: haftaSayi, seciliAyIslem: seciliAySayi,
+        garantiToplamCiro: garTopCiro, garantiSeciliAyCiro: garSeciliAyCiro 
     });
 
     setGrafikVerisi(Object.keys(musteriAnalizi).map(key => ({ name: key, tutar: musteriAnalizi[key] })).sort((a, b) => b.tutar - a.tutar).slice(0, 5));
@@ -408,7 +423,7 @@ const fisiIndir = async () => {
       </div>
 
       {/* 🔥 İSTATİSTİKLER (DİNAMİK CİRO VE HAFTALIK GÜNCELLEMESİ) 🔥 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-6 mb-8">
         
         {/* TOPLAM CİRO */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
@@ -440,6 +455,28 @@ const fisiIndir = async () => {
             </div>
             <div className="text-xl md:text-2xl font-black relative z-10">{istatistik.seciliAyCiro.toLocaleString('tr-TR')} ₺</div>
             <div className="text-[10px] text-blue-200 mt-2 border-t border-blue-500/30 pt-2 relative z-10">{istatistik.seciliAyIslem} Servis İşlemi Gerçekleşti</div>
+        </div>
+
+        {/* YENİ: GARANTİ (ZM METAL) DÖNEM CİROSU */}
+        <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-5 rounded-2xl shadow-md border border-yellow-700 text-white relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute right-0 bottom-0 opacity-15"><DollarSign size={80}/></div>
+            <div className="flex justify-between items-start mb-2 relative z-10">
+                <div className="text-[10px] md:text-xs text-yellow-100 font-bold uppercase">ZM Metal (Dönem)</div>
+                <select 
+                    value={seciliGarantiDonem} 
+                    onChange={(e) => setSeciliGarantiDonem(e.target.value)} 
+                    className="bg-yellow-800/50 border border-yellow-400/50 text-white text-[10px] font-bold px-2 py-1 rounded outline-none cursor-pointer hover:bg-yellow-800/80 transition"
+                >
+                    {Array.from({ length: 7 }, (_, i) => 2024 + i).map(yil => (
+                        ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"].map((ayAdi, index) => {
+                            const ayValue = `${yil}-${String(index + 1).padStart(2, '0')}`;
+                            return <option key={ayValue} value={ayValue}>{ayAdi} {yil}</option>;
+                        })
+                    ))}
+                </select>
+            </div>
+            <div className="text-xl md:text-2xl font-black relative z-10">{istatistik.garantiSeciliAyCiro.toLocaleString('tr-TR')} ₺</div>
+            <div className="text-[10px] text-yellow-100 mt-2 border-t border-yellow-400/30 pt-2 relative z-10">Toplam ZM Metal: {istatistik.garantiToplamCiro.toLocaleString('tr-TR')} ₺</div>
         </div>
 
         {/* HAFTALIK CİRO VE SERVİS */}
@@ -495,7 +532,7 @@ const fisiIndir = async () => {
                         <thead className="bg-slate-50/50 text-slate-500 font-bold uppercase text-[10px] md:text-xs tracking-wider"><tr><th className="p-4 pl-6">Tarih</th><th className="p-4">Müşteri</th><th className="p-4 hidden md:table-cell">İşlem</th><th className="p-4">Tutar</th><th className="p-4 text-right pr-6">İşlem</th></tr></thead>
                         <tbody className="divide-y divide-slate-100">
                             {filtrelenmisKayitlar.map((item) => (
-                                <tr key={item.id} onClick={() => setSeciliKayit(item)} className={`transition-all duration-200 cursor-pointer group ${item.service_type === 'Yarım Kalan İş' ? 'hover:bg-orange-50 bg-orange-50/30' : 'hover:bg-blue-50/50'}`}>
+                                <tr key={item.id} onClick={() => setSeciliKayit(item)} className={`transition-all duration-200 cursor-pointer group ${item.service_type === 'Yarım Kalan İş' ? 'hover:bg-orange-50 bg-orange-50/30' : item.service_type === 'Garanti (ZM METAL)' ? 'hover:bg-yellow-50/50 bg-yellow-50/20' : 'hover:bg-blue-50/50'}`}>
                                     <td className="p-4 pl-6 font-mono text-slate-500 text-xs">{new Date(item.service_date).toLocaleDateString('tr-TR')}</td>
                                     <td className="p-4">
                                         <div className="font-bold text-slate-800 text-sm flex items-center gap-2">
@@ -509,6 +546,8 @@ const fisiIndir = async () => {
                                     <td className="p-4 font-black text-sm">
                                         {item.service_type === 'Yarım Kalan İş' ? (
                                             <span className="text-orange-500 text-xs font-bold bg-orange-100 px-2 py-1 rounded">YARIM KALDI</span>
+                                        ) : item.service_type === 'Garanti (ZM METAL)' ? (
+                                            <span className="text-yellow-600 font-bold" title="Garanti (ZM METAL)">{Number(item.price).toLocaleString('tr-TR')} ₺</span>
                                         ) : (
                                             <span className="text-green-600">{Number(item.price).toLocaleString('tr-TR')} ₺</span>
                                         )}
@@ -619,7 +658,14 @@ const fisiIndir = async () => {
                                         <input type="text" placeholder="Form No" value={yeniKayit.form_number} onChange={e => setYeniKayit({...yeniKayit, form_number: e.target.value})} className="w-full pl-8 p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs font-bold text-blue-700 placeholder:text-blue-400/50 outline-none focus:ring-2 focus:ring-blue-400 transition"/>
                                         <FileText size={14} className="absolute left-2.5 top-3.5 text-blue-400"/>
                                     </div>
-                                    <select value={yeniKayit.service_type} onChange={e => setYeniKayit({...yeniKayit, service_type: e.target.value})} className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:ring-2 focus:ring-slate-300 transition"><option>Servis</option><option>Periyodik Bakım</option><option>Garanti</option><option>Montaj</option><option>Diğer</option></select>
+                                    <select value={yeniKayit.service_type} onChange={e => setYeniKayit({...yeniKayit, service_type: e.target.value})} className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:ring-2 focus:ring-slate-300 transition">
+                                        <option>Servis</option>
+                                        <option>Periyodik Bakım</option>
+                                        <option>Garanti</option>
+                                        <option>Garanti (ZM METAL)</option>
+                                        <option>Montaj</option>
+                                        <option>Diğer</option>
+                                    </select>
                                     <input type="text" placeholder="Kapasite" value={yeniKayit.crane_capacity} onChange={e => setYeniKayit({...yeniKayit, crane_capacity: e.target.value})} className="w-24 shrink-0 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-slate-300 transition"/>
                                 </div>
                                 <textarea rows={4} placeholder="Yapılan işlemi detaylıca yazın..." value={yeniKayit.description} onChange={e => setYeniKayit({...yeniKayit, description: e.target.value})} className={`w-full p-3 rounded-xl border text-sm resize-none outline-none focus:ring-2 focus:ring-slate-300 transition ${aktifRaporId ? 'border-cyan-300 bg-cyan-50/30 focus:ring-cyan-400' : 'bg-slate-50 border-slate-200'}`}/>
@@ -859,7 +905,7 @@ const fisiIndir = async () => {
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <h2 className="text-2xl font-bold">{seciliKayit.customer_text}</h2>
-                            <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/10">{seciliKayit.service_type}</span>
+                            <span className={`text-xs font-bold px-3 py-1 rounded-full ${seciliKayit.service_type === 'Garanti (ZM METAL)' ? 'bg-yellow-500/20 text-yellow-300' : 'bg-white/10'}`}>{seciliKayit.service_type}</span>
                         </div>
                         <div className="flex flex-wrap items-center gap-4 text-slate-400 text-xs mt-1">
                             <span className="flex items-center gap-1"><MapPin size={14}/> {seciliKayit.company_address || 'Adres Girilmedi'}</span>
@@ -885,10 +931,10 @@ const fisiIndir = async () => {
                                 <div className="flex justify-between"><span>Ekip:</span> <b>{seciliKayit.technician}</b></div>
                             </div>
                         </div>
-                        <div className="p-4 bg-green-50 rounded-2xl border border-green-100 flex flex-col justify-center">
-                            <div className="text-xs font-bold text-green-600 uppercase mb-2 flex items-center gap-2"><DollarSign size={14}/> Tutar</div>
-                            <div className="text-3xl font-black text-green-700">{Number(seciliKayit.price).toLocaleString('tr-TR')} ₺</div>
-                            <div className="text-xs text-green-600/70 mt-1">{new Date(seciliKayit.service_date).toLocaleDateString('tr-TR')}</div>
+                        <div className={`p-4 rounded-2xl border flex flex-col justify-center ${seciliKayit.service_type === 'Garanti (ZM METAL)' ? 'bg-yellow-50 border-yellow-100' : 'bg-green-50 border-green-100'}`}>
+                            <div className={`text-xs font-bold uppercase mb-2 flex items-center gap-2 ${seciliKayit.service_type === 'Garanti (ZM METAL)' ? 'text-yellow-600' : 'text-green-600'}`}><DollarSign size={14}/> Tutar</div>
+                            <div className={`text-3xl font-black ${seciliKayit.service_type === 'Garanti (ZM METAL)' ? 'text-yellow-600' : 'text-green-700'}`}>{Number(seciliKayit.price).toLocaleString('tr-TR')} ₺</div>
+                            <div className={`text-xs mt-1 ${seciliKayit.service_type === 'Garanti (ZM METAL)' ? 'text-yellow-600/70' : 'text-green-600/70'}`}>{new Date(seciliKayit.service_date).toLocaleDateString('tr-TR')}</div>
                         </div>
                     </div>
                     
