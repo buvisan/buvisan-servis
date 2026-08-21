@@ -28,13 +28,13 @@ const PERSONEL_LISTESI = [
 export default function AnalizSayfasi() {
   
   const modalRef = useRef<HTMLDivElement>(null);
-  const detayModalRef = useRef<HTMLDivElement>(null); // YENİ: Detay modalı için referans
+  const detayModalRef = useRef<HTMLDivElement>(null); 
   
   // STATE YÖNETİMİ
   const [indiriliyor, setIndiriliyor] = useState(false);
   const [yukleniyor, setYukleniyor] = useState(true);
-  const [kayitlar, setKayitlar] = useState<any[]>([]); // completed_services (Ciro İçin)
-  const [isEmirleri, setIsEmirleri] = useState<any[]>([]); // service_tickets (Performans İçin) 
+  const [kayitlar, setKayitlar] = useState<any[]>([]); 
+  const [isEmirleri, setIsEmirleri] = useState<any[]>([]); 
   const [stokMalzemeleri, setStokMalzemeleri] = useState<any[]>([]); 
   const [aramaMetni, setAramaMetni] = useState("");
   
@@ -50,13 +50,13 @@ export default function AnalizSayfasi() {
   const [aktifRaporId, setAktifRaporId] = useState<string | null>(null); 
 
   const [seciliDonem, setSeciliDonem] = useState(new Date().toISOString().slice(0, 7));
-  const [seciliGarantiDonem, setSeciliGarantiDonem] = useState(new Date().toISOString().slice(0, 7)); // YENİ GARANTİ FİLTRESİ
+  const [seciliGarantiDonem, setSeciliGarantiDonem] = useState(new Date().toISOString().slice(0, 7)); 
   const [analizTarihi, setAnalizTarihi] = useState(new Date().toISOString().slice(0, 7));
 
   const [istatistik, setIstatistik] = useState({ 
       toplamCiro: 0, seciliAyCiro: 0, buHaftaCiro: 0, 
       toplamIslem: 0, buHaftaIslem: 0, seciliAyIslem: 0,
-      garantiToplamCiro: 0, garantiSeciliAyCiro: 0 // YENİ GARANTİ İSTATİSTİKLERİ
+      garantiToplamCiro: 0, garantiSeciliAyCiro: 0 
   });
   const [grafikVerisi, setGrafikVerisi] = useState<any[]>([]);
 
@@ -77,10 +77,14 @@ export default function AnalizSayfasi() {
 
   const [secilenPersoneller, setSecilenPersoneller] = useState<string[]>([]);
 
+  // 🔥 YENİ: OTOMATİK TAMAMLAMA (AUTOCOMPLETE) STATE'LERİ 🔥
+  const [firmaAramaSonuclari, setFirmaAramaSonuclari] = useState<any[]>([]);
+  const [firmaDropdownAcik, setFirmaDropdownAcik] = useState(false);
+
   // 🔥 YENİ: TOPLU YARIM KALAN İŞ FORMU STATE'LERİ 🔥
   const [seciliPersonelAd, setSeciliPersonelAd] = useState<string | null>(null);
-  const [yarimIsFormAcik, setYarimIsFormAcik] = useState(false); // Toplu ekleme paneli kontrolü
-  const [secilenYarimIsPersonelleri, setSecilenYarimIsPersonelleri] = useState<string[]>([]); // Çoklu personel seçimi
+  const [yarimIsFormAcik, setYarimIsFormAcik] = useState(false); 
+  const [secilenYarimIsPersonelleri, setSecilenYarimIsPersonelleri] = useState<string[]>([]); 
   const [yarimIsForm, setYarimIsForm] = useState({ musteri: '', tarih: new Date().toISOString().split('T')[0] });
   const [yarimIsEkleniyor, setYarimIsEkleniyor] = useState(false);
 
@@ -148,7 +152,6 @@ export default function AnalizSayfasi() {
         
         topCiro += fiyat;
 
-        // 🔥 YENİ: GARANTİ (ZM METAL) HESAPLAMALARI 🔥
         if (item.service_type === 'Garanti (ZM METAL)') {
             garTopCiro += fiyat;
             if (islemTarihi.getFullYear() === garSecilenYil && (islemTarihi.getMonth() + 1) === garSecilenAy) {
@@ -178,7 +181,6 @@ export default function AnalizSayfasi() {
     setGrafikVerisi(Object.keys(musteriAnalizi).map(key => ({ name: key, tutar: musteriAnalizi[key] })).sort((a, b) => b.tutar - a.tutar).slice(0, 5));
   };
 
-  // 🔥 GÜNCELLENMİŞ EKİP PERFORMANSI 🔥
   const personelAnaliziYap = () => {
       const [secilenYil, secilenAy] = analizTarihi.split('-').map(Number);
       
@@ -189,10 +191,7 @@ export default function AnalizSayfasi() {
       });
 
       return PERSONEL_LISTESI.map(personel => {
-          // Bütün işlemleri (Çözülen + Yarım Kalan) filtreliyoruz.
           const gittigiIsler = filtrelenmisKayitlar.filter(k => k.technician && k.technician.includes(personel));
-          
-          // 🔥 YENİ: Toplam çalışma saatini hesaplıyoruz 🔥
           const toplamSaat = gittigiIsler.reduce((toplam, is) => {
               const saat = Number(is.work_hours) || 0;
               return toplam + saat;
@@ -204,7 +203,6 @@ export default function AnalizSayfasi() {
 
   const aktifPersonelDetay = seciliPersonelAd ? personelAnaliziYap().find(p => p.ad === seciliPersonelAd) : null;
 
-  // 🔥 YENİ: TOPLU YARIM KALAN İŞ EKLEME FONKSİYONU 🔥
   const yarimIsPersonelSeciminiGuncelle = (personel: string) => {
       let yeniListe = [...secilenYarimIsPersonelleri];
       if (yeniListe.includes(personel)) yeniListe = yeniListe.filter(p => p !== personel);
@@ -221,7 +219,7 @@ export default function AnalizSayfasi() {
       const paket = {
           service_date: yarimIsForm.tarih,
           customer_text: yarimIsForm.musteri,
-          technician: secilenYarimIsPersonelleri.join(" - "), // Seçilen tüm isimleri birleştirir
+          technician: secilenYarimIsPersonelleri.join(" - "), 
           service_type: 'Yarım Kalan İş',
           price: 0, 
           description: 'Bu iş personelin performansına eklenmiş ancak yarım kalmış bir işlemdir.'
@@ -241,8 +239,49 @@ export default function AnalizSayfasi() {
   };
 
   // ==========================================================================
-  // FORM İŞLEMLERİ
+  // FORM İŞLEMLERİ VE AUTOCOMPLETE (YENİ EKLENEN KISIM)
   // ==========================================================================
+  
+  // 🔥 Müşteri (Firma) Adı yazarken geçmiş kayıtları filtreleyen fonksiyon
+  const handleFirmaAdiChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const arananFirma = e.target.value;
+    setYeniKayit({ ...yeniKayit, customer_text: arananFirma });
+
+    if (arananFirma.length > 1) {
+        // Benzersiz firmaları bulmak için Map kullanıyoruz
+        const benzersizFirmalar = new Map();
+        
+        kayitlar.forEach(kayit => {
+            if (kayit.customer_text && kayit.customer_text.toLowerCase().includes(arananFirma.toLowerCase())) {
+                const kucukHarfFirma = kayit.customer_text.toLowerCase();
+                // Sadece daha önce eklenmemişse ekle (en güncel kaydı alır)
+                if (!benzersizFirmalar.has(kucukHarfFirma)) {
+                    benzersizFirmalar.set(kucukHarfFirma, kayit);
+                }
+            }
+        });
+        
+        const sonuclar = Array.from(benzersizFirmalar.values());
+        setFirmaAramaSonuclari(sonuclar);
+        setFirmaDropdownAcik(sonuclar.length > 0);
+    } else {
+        setFirmaDropdownAcik(false);
+    }
+  };
+
+  // 🔥 Dropdowndan geçmiş firmayı seçince diğer alanları otomatik dolduran fonksiyon
+  const handleFirmaSecimi = (secilenFirma: any) => {
+    setYeniKayit({
+        ...yeniKayit,
+        customer_text: secilenFirma.customer_text || '',
+        company_address: secilenFirma.company_address || yeniKayit.company_address, // Eğer boşsa eskisini koru
+        customer_rep: secilenFirma.customer_rep || yeniKayit.customer_rep,
+        crane_capacity: secilenFirma.crane_capacity || yeniKayit.crane_capacity,
+    });
+    setFirmaDropdownAcik(false); // Seçim yapıldıktan sonra menüyü kapat
+  };
+
+
   const malzemeEkle = () => {
       if(!secilenMalzemeId || !tempBirimFiyat || !tempAdet) return alert("Bilgileri kontrol edin.");
       const bulunan = stokMalzemeleri.find(m => m.id === secilenMalzemeId);
@@ -338,11 +377,10 @@ export default function AnalizSayfasi() {
     setYukleniyor(false);
   };
 
-const fisiIndir = async () => {
+  const fisiIndir = async () => {
     if (!modalRef.current || !seciliKayit) return;
     setIndiriliyor(true);
     try {
-      // html-to-image kullanarak PNG alıyoruz
       const dataUrl = await toPng(modalRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' });
       const link = document.createElement("a"); 
       link.href = dataUrl;
@@ -355,28 +393,22 @@ const fisiIndir = async () => {
     setIndiriliyor(false);
   };
 
-// 2. Yeni Detay Görseli İndir Fonksiyonu
   const detayGorseliIndir = async () => {
     if (!detayModalRef.current || !seciliKayit) return;
     setIndiriliyor(true);
     try {
       const targetElement = detayModalRef.current;
-
-      // Modal içi kaydırmalarda (scroll) kesilme olmaması için geçici ayar
       const originalOverflow = targetElement.style.overflow;
       targetElement.style.overflow = 'visible';
 
-      // Sistemin toparlanması için minik bir nefes payı
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      // html-to-image kullanarak yüksek çözünürlüklü JPEG alıyoruz
       const dataUrl = await toJpeg(targetElement, { 
         pixelRatio: 2, 
         backgroundColor: '#ffffff', 
         quality: 0.9 
       });
 
-      // İşlem bitince scroll ayarını eski haline alıyoruz
       targetElement.style.overflow = originalOverflow;
 
       const link = document.createElement("a"); 
@@ -422,10 +454,8 @@ const fisiIndir = async () => {
         </div>
       </div>
 
-      {/* 🔥 İSTATİSTİKLER (DİNAMİK CİRO VE HAFTALIK GÜNCELLEMESİ) 🔥 */}
+      {/* İSTATİSTİKLER */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-6 mb-8">
-        
-        {/* TOPLAM CİRO */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
             <div>
                 <div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Toplam Ciro (Tüm Zamanlar)</div>
@@ -434,12 +464,10 @@ const fisiIndir = async () => {
             <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-100 pt-2">{istatistik.toplamIslem} Toplam Servis İşlemi</div>
         </div>
 
-        {/* DİNAMİK SEÇİLİ DÖNEM CİRO */}
         <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-5 rounded-2xl shadow-md border border-blue-700 text-white relative overflow-hidden flex flex-col justify-between">
             <div className="absolute right-0 bottom-0 opacity-10"><TrendingUp size={80}/></div>
             <div className="flex justify-between items-start mb-2 relative z-10">
                 <div className="text-[10px] md:text-xs text-blue-200 font-bold uppercase">Dönem Cirosu</div>
-                {/* 🔥 DÖNEM FİLTRESİ BURADA 🔥 */}
                 <select 
                     value={seciliDonem} 
                     onChange={(e) => setSeciliDonem(e.target.value)} 
@@ -457,7 +485,6 @@ const fisiIndir = async () => {
             <div className="text-[10px] text-blue-200 mt-2 border-t border-blue-500/30 pt-2 relative z-10">{istatistik.seciliAyIslem} Servis İşlemi Gerçekleşti</div>
         </div>
 
-        {/* YENİ: GARANTİ (ZM METAL) DÖNEM CİROSU */}
         <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-5 rounded-2xl shadow-md border border-yellow-700 text-white relative overflow-hidden flex flex-col justify-between">
             <div className="absolute right-0 bottom-0 opacity-15"><DollarSign size={80}/></div>
             <div className="flex justify-between items-start mb-2 relative z-10">
@@ -479,7 +506,6 @@ const fisiIndir = async () => {
             <div className="text-[10px] text-yellow-100 mt-2 border-t border-yellow-400/30 pt-2 relative z-10">Toplam ZM Metal: {istatistik.garantiToplamCiro.toLocaleString('tr-TR')} ₺</div>
         </div>
 
-        {/* HAFTALIK CİRO VE SERVİS */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
             <div>
                 <div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Bu Hafta Ciro</div>
@@ -488,7 +514,6 @@ const fisiIndir = async () => {
             <div className="text-[10px] text-slate-400 mt-2 border-t border-slate-100 pt-2">{istatistik.buHaftaIslem} Servis İşlemi Gerçekleşti</div>
         </div>
 
-        {/* DİNAMİK SEÇİLİ DÖNEM SERVİS SAYISI */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
             <div>
                 <div className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Dönem Servis Sayısı</div>
@@ -643,12 +668,55 @@ const fisiIndir = async () => {
 
                     <div className="p-6 space-y-6 overflow-y-auto">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            
+                            {/* 🔥 GÜNCELLENEN ALAN: MÜŞTERİ BİLGİLERİ 🔥 */}
                             <div className="space-y-4">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><User size={12}/> Müşteri Bilgileri</span>
                                 <input type="date" value={yeniKayit.service_date} onChange={e => setYeniKayit({...yeniKayit, service_date: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm font-bold"/>
-                                <input type="text" placeholder="Firma Adı (Örn: Buvisan)" value={yeniKayit.customer_text} onChange={e => setYeniKayit({...yeniKayit, customer_text: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm font-bold"/>
-                                <input type="text" placeholder="Firma Adresi" value={yeniKayit.company_address} onChange={e => setYeniKayit({...yeniKayit, company_address: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs"/>
-                                <input type="text" placeholder="Yetkili Kişi" value={yeniKayit.customer_rep} onChange={e => setYeniKayit({...yeniKayit, customer_rep: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs"/>
+                                
+                                {/* Arama/Seçme (Autocomplete) Inputu Burada */}
+                                <div className="relative">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Firma Adı (Örn: Buvisan)" 
+                                        value={yeniKayit.customer_text} 
+                                        onChange={handleFirmaAdiChange}
+                                        onFocus={() => yeniKayit.customer_text.length > 1 && firmaAramaSonuclari.length > 0 && setFirmaDropdownAcik(true)}
+                                        onBlur={() => setTimeout(() => setFirmaDropdownAcik(false), 200)} // Tıklamaya izin vermek için gecikme
+                                        autoComplete="off"
+                                        className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-400 transition"
+                                    />
+                                    
+                                    {/* Açılır Menü (Geçmiş Firmalar) */}
+                                    <AnimatePresence>
+                                        {firmaDropdownAcik && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: -10 }} 
+                                                animate={{ opacity: 1, y: 0 }} 
+                                                exit={{ opacity: 0, y: -10 }} 
+                                                className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto"
+                                            >
+                                                {firmaAramaSonuclari.map((firma, idx) => (
+                                                    <div 
+                                                        key={idx} 
+                                                        onClick={() => handleFirmaSecimi(firma)}
+                                                        className="p-3 border-b border-slate-100 last:border-0 hover:bg-blue-50 cursor-pointer transition flex flex-col gap-1"
+                                                    >
+                                                        <span className="text-sm font-bold text-slate-800">{firma.customer_text}</span>
+                                                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
+                                                            {firma.company_address && <span className="truncate max-w-[150px]"><MapPin size={10} className="inline mr-0.5"/>{firma.company_address}</span>}
+                                                            {firma.customer_rep && <span><User size={10} className="inline mr-0.5"/>{firma.customer_rep}</span>}
+                                                            {firma.crane_capacity && <span><Wrench size={10} className="inline mr-0.5"/>{firma.crane_capacity}</span>}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+
+                                <input type="text" placeholder="Firma Adresi" value={yeniKayit.company_address} onChange={e => setYeniKayit({...yeniKayit, company_address: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-400 transition"/>
+                                <input type="text" placeholder="Yetkili Kişi" value={yeniKayit.customer_rep} onChange={e => setYeniKayit({...yeniKayit, customer_rep: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-blue-400 transition"/>
                             </div>
 
                             <div className="space-y-4">
@@ -751,7 +819,6 @@ const fisiIndir = async () => {
                             </div>
                         </div>
 
-                        {/* 🔥 YENİ: TOPLU YARIM KALAN İŞ BUTONU BURADA 🔥 */}
                         <div className="flex items-center gap-3">
                             <button onClick={() => setYarimIsFormAcik(!yarimIsFormAcik)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm border ${yarimIsFormAcik ? 'bg-orange-500 text-white border-orange-600' : 'bg-white text-orange-600 border-orange-200 hover:bg-orange-50'}`}>
                                 {yarimIsFormAcik ? <X size={16}/> : <Plus size={16}/>}
@@ -761,7 +828,6 @@ const fisiIndir = async () => {
                         </div>
                     </div>
 
-                    {/* 🔥 YENİ: TOPLU YARIM İŞ EKLEME PANELİ (Aşağı Doğru Açılır) 🔥 */}
                     <AnimatePresence>
                         {yarimIsFormAcik && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="bg-orange-50 border-b border-orange-100 px-6 py-4 overflow-hidden shrink-0">
@@ -898,7 +964,6 @@ const fisiIndir = async () => {
               onClick={e => e.stopPropagation()}
             >
               
-              {/* YENİ: REF BURAYA ALINDI. Sadece başlık ve içerik çekilecek. */}
               <div ref={detayModalRef} className="flex flex-col overflow-y-auto w-full bg-white">
                 
                 <div className="bg-slate-900 text-white p-6 flex justify-between items-start shrink-0">
@@ -917,7 +982,6 @@ const fisiIndir = async () => {
                             )}
                         </div>
                     </div>
-                    {/* Çarpı butonu resimde görünmesin diye data-html2canvas-ignore="true" eklendi */}
                     <button data-html2canvas-ignore="true" onClick={() => setSeciliKayit(null)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><X size={24}/></button>
                 </div>
 
@@ -981,9 +1045,8 @@ const fisiIndir = async () => {
                         </div>
                     )}
                 </div>
-              </div> {/* REF'Lİ DİV BURADA BİTİYOR */}
+              </div> 
 
-              {/* BUTONLAR (Resme Dahil Edilmeyecek Alan) */}
               <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
                   <button onClick={detayGorseliIndir} disabled={indiriliyor} className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition flex items-center gap-2 shadow-lg text-sm">
                       {indiriliyor ? <Loader2 size={16} className="animate-spin"/> : <Download size={16}/>} 
