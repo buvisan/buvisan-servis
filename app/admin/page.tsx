@@ -1,7 +1,7 @@
 "use client";
 // --------------------------------------------------------
-// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V4.1 🛠️
-// (Teklif Önizleme Modülü Doğrudan Ana Ekrana Gömüldü 📄)
+// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V4.2 🛠️
+// (Çoklu Medya & Video Destekli Sürüm 🎬)
 // --------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -13,7 +13,7 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, Play
 } from 'lucide-react';
 
 const PERSONEL_LISTESI = [
@@ -45,7 +45,7 @@ export default function AdminPanel() {
       pipeline_status: 'bekliyor' 
   });
 
-  // 🔥 YENİ: TEKLİF SİSTEMİ İÇİN GEREKLİ STATELER VE REF 🔥
+  // TEKLİF SİSTEMİ İÇİN GEREKLİ STATELER VE REF 
   const [teklifler, setTeklifler] = useState<any[]>([]);
   const [seciliTeklif, setSeciliTeklif] = useState<any | null>(null);
   const [onizlemeAcik, setOnizlemeAcik] = useState(false);
@@ -63,7 +63,6 @@ export default function AdminPanel() {
 
         setErisimIzni(true);
 
-        // Hem İş Emirlerini Hem de Teklifleri Çekiyoruz
         const { data: biletData } = await supabase.from('service_tickets').select('*, cranes(*)').order('created_at', { ascending: false });
         const { data: teklifData } = await supabase.from('offers').select('*'); 
 
@@ -202,7 +201,13 @@ export default function AdminPanel() {
       }
   };
 
-  // 🔥 YENİ: YAZDIRMA FONKSİYONU 🔥
+  // --- YARDIMCI: DOSYA UZANTISINDAN MEDYA TÜRÜNÜ BULMA ---
+  const isVideoUrl = (url: string) => {
+    if (!url) return false;
+    const lowerUrl = url.toLowerCase();
+    return lowerUrl.includes('.mp4') || lowerUrl.includes('.mov') || lowerUrl.includes('.webm') || lowerUrl.includes('.ogg');
+  };
+
   const yazdir = () => {
     const printContent = printRef.current;
     if (!printContent) return;
@@ -271,7 +276,7 @@ export default function AdminPanel() {
             <div className="hidden md:flex bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex-col justify-center items-center text-center">
                 <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4"><LayoutDashboard size={32}/></div>
                 <h3 className="text-slate-800 font-bold text-lg">Yönetim Paneli</h3>
-                <p className="text-slate-400 text-xs mt-1">v4.1 Aktif</p>
+                <p className="text-slate-400 text-xs mt-1">v4.2 Aktif</p>
                 <div className="mt-4 w-full h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 w-2/3 rounded-full"></div></div>
             </div>
         </div>
@@ -291,7 +296,6 @@ export default function AdminPanel() {
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/malzemeler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-yellow-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-yellow-50 text-yellow-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-yellow-500 group-hover:text-white transition-colors"><Package size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Depo</h3><p className="text-[10px] text-slate-400">Stok & Fiyat</p></div></motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/teklifler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-purple-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-purple-50 text-purple-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors"><FileText size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Teklif</h3><p className="text-[10px] text-slate-400">Sözleşme & Form</p></div></motion.button>
                 
-                {/* YENİ EKLENEN MENÜLER */}
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/mimli-sirketler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-red-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
                     <div className="bg-red-50 text-red-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-colors"><Ban size={20}/></div>
                     <div><h3 className="font-bold text-slate-700 text-sm">Mimli Şirketler</h3><p className="text-[10px] text-slate-400">Gidilmeyecek yerler</p></div>
@@ -336,11 +340,9 @@ export default function AdminPanel() {
                 filtrelenmisBildirimler.map((kayit) => {
                   const isKritik = kayit.priority === 'Kritik (Makine Durdu)';
                   
-                  // Adres bilgisini kontrol et
                   const adresMetni = kayit.cranes?.location_address || kayit.manual_location;
                   const koordinatVarMi = kayit.lat && kayit.lng;
                   
-                  // Satış Tüneli Kenar Rengi
                   let borderClass = 'border-slate-100 border-l-[6px] border-l-slate-400';
                   if(kayit.pipeline_status === 'tamamlandi') borderClass = 'border-slate-100 border-l-[6px] border-l-green-500 opacity-60';
                   else if(isKritik || kayit.pipeline_status === 'acil_cozum') borderClass = 'border-red-300 border-l-[6px] border-l-red-600 shadow-red-100 bg-red-50/20';
@@ -362,14 +364,12 @@ export default function AdminPanel() {
                             
                             <span className="text-slate-400 text-[10px] font-bold font-mono bg-slate-100 px-3 py-1 rounded-full flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(kayit.created_at).toLocaleString('tr-TR', { day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' })}</span>
                             
-                            {/* Tür Rozeti */}
                             {kayit.ticket_type === 'kesif' ? (
                                 <span className="bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1"><Eye size={12}/> KEŞİF TALEBİ</span>
                             ) : (
                                 <span className="bg-slate-50 text-slate-600 border border-slate-200 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1"><Wrench size={12}/> ARIZA BİLDİRİMİ</span>
                             )}
 
-                            {/* Ekip Atama Rozeti */}
                             {kayit.assigned_team && (
                                 <span className="bg-blue-50 text-blue-600 border border-blue-200 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1">
                                     <Truck className="w-3 h-3"/> Ekip: {kayit.assigned_team}
@@ -403,7 +403,6 @@ export default function AdminPanel() {
                                   )}
                               </div>
                               
-                              {/* Telefon (Tıklanabilir) */}
                               {kayit.manual_phone && (
                                   <a href={`tel:${kayit.manual_phone}`} className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded hover:bg-emerald-100 transition">
                                       <Phone className="w-3 h-3" /> {kayit.manual_phone}
@@ -429,9 +428,10 @@ export default function AdminPanel() {
                             <p className="whitespace-pre-line">{kayit.description}</p>
                         </div>
                         
-                        {/* SES KAYDI VE ÇOKLU MEDYA GÖRÜNTÜLEME */}
+                        {/* 🔥 YENİ: ÇOKLU MEDYA (VİDEO VE FOTOĞRAF) GÖRÜNTÜLEME 🔥 */}
                         <div className="pt-3 space-y-3">
-                            {/* SES KAYDI */}
+                            
+                            {/* SES KAYDI (GÜNCELLENMEDİ - AYNI) */}
                             {kayit.audio_url && (
                                 <div className="bg-slate-100 p-3 rounded-xl border border-slate-200 shadow-inner">
                                     <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-2"><Mic size={12} className="text-blue-500"/> Müşteri Ses Kaydı:</span>
@@ -439,16 +439,36 @@ export default function AdminPanel() {
                                 </div>
                             )}
 
-                            {/* ÇOKLU MEDYA (FOTO/VİDEO) */}
+                            {/* FOTOĞRAF VE VİDEOLAR DİNAMİK LİSTELEME */}
                             {kayit.media_urls && kayit.media_urls.length > 0 && (
-                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-2"><Camera size={12} className="text-blue-500"/> Müşteri Eklediği Medyalar ({kayit.media_urls.length}):</span>
-                                    <div className="flex gap-2 overflow-x-auto pb-1">
-                                        {kayit.media_urls.map((url: string, i: number) => (
-                                            <a key={i} href={url} target="_blank" rel="noreferrer" className="shrink-0 bg-white text-slate-700 px-3 py-2 rounded-lg text-xs font-bold hover:text-blue-600 hover:border-blue-300 transition border border-slate-200 flex items-center gap-2 shadow-sm">
-                                                <ImageIcon size={14}/> Dosya {i+1}
-                                            </a>
-                                        ))}
+                                <div className="bg-blue-50/50 p-3.5 rounded-xl border border-blue-100">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-3">
+                                      <Camera size={12} className="text-blue-500"/> Müşterinin Eklediği Medyalar ({kayit.media_urls.length}):
+                                    </span>
+                                    
+                                    <div className="flex flex-wrap gap-3">
+                                        {kayit.media_urls.map((url: string, i: number) => {
+                                            const isVideo = isVideoUrl(url);
+                                            
+                                            return isVideo ? (
+                                              // VİDEO İSE OYNATICIYLA GÖSTER
+                                              <div key={i} className="relative group rounded-xl overflow-hidden border border-slate-200 shadow-sm w-32 h-32 bg-black flex-shrink-0">
+                                                 <video src={url} className="w-full h-full object-cover opacity-80" />
+                                                 <a href={url} target="_blank" rel="noreferrer" className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 hover:bg-black/20 transition-all text-white">
+                                                    <Play className="w-8 h-8 mb-1 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all"/>
+                                                    <span className="text-[10px] font-bold">VİDEO {i+1}</span>
+                                                 </a>
+                                              </div>
+                                            ) : (
+                                              // FOTOĞRAF İSE RESİM OLARAK GÖSTER
+                                              <a key={i} href={url} target="_blank" rel="noreferrer" className="relative group rounded-xl overflow-hidden border border-slate-200 shadow-sm w-32 h-32 flex-shrink-0 block">
+                                                 <img src={url} alt={`Ariza Foto ${i+1}`} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                   <ImageIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-md w-6 h-6"/>
+                                                 </div>
+                                              </a>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
@@ -456,10 +476,9 @@ export default function AdminPanel() {
 
                       </div>
 
-                      {/* 🔥 İŞLEM VE PIPELINE BUTONLARI 🔥 */}
+                      {/* İŞLEM VE PIPELINE BUTONLARI */}
                       <div className="w-full md:w-[220px] flex flex-col gap-2 shrink-0">
                           
-                          {/* 🔥 YENİ: TEKLİF GÖRÜNTÜLEME BUTONU 🔥 */}
                           {teklifler.some(t => t.related_ticket_id === kayit.id) && (
                               <button 
                                   onClick={() => {
@@ -477,7 +496,6 @@ export default function AdminPanel() {
                               <div className="bg-slate-50 border border-slate-200 p-2 rounded-xl flex flex-col gap-2 mb-2">
                                   <span className="text-[10px] font-bold text-slate-400 uppercase text-center">Durumu Güncelle</span>
                                   
-                                  {/* Süreç İlerletme Butonları */}
                                   <div className="grid grid-cols-2 gap-1.5">
                                       <button onClick={() => durumGuncelle(kayit.id, 'kesif_bekliyor')} className="bg-purple-100 hover:bg-purple-200 text-purple-700 p-2 rounded-lg text-[9px] font-bold transition flex items-center justify-center" title="Keşif Bekliyor"><Eye size={12}/></button>
                                       <button onClick={() => durumGuncelle(kayit.id, 'teklif_hazirlanacak')} className="bg-orange-100 hover:bg-orange-200 text-orange-700 p-2 rounded-lg text-[9px] font-bold transition flex items-center justify-center" title="Teklif Hazırlanacak"><FileText size={12}/></button>
@@ -490,12 +508,10 @@ export default function AdminPanel() {
                               </div>
                           )}
 
-                          {/* QR ile gelenlerde müşteri chat açılsın */}
                           {!kayit.manual_customer_name && (
                               <button onClick={() => setAktifChatId(aktifChatId === kayit.id ? null : kayit.id)} className="w-full bg-white border border-slate-200 text-slate-600 font-bold py-2.5 px-4 rounded-xl text-xs hover:bg-slate-50 transition flex items-center justify-center gap-2 shadow-sm"><span>💬 {aktifChatId === kayit.id ? 'Sohbeti Kapat' : 'Müşteriye Yaz'}</span></button>
                           )}
 
-                          {/* DÜZENLE VE SİL BUTONLARI */}
                           <div className="flex gap-2 w-full mt-1">
                               <button onClick={() => kayitDuzenleAc(kayit)} className="flex-1 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm"><Edit2 size={12}/> Düzenle</button>
                               <button onClick={() => kayitSil(kayit.id)} className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm"><Trash2 size={12}/> Sil</button>
@@ -518,15 +534,12 @@ export default function AdminPanel() {
 
       </div>
 
-      {/* =========================================================================
-          🔥 MODAL: GELİŞMİŞ MANUEL ARIZA GİRİŞ VE DÜZENLEME FORMU 🔥
-          ========================================================================= */}
+      {/* MANUEL EKLEME MODALI (AYNI KALDI - DEĞİŞTİRİLMEDİ) */}
       <AnimatePresence>
         {manuelFormAcik && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto" onClick={() => { setManuelFormAcik(false); setSecilenManuelPersoneller([]); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: '', ticket_type: 'ariza', pipeline_status: 'bekliyor' }); setDuzenlenenKayitId(null); }}>
                 <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-full max-w-3xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col my-auto" onClick={e => e.stopPropagation()}>
                     
-                    {/* Modal Başlık */}
                     <div className="p-6 md:p-8 bg-slate-900 text-white flex justify-between items-center relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-8 opacity-5"><Settings size={100}/></div>
                         <div className="flex items-center gap-4 relative z-10">
@@ -539,16 +552,13 @@ export default function AdminPanel() {
                         <button onClick={() => { setManuelFormAcik(false); setSecilenManuelPersoneller([]); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: '', ticket_type: 'ariza', pipeline_status: 'bekliyor' }); setDuzenlenenKayitId(null); }} className="text-slate-400 hover:text-white bg-slate-800 hover:bg-red-500 p-2.5 rounded-full transition relative z-10"><X size={20}/></button>
                     </div>
 
-                    {/* Form İçeriği */}
                     <div className="p-6 md:p-8 space-y-6 bg-slate-50">
 
-                        {/* 🔥 YENİ: İŞİN TÜRÜNÜ SEÇ (ARIZA MI KEŞİF Mİ) 🔥 */}
                         <div className="bg-white p-2 rounded-xl border border-slate-200 flex shadow-sm">
                             <button onClick={() => setManuelKayit({...manuelKayit, ticket_type: 'ariza', pipeline_status: 'acil_cozum'})} className={`flex-1 py-3 text-sm font-bold rounded-lg transition ${manuelKayit.ticket_type === 'ariza' ? 'bg-red-50 text-red-600 border border-red-200' : 'text-slate-500 hover:bg-slate-50'}`}>🚨 DİREKT ARIZA (ÇÖZÜM)</button>
                             <button onClick={() => setManuelKayit({...manuelKayit, ticket_type: 'kesif', pipeline_status: 'kesif_bekliyor'})} className={`flex-1 py-3 text-sm font-bold rounded-lg transition ${manuelKayit.ticket_type === 'kesif' ? 'bg-purple-50 text-purple-600 border border-purple-200' : 'text-slate-500 hover:bg-slate-50'}`}>👀 ÖNCE KEŞİF / TEKLİF</button>
                         </div>
                         
-                        {/* Müşteri Temel Bilgiler */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Building2 size={12}/> Firma / Müşteri Adı <span className="text-red-500">*</span></label>
@@ -567,7 +577,6 @@ export default function AdminPanel() {
                                 <input type="text" placeholder="Örn: İnegöl OSB, 1. Cadde" value={manuelKayit.adres} onChange={e => setManuelKayit({...manuelKayit, adres: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"/>
                             </div>
                             
-                            {/* HARİTA KOORDİNATLARI (ENLEM VE BOYLAM) */}
                             <div className="md:col-span-2 grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><MapPin size={12}/> Enlem (Lat)</label>
@@ -582,7 +591,6 @@ export default function AdminPanel() {
 
                         <div className="h-px w-full bg-slate-200 my-2"></div>
 
-                        {/* İş ve Vinç Detayları */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="md:col-span-2">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Settings size={12}/> Makine / Vinç Bilgisi</label>
@@ -629,7 +637,6 @@ export default function AdminPanel() {
                             </div>
                         </div>
 
-                        {/* Sorun Detayı */}
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertCircle size={12}/> Arıza Detayı / Keşif Bildirimi <span className="text-red-500">*</span></label>
                             <textarea rows={4} placeholder="Müşterinin bildirdiği sorunu veya keşif amacını buraya detaylıca yazın..." value={manuelKayit.sorun} onChange={e => setManuelKayit({...manuelKayit, sorun: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm leading-relaxed"/>
@@ -649,26 +656,21 @@ export default function AdminPanel() {
         )}
       </AnimatePresence>
 
-      {/* --- MODAL: TEKLİF ÖNİZLEME (A4 KAĞIT) --- */}
+      {/* TEKLİF ÖNİZLEME (AYNI KALDI - DEĞİŞTİRİLMEDİ) */}
       <AnimatePresence>
         {onizlemeAcik && seciliTeklif && (
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/90 z-[9999] flex items-center justify-center p-4">
                 
                 <div className="bg-slate-200 w-full max-w-5xl h-[95vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden relative">
                     
-                    {/* --- ÜST BAR (Başlık) --- */}
                     <div className="bg-slate-800 text-white p-4 flex justify-between items-center shrink-0 z-50 shadow-md">
                         <h3 className="font-bold flex items-center gap-2"><FileCheck size={18}/> Teklif Önizleme</h3>
                         <button onClick={() => setOnizlemeAcik(false)} className="hover:bg-slate-700 p-2 rounded-full"><X size={20}/></button>
                     </div>
 
-                    {/* --- ORTA KISIM (KAYDIRILABİLİR ALAN) --- */}
                     <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-slate-600/50">
-                        
-                        {/* A4 KAĞIDI */}
                         <div ref={printRef} className="bg-white w-[210mm] min-h-[297mm] p-[15mm] shadow-xl relative text-black shrink-0">
                             
-                            {/* HEADER: LOGO VE FİRMA BİLGİSİ */}
                             <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-8">
                                 <div>
                                     <h1 className="text-3xl font-black text-slate-800 tracking-tighter">BUVİSAN</h1>
@@ -681,7 +683,6 @@ export default function AdminPanel() {
                                 </div>
                             </div>
 
-                            {/* BELGE BAŞLIĞI */}
                             <div className="text-center mb-8">
                                 <h2 className="text-xl font-bold uppercase border-b border-slate-300 inline-block pb-1">
                                     {seciliTeklif.template_type === 'standart' ? 'FİYAT TEKLİF FORMU' : 
@@ -690,7 +691,6 @@ export default function AdminPanel() {
                                 <p className="text-xs text-slate-400 mt-1">Tarih: {new Date(seciliTeklif.offer_date).toLocaleDateString('tr-TR')}</p>
                             </div>
 
-                            {/* MÜŞTERİ BİLGİLERİ */}
                             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8 text-sm">
                                 <div className="grid grid-cols-[100px_1fr] gap-2 mb-2">
                                     <span className="font-bold text-slate-600">Sayın:</span>
@@ -706,7 +706,6 @@ export default function AdminPanel() {
                                 </div>
                             </div>
 
-                            {/* TABLO */}
                             <table className="w-full mb-8 border-collapse">
                                 <thead>
                                     <tr className="bg-slate-100 text-slate-700 text-xs uppercase border-y border-slate-300">
@@ -734,7 +733,6 @@ export default function AdminPanel() {
                                 </tfoot>
                             </table>
 
-                            {/* NOTLAR */}
                             <div className="mb-12">
                                 <h4 className="font-bold text-sm border-b border-slate-200 mb-2 pb-1">Notlar ve Şartlar:</h4>
                                 <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">
@@ -742,7 +740,6 @@ export default function AdminPanel() {
                                 </div>
                             </div>
 
-                            {/* İMZA */}
                             <div className="flex justify-between mt-auto pt-12 pb-8">
                                 <div className="text-center">
                                     <p className="font-bold text-sm mb-12">Müşteri Onayı</p>
@@ -758,7 +755,6 @@ export default function AdminPanel() {
                         </div>
                     </div>
 
-                    {/* --- ALT BAR (SABİT AKSİYON BUTONLARI) --- */}
                     <div className="bg-white border-t p-4 flex justify-center gap-4 shrink-0 z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.1)]">
                         <button onClick={() => {
                             const win = window.open('', '', 'width=900,height=650');
