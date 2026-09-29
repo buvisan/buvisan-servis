@@ -6,39 +6,25 @@ import jsPDF from 'jspdf';
 import { motion, AnimatePresence } from 'framer-motion';
 import ChatAlani from '@/components/ChatAlani';
 import { 
-  FileText, 
-  Download, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Construction, 
-  MapPin, 
-  ArrowUpFromLine, 
-  Weight, 
-  Camera, 
-  Loader2, 
-  History, 
-  Wrench, 
-  Truck, 
-  CheckCircle, 
-  FolderOpen,
-  ChevronRight,
-  ShieldCheck
+  FileText, Download, AlertTriangle, CheckCircle2, Construction, 
+  MapPin, ArrowUpFromLine, Weight, Camera, Loader2, History, 
+  Wrench, Truck, CheckCircle, FolderOpen, ChevronRight, ShieldCheck, X, Video, Image as ImageIcon
 } from 'lucide-react';
 
 export default function VincDetaySayfasi() {
   const params = useParams();
   const { id } = params;
 
-  // --- STATE TANIMLARI (DEĞİŞTİRİLMEDİ) ---
   const [vinc, setVinc] = useState<any>(null);
   const [gecmis, setGecmis] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [arizaNotu, setArizaNotu] = useState("");
   const [bildirimDurumu, setBildirimDurumu] = useState("");
-  const [secilenMedya, setSecilenMedya] = useState<File | null>(null);
+  
+  // --- YENİ: ÇOKLU DOSYA STATE'İ (MAKS 5) ---
+  const [secilenMedyalar, setSecilenMedyalar] = useState<File[]>([]);
 
-  // --- VERİ ÇEKME (DEĞİŞTİRİLMEDİ) ---
   useEffect(() => {
     async function verileriGetir() {
       if (!id) return;
@@ -68,16 +54,33 @@ export default function VincDetaySayfasi() {
     verileriGetir();
   }, [id]);
 
-  // --- YARDIMCI FONKSİYONLAR (DEĞİŞTİRİLMEDİ) ---
   const dosyaIsminiTemizle = (isim: string) => {
     return isim.replace(/[^a-zA-Z0-9.-]/g, '').toLowerCase();
   };
 
-  const telegramBildirimiGonder = async (not: string, medyaVarMi: boolean) => {
+  // --- YENİ: ÇOKLU DOSYA SEÇİMİ VE SINIRLAMA ---
+  const medyaSec = (e: any) => {
+    if (e.target.files) {
+      const yeniDosyalar = Array.from(e.target.files) as File[];
+      
+      if (secilenMedyalar.length + yeniDosyalar.length > 5) {
+        alert("En fazla 5 adet medya (Fotoğraf veya Video) yükleyebilirsiniz.");
+        return;
+      }
+      
+      setSecilenMedyalar((prev) => [...prev, ...yeniDosyalar]);
+    }
+  };
+
+  const medyaSil = (indexToRemove: number) => {
+    setSecilenMedyalar((prev) => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  const telegramBildirimiGonder = async (not: string, medyaSayisi: number) => {
     const botToken = "8567697885:AAGCSyckJKLG11HwTQaMGGUwMyXIm0UqAK0"; 
     const grupId = "-5079408473"; 
 
-    const baslik = medyaVarMi ? "📸 *FOTOĞRAFLI YENİ ARIZA!*" : "🚨 *YENİ ARIZA BİLDİRİMİ!*";
+    const baslik = medyaSayisi > 0 ? `📸 *${medyaSayisi} MEDYALI YENİ ARIZA!*` : "🚨 *YENİ ARIZA BİLDİRİMİ!*";
     
     const mesaj = `${baslik}\n\n` +
                   `🏗️ *Vinç:* ${vinc.model_name}\n` +
@@ -101,28 +104,34 @@ export default function VincDetaySayfasi() {
     }
   };
 
+  // --- YENİ: ÇOKLU YÜKLEME SÜRECİ ---
   const arizaBildir = async () => {
     if (!arizaNotu) return alert("Lütfen sorunu açıklayan bir not yazın.");
     setBildirimDurumu("loading");
     
-    let medyaLinki = null;
+    let medyaLinkleri: string[] = [];
 
     try {
-        if (secilenMedya) {
-            const uzantisi = secilenMedya.name.split('.').pop() || 'jpg';
-            const dosyaAdi = `${Date.now()}-ariza.${dosyaIsminiTemizle(uzantisi)}`;
-            
-            const { error: upErr } = await supabase.storage
-                .from('ariza-medya')
-                .upload(dosyaAdi, secilenMedya);
-
-            if (upErr) throw upErr;
-
-            const { data: urlData } = supabase.storage
-                .from('ariza-medya')
-                .getPublicUrl(dosyaAdi);
+        if (secilenMedyalar.length > 0) {
+            // Tüm dosyaları paralel olarak Supabase'e yükle
+            const yuklemeIslemleri = secilenMedyalar.map(async (dosya) => {
+                const uzantisi = dosya.name.split('.').pop() || 'jpg';
+                const dosyaAdi = `${Date.now()}-${Math.floor(Math.random()*1000)}-ariza.${dosyaIsminiTemizle(uzantisi)}`;
                 
-            medyaLinki = urlData.publicUrl;
+                const { error: upErr } = await supabase.storage
+                    .from('ariza-medya')
+                    .upload(dosyaAdi, dosya);
+
+                if (upErr) throw upErr;
+
+                const { data: urlData } = supabase.storage
+                    .from('ariza-medya')
+                    .getPublicUrl(dosyaAdi);
+                    
+                return urlData.publicUrl;
+            });
+
+            medyaLinkleri = await Promise.all(yuklemeIslemleri);
         }
 
         const { error } = await supabase.from('service_tickets').insert([{ 
@@ -130,18 +139,17 @@ export default function VincDetaySayfasi() {
             issue_type: 'Genel Arıza', 
             description: arizaNotu, 
             status: 'beklemede', 
-            media_url: medyaLinki 
+            media_urls: medyaLinkleri // Array olarak kaydediyoruz
         }]);
 
         if (error) throw error;
 
-        await telegramBildirimiGonder(arizaNotu, !!medyaLinki);
+        await telegramBildirimiGonder(arizaNotu, medyaLinkleri.length);
 
         setBildirimDurumu("success");
         setArizaNotu("");
-        setSecilenMedya(null);
+        setSecilenMedyalar([]);
 
-        // 3 saniye sonra başarı mesajını gizle
         setTimeout(() => setBildirimDurumu(""), 3000);
 
     } catch (error: any) {
@@ -212,7 +220,6 @@ export default function VincDetaySayfasi() {
           animate={{ opacity: 1, scale: 1 }} 
           className="bg-white rounded-[2rem] shadow-2xl overflow-hidden mb-6 border border-white/20"
         >
-          {/* Kart Üst Bilgi (Gradient) */}
           <div className="bg-gradient-to-br from-blue-700 to-blue-900 p-6 text-white relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-10"><Construction className="w-32 h-32 -rotate-12 translate-x-8 -translate-y-8" /></div>
             <div className="relative z-10 flex items-start gap-4">
@@ -231,7 +238,6 @@ export default function VincDetaySayfasi() {
             </div>
           </div>
           
-          {/* Kart İçi Detaylar */}
           <div className="p-6">
             <div className="grid grid-cols-2 gap-3 mb-5">
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
@@ -258,7 +264,6 @@ export default function VincDetaySayfasi() {
               </div>
             </div>
 
-            {/* --- DOKÜMAN BUTONLARI --- */}
             <div className="space-y-3 pt-2">
                <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1 mb-3">Teknik Belgeler</h3>
                
@@ -322,7 +327,6 @@ export default function VincDetaySayfasi() {
                     transition={{ delay: index * 0.1 }}
                     className="relative pl-6"
                   >
-                    {/* Timeline Noktası */}
                     <div className="absolute -left-[17px] top-0 bg-[#0A1128] p-1 rounded-full border-2 border-white/10">
                       {getIcon(olay.event_type)}
                     </div>
@@ -349,7 +353,7 @@ export default function VincDetaySayfasi() {
           </div>
         </div>
 
-        {/* --- ARIZA BİLDİRİM FORMU --- */}
+        {/* --- ARIZA BİLDİRİM FORMU (ÇOKLU DOSYA GÜNCELLEMESİ) --- */}
         <div className="bg-white rounded-[2rem] p-6 shadow-2xl border border-slate-100 relative overflow-hidden">
            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 to-rose-600"></div>
            
@@ -367,19 +371,44 @@ export default function VincDetaySayfasi() {
                ></textarea>
              </div>
 
-             {/* Fotoğraf Yükleme Alanı */}
-             <label className={`flex items-center justify-center w-full gap-2 p-4 rounded-2xl border-2 border-dashed cursor-pointer text-sm font-bold transition-all duration-200 ${secilenMedya ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:border-slate-300'}`}>
-                <Camera className={`w-5 h-5 ${secilenMedya ? 'text-emerald-500' : 'text-slate-400'}`}/> 
-                <span className="truncate max-w-[200px]">
-                  {secilenMedya ? secilenMedya.name : "Fotoğraf / Video Ekle (İsteğe Bağlı)"}
-                </span>
-                <input type="file" accept="image/*,video/*" onChange={(e)=>setSecilenMedya(e.target.files?.[0]||null)} className="hidden" />
-             </label>
+             {/* YENİ: ÇOKLU DOSYA LİSTELEME ALANI */}
+             {secilenMedyalar.length > 0 && (
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                   <div className="flex justify-between items-center mb-2">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Eklenen Medyalar ({secilenMedyalar.length}/5)</span>
+                   </div>
+                   <div className="flex flex-wrap gap-2">
+                      {secilenMedyalar.map((dosya, index) => {
+                         const isVideo = dosya.type.startsWith('video/');
+                         return (
+                           <div key={index} className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm w-full text-sm">
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                 {isVideo ? <Video className="w-4 h-4 text-blue-500 shrink-0"/> : <ImageIcon className="w-4 h-4 text-emerald-500 shrink-0"/>}
+                                 <span className="truncate max-w-[200px] text-slate-600 font-medium text-xs">{dosya.name}</span>
+                              </div>
+                              <button onClick={() => medyaSil(index)} className="text-rose-400 hover:text-rose-600 bg-rose-50 p-1.5 rounded-lg transition-colors shrink-0">
+                                 <X className="w-3.5 h-3.5"/>
+                              </button>
+                           </div>
+                         );
+                      })}
+                   </div>
+                </div>
+             )}
+
+             {/* Çoklu Fotoğraf/Video Yükleme Butonu */}
+             {secilenMedyalar.length < 5 && (
+                 <label className="flex items-center justify-center w-full gap-2 p-4 rounded-2xl border-2 border-dashed cursor-pointer text-sm font-bold transition-all duration-200 bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:border-slate-300">
+                    <Camera className="w-5 h-5 text-slate-400"/> 
+                    <span>Fotoğraf veya Video Ekle (Maks 5)</span>
+                    <input type="file" multiple accept="image/*,video/*" onChange={medyaSec} className="hidden" />
+                 </label>
+             )}
 
              <button 
                onClick={arizaBildir} 
                disabled={bildirimDurumu === "loading"} 
-               className={`w-full text-white font-bold py-4 rounded-2xl shadow-lg shadow-rose-500/25 transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.98] ${bildirimDurumu === "loading" ? 'bg-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700'}`}
+               className={`w-full text-white font-bold py-4 rounded-2xl shadow-lg shadow-rose-500/25 transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.98] mt-2 ${bildirimDurumu === "loading" ? 'bg-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700'}`}
              >
                {bildirimDurumu === "loading" ? (
                  <><Loader2 className="animate-spin w-5 h-5"/> Gönderiliyor...</>
