@@ -1,8 +1,8 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN MÜŞTERİ ARIZA BİLDİRİM PORTALI 🚀 V3.0
-// (WhatsApp Tarzı Ses Kaydı ve Çoklu Foto/Video Özelliği 🎙️📸)
+// BUVISAN MÜŞTERİ ARIZA BİLDİRİM PORTALI 🚀 V3.1 (PREMIUM UI)
+// (Bottom Sheet ve Mobil Uygulama Standartlarına Yükseltildi)
 // ----------------------------------------------------------------------------
 
 import { useState, useRef } from 'react';
@@ -10,20 +10,18 @@ import { supabase } from '@/lib/supabaseClient';
 import { 
   Building2, User, Phone, MapPin, Settings, AlertTriangle, 
   AlertCircle, Send, Loader2, CheckCircle2, Info, Camera, Video, Trash2, Image as ImageIcon,
-  Mic, StopCircle
+  Mic, StopCircle, ChevronRight, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ArizaBildirimEkrani() {
   const [form, setForm] = useState({
-      firma_adi: '',
-      yetkili: '',
-      telefon: '',
-      adres: '',
-      vinc_bilgisi: '',
-      aciliyet: 'Normal', 
-      sorun: ''
+      firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', sorun: ''
   });
+
+  // --- UI KONTROL STATELERİ ---
+  const [aktifSheet, setAktifSheet] = useState<'none' | 'iletisim' | 'detay'>('none');
+  const [adimBasarili, setAdimBasarili] = useState({ iletisim: false, detay: false });
 
   // 🔥 ÇOKLU MEDYA (FOTO/VİDEO) STATE'LERİ 🔥
   const [medyaDosyalar, setMedyaDosyalar] = useState<File[]>([]);
@@ -66,7 +64,7 @@ export default function ArizaBildirimEkrani() {
       setMedyaOnizlemeler(prev => prev.filter((_, i) => i !== index));
   };
 
-  // --- SES KAYDI FONKSİYONLARI (WHATSAPP MANTIĞI) ---
+  // --- SES KAYDI FONKSİYONLARI ---
   const sesKaydiBaslat = async () => {
       try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -106,10 +104,34 @@ export default function ArizaBildirimEkrani() {
       setKayitDurumu('bekliyor');
   };
 
+  // --- TELEGRAM BİLDİRİMİ (QR SAYFASINDAKİ GİBİ GÜÇLENDİRİLDİ) ---
+  const telegramBildirimiGonder = async (not: string, medyaSayisi: number) => {
+    const botToken = "8567697885:AAGCSyckJKLG11HwTQaMGGUwMyXIm0UqAK0"; 
+    const grupId = "-5079408473"; 
+
+    const baslik = medyaSayisi > 0 ? `📸 *${medyaSayisi} MEDYALI MANUEL ARIZA!*` : "🚨 *YENİ MANUEL ARIZA!*";
+    
+    const mesaj = `${baslik}\n\n` +
+                  `🏗️ *Vinç / Makine:* ${form.vinc_bilgisi || 'Belirtilmedi'}\n` +
+                  `🏢 *Müşteri:* ${form.firma_adi}\n` +
+                  `📞 *Telefon:* ${form.telefon}\n` +
+                  `📍 *Adres:* ${form.adres || 'Belirtilmedi'}\n` +
+                  `🔥 *Aciliyet:* ${form.aciliyet}\n` +
+                  `------------------\n` +
+                  `💬 *Sorun:* ${not}`;
+    try {
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: grupId, text: mesaj, parse_mode: 'Markdown' })
+      });
+    } catch (e) { console.error("Telegram hatası:", e); }
+  };
+
   // --- GÖNDERME İŞLEMİ ---
   const talebiGonder = async () => {
       if (!form.firma_adi || !form.telefon || (!form.sorun && !sesKaydi)) {
-          alert("Lütfen Firma Adı, Telefon giriniz ve arızayı ister yazarak ister ses kaydı ile belirtiniz.");
+          alert("Lütfen Firma Adı, Telefon giriniz ve arızayı yazarak veya ses ile belirtiniz.");
           return;
       }
 
@@ -117,202 +139,293 @@ export default function ArizaBildirimEkrani() {
       let yuklenenMedyaUrlleri: string[] = [];
       let yuklenenSesUrl: string | null = null;
 
-      // 1. Çoklu Medya Yükleme
-      if (medyaDosyalar.length > 0) {
-          setYuklemeMesaji(`Dosyalar Yükleniyor... (0/${medyaDosyalar.length})`);
-          for (let i = 0; i < medyaDosyalar.length; i++) {
-              const dosya = medyaDosyalar[i];
-              const dosyaUzantisi = dosya.name.split('.').pop();
-              const rastgeleIsim = `musteri_medya_${Date.now()}-${Math.random().toString(36).substring(7)}.${dosyaUzantisi}`;
-              
-              setYuklemeMesaji(`Dosyalar Yükleniyor... (${i+1}/${medyaDosyalar.length})`);
-              const { error: uploadError } = await supabase.storage.from('saha_raporlari').upload(rastgeleIsim, dosya);
+      try {
+        if (medyaDosyalar.length > 0) {
+            setYuklemeMesaji(`Medyalar Aktarılıyor... (0/${medyaDosyalar.length})`);
+            const yuklemeIslemleri = medyaDosyalar.map(async (dosya, index) => {
+                const dosyaUzantisi = dosya.name.split('.').pop() || 'jpg';
+                const rastgeleIsim = `musteri_medya_${Date.now()}-${Math.random().toString(36).substring(7)}.${dosyaUzantisi}`;
+                
+                const { error: upErr } = await supabase.storage.from('saha_raporlari').upload(rastgeleIsim, dosya);
+                if (upErr) throw upErr;
+                
+                const { data } = supabase.storage.from('saha_raporlari').getPublicUrl(rastgeleIsim);
+                setYuklemeMesaji(`Medyalar Aktarılıyor... (${index+1}/${medyaDosyalar.length})`);
+                return data.publicUrl;
+            });
+            yuklenenMedyaUrlleri = await Promise.all(yuklemeIslemleri);
+        }
 
-              if (!uploadError) {
-                  const { data } = supabase.storage.from('saha_raporlari').getPublicUrl(rastgeleIsim);
-                  yuklenenMedyaUrlleri.push(data.publicUrl);
-              }
-          }
-      }
+        if (sesKaydi) {
+            setYuklemeMesaji("Ses Kaydınız Şifreleniyor...");
+            const rastgeleIsim = `musteri_ses_${Date.now()}-${Math.random().toString(36).substring(7)}.mp3`;
+            const { error: sesError } = await supabase.storage.from('saha_raporlari').upload(rastgeleIsim, sesKaydi);
+            
+            if (!sesError) {
+                const { data } = supabase.storage.from('saha_raporlari').getPublicUrl(rastgeleIsim);
+                yuklenenSesUrl = data.publicUrl;
+            }
+        }
 
-      // 2. Ses Kaydı Yükleme
-      if (sesKaydi) {
-          setYuklemeMesaji("Ses Kaydınız İletiliyor...");
-          const rastgeleIsim = `musteri_ses_${Date.now()}-${Math.random().toString(36).substring(7)}.mp3`;
-          const { error: sesError } = await supabase.storage.from('saha_raporlari').upload(rastgeleIsim, sesKaydi);
-          
-          if (!sesError) {
-              const { data } = supabase.storage.from('saha_raporlari').getPublicUrl(rastgeleIsim);
-              yuklenenSesUrl = data.publicUrl;
-          }
-      }
+        setYuklemeMesaji("Talebiniz Sisteme Kaydediliyor...");
 
-      setYuklemeMesaji("Talebiniz Sisteme Kaydediliyor...");
+        const { error } = await supabase.from('service_tickets').insert([{
+            description: form.sorun || "Müşteri sorunu ses kaydı ile bildirdi.",
+            status: 'bekliyor',
+            pipeline_status: form.aciliyet === 'Kritik (Makine Durdu)' ? 'acil_cozum' : 'bekliyor',
+            manual_customer_name: form.firma_adi,
+            manual_customer_rep: form.yetkili,
+            manual_phone: form.telefon,
+            manual_location: form.adres,
+            manual_crane_info: form.vinc_bilgisi,
+            priority: form.aciliyet,
+            media_urls: yuklenenMedyaUrlleri,
+            audio_url: yuklenenSesUrl
+        }]);
 
-      // 3. Veritabanına Yazma
-      const { error } = await supabase.from('service_tickets').insert([
-          {
-              description: form.sorun || "Ses kaydı ile bildirildi.",
-              status: 'bekliyor',
-              manual_customer_name: form.firma_adi,
-              manual_customer_rep: form.yetkili,
-              manual_phone: form.telefon,
-              manual_location: form.adres,
-              manual_crane_info: form.vinc_bilgisi,
-              priority: form.aciliyet,
-              media_urls: yuklenenMedyaUrlleri, // 🔥 ÇOKLU MEDYA LİNKLERİ
-              audio_url: yuklenenSesUrl // 🔥 SES KAYDI LİNKİ
-          }
-      ]);
+        if (error) throw error;
 
-      setGonderiliyor(false);
-      setYuklemeMesaji("");
+        await telegramBildirimiGonder(form.sorun || "Ses kaydı ile bildirim.", yuklenenMedyaUrlleri.length);
 
-      if (error) {
-          alert("Gönderim sırasında bir hata oluştu: " + error.message);
-      } else {
-          setBasarili(true);
+        setBasarili(true);
+        setAktifSheet('none');
+      } catch (err: any) {
+        alert("Gönderim sırasında hata oluştu: " + err.message);
+      } finally {
+        setGonderiliyor(false);
+        setYuklemeMesaji("");
       }
   };
 
+  // --- İLETİŞİM FORMU ONAYI ---
+  const iletisimOnayla = () => {
+    if(!form.firma_adi || !form.telefon) return alert("Firma Adı ve Telefon zorunludur!");
+    setAdimBasarili({...adimBasarili, iletisim: true});
+    setAktifSheet('none');
+  }
+
+  // --- DETAY FORMU ONAYI ---
+  const detayOnayla = () => {
+    if(!form.sorun && !sesKaydi) return alert("Lütfen sorunu yazarak veya ses kaydı ile belirtin!");
+    setAdimBasarili({...adimBasarili, detay: true});
+    setAktifSheet('none');
+  }
+
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col items-center py-10 px-4 font-sans selection:bg-blue-200">
+    <div className="min-h-[100dvh] bg-[#0A1128] flex flex-col items-center py-10 px-4 font-sans selection:bg-blue-200 relative overflow-hidden">
       
+      {/* Arka Plan Efekti */}
+      <div className="absolute top-0 left-0 w-full h-96 bg-blue-600/20 blur-[100px] rounded-full pointer-events-none -translate-y-1/2"></div>
+
       {/* Logo ve Başlık */}
-      <div className="w-full max-w-md mb-6 text-center">
-          <div className="w-20 h-20 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-500/30 mb-4">
-             <Settings size={40} className="text-white animate-[spin_10s_linear_infinite]" />
-          </div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">BUVİSAN</h1>
-          <p className="text-sm font-bold text-blue-600 uppercase tracking-widest mt-1">Teknik Servis Talep Formu</p>
+      <div className="w-full max-w-md mb-8 text-center relative z-10 pt-4">
+          <h1 className="text-3xl font-black text-white tracking-tight">BUVİSAN</h1>
+          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.3em] mt-1 opacity-80">Teknik Servis İstasyonu</p>
       </div>
 
-      <div className="w-full max-w-md bg-white rounded-[32px] shadow-xl border border-slate-200 overflow-hidden relative">
-          <AnimatePresence mode="wait">
-              {!basarili ? (
-                  <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-6 sm:p-8 space-y-6">
-                      
-                      <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex gap-3 text-blue-800 text-xs font-medium leading-relaxed mb-2">
-                          <Info size={24} className="text-blue-500 shrink-0" />
-                          <p>Hızlı müdahale için lütfen aşağıdaki bilgileri eksiksiz doldurunuz.</p>
-                      </div>
+      <AnimatePresence mode="wait">
+        {!basarili ? (
+          <motion.div key="main" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="w-full max-w-md z-10 space-y-4">
+              
+              <div className="bg-blue-900/40 border border-blue-500/30 p-4 rounded-2xl flex gap-3 text-blue-100 text-xs font-medium leading-relaxed mb-6 backdrop-blur-md shadow-xl">
+                  <Info size={24} className="text-blue-400 shrink-0" />
+                  <p>Hızlı ve doğru bir müdahale için lütfen aşağıdaki adımları eksiksiz tamamlayın.</p>
+              </div>
 
-                      {/* İletişim Bilgileri */}
-                      <div className="space-y-4">
-                          <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Building2 size={14}/> Firma Adınız <span className="text-red-500">*</span></label><input type="text" placeholder="Firmanızın tam adı" value={form.firma_adi} onChange={e => setForm({...form, firma_adi: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition"/></div>
-                          <div className="grid grid-cols-2 gap-3">
-                              <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><User size={14}/> Yetkili Kişi</label><input type="text" placeholder="Ad Soyad" value={form.yetkili} onChange={e => setForm({...form, yetkili: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"/></div>
-                              <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Phone size={14}/> Telefon <span className="text-red-500">*</span></label><input type="tel" placeholder="05XX XXX XX XX" value={form.telefon} onChange={e => setForm({...form, telefon: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500 transition"/></div>
+              {/* ADIM 1: İLETİŞİM BİLGİLERİ */}
+              <button onClick={() => setAktifSheet('iletisim')} className={`w-full p-5 rounded-[2rem] text-left shadow-lg relative overflow-hidden group transition-all border ${adimBasarili.iletisim ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white border-slate-100'}`}>
+                  <div className="flex items-center justify-between relative z-10">
+                      <div className="flex gap-4 items-center">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${adimBasarili.iletisim ? 'bg-emerald-500 text-white shadow-emerald-500/50' : 'bg-blue-50 text-blue-600'} shadow-lg transition-colors`}>
+                             {adimBasarili.iletisim ? <CheckCircle2 size={20}/> : <User size={20}/>}
                           </div>
-                          <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><MapPin size={14}/> Açık Adresiniz</label><input type="text" placeholder="İl, ilçe, mahalle, sokak..." value={form.adres} onChange={e => setForm({...form, adres: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"/></div>
-                      </div>
-
-                      <div className="h-px w-full bg-slate-100 my-4"></div>
-
-                      {/* Arıza Bildirim Yöntemleri */}
-                      <div className="space-y-6">
-                          <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Settings size={14}/> Makine / Vinç Bilgisi</label><input type="text" placeholder="Örn: 10 Ton Tavan Vinci" value={form.vinc_bilgisi} onChange={e => setForm({...form, vinc_bilgisi: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"/></div>
-                          
                           <div>
-                              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertTriangle size={14}/> Arıza Aciliyet Durumu</label>
-                              <div className="grid grid-cols-2 gap-3">
-                                  <button onClick={() => setForm({...form, aciliyet: 'Normal'})} className={`p-4 rounded-2xl border-2 text-xs font-bold transition-all flex flex-col items-center gap-2 ${form.aciliyet === 'Normal' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}><div className={`w-3 h-3 rounded-full ${form.aciliyet === 'Normal' ? 'bg-blue-500' : 'bg-slate-300'}`}></div>Sıraya Alınsın</button>
-                                  <button onClick={() => setForm({...form, aciliyet: 'Kritik (Makine Durdu)'})} className={`p-4 rounded-2xl border-2 text-xs font-bold transition-all flex flex-col items-center gap-2 text-center ${form.aciliyet === 'Kritik (Makine Durdu)' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}><div className={`w-3 h-3 rounded-full ${form.aciliyet === 'Kritik (Makine Durdu)' ? 'bg-red-500 animate-ping absolute' : 'bg-slate-300'}`}></div>KRİTİK (Acil)</button>
-                              </div>
-                          </div>
-
-                          {/* 🔥 YENİ: WHATSAPP TARZI SES KAYDI 🔥 */}
-                          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between mb-3 ml-1">
-                                  <span className="flex items-center gap-2"><Mic size={14}/> Sesli Anlatım (Kolay Seçenek)</span>
-                              </label>
-
-                              {kayitDurumu === 'bekliyor' && (
-                                  <button onClick={sesKaydiBaslat} className="w-full py-4 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-xl text-blue-600 font-bold transition flex flex-col items-center gap-2 shadow-sm">
-                                      <div className="bg-blue-500 text-white p-3 rounded-full"><Mic size={24} /></div>
-                                      <span className="text-xs uppercase tracking-widest mt-1">Dokun ve Konuş</span>
-                                  </button>
-                              )}
-
-                              {kayitDurumu === 'kaydediyor' && (
-                                  <button onClick={sesKaydiDurdur} className="w-full py-6 border-2 border-red-300 bg-red-50 rounded-xl text-red-600 font-bold transition flex flex-col items-center gap-3 shadow-inner">
-                                      <div className="bg-red-500 text-white p-4 rounded-full animate-pulse shadow-lg shadow-red-500/50"><StopCircle size={32} /></div>
-                                      <span className="text-xs uppercase tracking-widest mt-1 animate-pulse">Kaydediliyor... Bitirmek için dokun</span>
-                                  </button>
-                              )}
-
-                              {kayitDurumu === 'tamamlandi' && sesOnizleme && (
-                                  <div className="relative bg-white border border-slate-200 p-3 rounded-xl flex flex-col gap-3">
-                                      <div className="flex items-center justify-between">
-                                          <span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 size={14}/> Ses Kaydı Hazır</span>
-                                          <button onClick={sesKaydiSil} className="text-red-500 hover:text-red-700 bg-red-50 p-1.5 rounded-lg transition"><Trash2 size={14}/></button>
-                                      </div>
-                                      <audio src={sesOnizleme} controls className="w-full h-10" />
-                                  </div>
-                              )}
-                          </div>
-
-                          {/* Alternatif Yazılı Sorun */}
-                          {kayitDurumu === 'bekliyor' && (
-                              <div>
-                                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertCircle size={14}/> Veya Yazarak Anlatın</label>
-                                  <textarea rows={3} placeholder="Yaşadığınız sorunu buraya yazabilirsiniz..." value={form.sorun} onChange={e => setForm({...form, sorun: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500 transition leading-relaxed"/>
-                              </div>
-                          )}
-
-                          {/* 🔥 YENİ: ÇOKLU FOTO/VİDEO YÜKLEME 🔥 */}
-                          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                              <div className="flex justify-between items-center mb-3 ml-1">
-                                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2"><Camera size={14}/> Kanıt Ekle (Max 5)</label>
-                                  <span className="text-[10px] font-bold text-blue-500 bg-blue-100 px-2 py-0.5 rounded-full">{medyaOnizlemeler.length}/5</span>
-                              </div>
-                              
-                              <input type="file" accept="image/*, video/*" multiple ref={dosyaInputRef} onChange={medyaSecildi} className="hidden" />
-                              
-                              <div className="grid grid-cols-3 gap-2">
-                                  {medyaOnizlemeler.map((medya, index) => (
-                                      <div key={index} className="relative rounded-xl overflow-hidden border border-slate-300 aspect-square group bg-black">
-                                          {medya.type === 'image' ? (
-                                              <img src={medya.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" />
-                                          ) : (
-                                              <video src={medya.url} className="w-full h-full object-cover opacity-80" />
-                                          )}
-                                          <button onClick={() => medyaSil(index)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-lg shadow-lg hover:bg-red-600 transition z-10"><Trash2 size={12}/></button>
-                                          {medya.type === 'video' && <div className="absolute bottom-1 left-1 bg-black/60 p-1 rounded-md"><Video size={12} className="text-white"/></div>}
-                                      </div>
-                                  ))}
-                                  
-                                  {medyaOnizlemeler.length < 5 && (
-                                      <button onClick={() => dosyaInputRef.current?.click()} className="aspect-square border-2 border-dashed border-slate-300 bg-white rounded-xl text-slate-400 font-bold hover:border-blue-500 hover:text-blue-500 transition flex flex-col items-center justify-center gap-1">
-                                          <div className="flex gap-1"><ImageIcon size={16} /><Video size={16} /></div>
-                                          <span className="text-[9px] text-center px-1">Ekle</span>
-                                      </button>
-                                  )}
-                              </div>
+                              <h4 className={`font-extrabold text-base ${adimBasarili.iletisim ? 'text-emerald-400' : 'text-slate-800'}`}>İletişim Bilgileri</h4>
+                              <p className={`text-xs mt-0.5 font-medium ${adimBasarili.iletisim ? 'text-emerald-500/70' : 'text-slate-500'}`}>{adimBasarili.iletisim ? 'Bilgiler kaydedildi.' : 'Firma ve Adres girin.'}</p>
                           </div>
                       </div>
+                      <ChevronRight className={`w-5 h-5 ${adimBasarili.iletisim ? 'text-emerald-500' : 'text-slate-300'}`}/>
+                  </div>
+              </button>
 
-                      <button onClick={talebiGonder} disabled={gonderiliyor} className="w-full mt-6 py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-blue-600/30 flex flex-col items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-70 disabled:active:scale-100">
-                          <div className="flex items-center gap-2">
-                              {gonderiliyor ? <Loader2 size={24} className="animate-spin"/> : <Send size={24}/>}
-                              {gonderiliyor ? 'GÖNDERİLİYOR...' : 'SERVİS TALEBİ OLUŞTUR'}
+              {/* ADIM 2: ARIZA DETAYLARI */}
+              <button onClick={() => { if(!adimBasarili.iletisim) return alert('Önce iletişim bilgilerini doldurmalısınız.'); setAktifSheet('detay'); }} className={`w-full p-5 rounded-[2rem] text-left shadow-lg relative overflow-hidden group transition-all border ${!adimBasarili.iletisim ? 'opacity-50 cursor-not-allowed bg-white/50 border-transparent' : adimBasarili.detay ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white border-slate-100'}`}>
+                  <div className="flex items-center justify-between relative z-10">
+                      <div className="flex gap-4 items-center">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${adimBasarili.detay ? 'bg-emerald-500 text-white shadow-emerald-500/50' : 'bg-rose-50 text-rose-600'} shadow-lg transition-colors`}>
+                             {adimBasarili.detay ? <CheckCircle2 size={20}/> : <AlertTriangle size={20}/>}
                           </div>
-                          {yuklemeMesaji && <span className="text-xs text-blue-200 font-medium">{yuklemeMesaji}</span>}
-                      </button>
+                          <div>
+                              <h4 className={`font-extrabold text-base ${adimBasarili.detay ? 'text-emerald-400' : 'text-slate-800'}`}>Arıza Detayları</h4>
+                              <p className={`text-xs mt-0.5 font-medium ${adimBasarili.detay ? 'text-emerald-500/70' : 'text-slate-500'}`}>{adimBasarili.detay ? 'Sorun ve kanıtlar eklendi.' : 'Sorunu ve medyaları ekleyin.'}</p>
+                          </div>
+                      </div>
+                      <ChevronRight className={`w-5 h-5 ${adimBasarili.detay ? 'text-emerald-500' : 'text-slate-300'}`}/>
+                  </div>
+              </button>
 
-                  </motion.div>
-              ) : (
-                  <motion.div key="success" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="p-10 text-center flex flex-col items-center justify-center min-h-[400px]">
-                      <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mb-6"><CheckCircle2 size={50} className="text-emerald-500" /></div>
-                      <h2 className="text-2xl font-black text-slate-800 mb-2">Talebiniz Alındı!</h2>
-                      <p className="text-slate-500 leading-relaxed mb-8">Arıza bildiriminiz ve ekleriniz teknik servis merkezimize başarıyla iletildi. Ekiplerimiz en kısa sürede sizinle iletişime geçecektir.</p>
-                      <button onClick={() => window.location.reload()} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition text-sm">Yeni Talep Oluştur</button>
-                  </motion.div>
-              )}
-          </AnimatePresence>
-      </div>
-      
-      <p className="text-slate-400 text-xs font-medium mt-8">© {new Date().getFullYear()} Buvisan Teknik Servis Altyapısı</p>
+              {/* FİNAL: GÖNDER BUTONU */}
+              <AnimatePresence>
+                {adimBasarili.iletisim && adimBasarili.detay && (
+                  <motion.button initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} onClick={talebiGonder} disabled={gonderiliyor} className="w-full mt-8 py-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-black text-base rounded-[2rem] shadow-[0_10px_40px_rgba(37,99,235,0.3)] flex flex-col items-center justify-center gap-1 transition-all active:scale-[0.98] border border-blue-500/50 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-white/10 w-full h-full transform -skew-x-12 -translate-x-full animate-[shimmer_2s_infinite]"></div>
+                      <div className="flex items-center gap-2 relative z-10">
+                          {gonderiliyor ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>}
+                          {gonderiliyor ? 'SİSTEME AKTARILIYOR...' : 'SERVİS TALEBİNİ GÖNDER'}
+                      </div>
+                      {yuklemeMesaji && <span className="text-[10px] text-blue-200 font-bold uppercase tracking-wider relative z-10 mt-1">{yuklemeMesaji}</span>}
+                  </motion.button>
+                )}
+              </AnimatePresence>
+
+          </motion.div>
+        ) : (
+          <motion.div key="success" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-md bg-white rounded-[32px] p-10 text-center flex flex-col items-center justify-center shadow-2xl relative z-10 border-t-8 border-t-emerald-500 mt-10">
+              <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mb-6 shadow-inner"><CheckCircle2 size={50} className="text-emerald-500" /></div>
+              <h2 className="text-2xl font-black text-slate-800 mb-2">Talebiniz Alındı!</h2>
+              <p className="text-slate-500 text-sm leading-relaxed mb-8">Arıza bildiriminiz ve ekleriniz teknik servis merkezimize başarıyla iletildi. Ekiplerimiz en kısa sürede sizinle iletişime geçecektir.</p>
+              <button onClick={() => window.location.reload()} className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl transition text-sm">Yeni Talep Oluştur</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <p className="absolute bottom-6 text-white/20 text-[10px] font-medium tracking-widest uppercase">Powered by Buvisan</p>
+
+
+      {/* ==========================================
+          MODALLAR (BOTTOM SHEETS)
+          ========================================== */}
+      <AnimatePresence>
+        {aktifSheet !== 'none' && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAktifSheet('none')} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100]"/>
+            
+            <motion.div 
+              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-x-0 bottom-0 z-[101] bg-white rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.2)] overflow-hidden max-h-[90dvh] flex flex-col"
+            >
+              <div className="w-full flex justify-center pt-4 pb-2 bg-white shrink-0" onClick={() => setAktifSheet('none')}>
+                 <div className="w-12 h-1.5 bg-slate-200 rounded-full"></div>
+              </div>
+
+              <div className="overflow-y-auto px-6 pb-8 pt-2 custom-scrollbar">
+                
+                {/* 1. İLETİŞİM BİLGİLERİ SHEET */}
+                {aktifSheet === 'iletisim' && (
+                  <div className="space-y-4">
+                     <div className="mb-6 flex justify-between items-center">
+                        <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><User className="w-6 h-6 text-blue-500"/> İletişim Bilgileri</h2>
+                     </div>
+
+                     <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Building2 size={14}/> Firma Adınız <span className="text-red-500">*</span></label><input type="text" placeholder="Firmanızın tam adı" value={form.firma_adi} onChange={e => setForm({...form, firma_adi: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"/></div>
+                     <div className="grid grid-cols-2 gap-3">
+                         <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><User size={14}/> Yetkili</label><input type="text" placeholder="Ad Soyad" value={form.yetkili} onChange={e => setForm({...form, yetkili: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"/></div>
+                         <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Phone size={14}/> Telefon <span className="text-red-500">*</span></label><input type="tel" placeholder="05XX XXX XX" value={form.telefon} onChange={e => setForm({...form, telefon: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"/></div>
+                     </div>
+                     <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><MapPin size={14}/> Açık Adres</label><input type="text" placeholder="İl, ilçe, tam adres..." value={form.adres} onChange={e => setForm({...form, adres: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"/></div>
+
+                     <button onClick={iletisimOnayla} className="w-full mt-4 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">
+                       KAYDET VE İLERLE
+                     </button>
+                  </div>
+                )}
+
+                {/* 2. ARIZA DETAYLARI SHEET */}
+                {aktifSheet === 'detay' && (
+                  <div className="space-y-5">
+                     <div className="mb-2 flex justify-between items-center">
+                        <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><AlertTriangle className="w-6 h-6 text-rose-500"/> Arıza Detayları</h2>
+                     </div>
+
+                     <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Settings size={14}/> Vinç Bilgisi</label><input type="text" placeholder="Örn: 10 Ton Tavan Vinci" value={form.vinc_bilgisi} onChange={e => setForm({...form, vinc_bilgisi: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"/></div>
+                     
+                     <div>
+                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertTriangle size={14}/> Aciliyet</label>
+                         <div className="grid grid-cols-2 gap-3">
+                             <button onClick={() => setForm({...form, aciliyet: 'Normal'})} className={`p-4 rounded-2xl border-2 text-xs font-bold transition-all flex flex-col items-center gap-2 ${form.aciliyet === 'Normal' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}><div className={`w-3 h-3 rounded-full ${form.aciliyet === 'Normal' ? 'bg-blue-500' : 'bg-slate-300'}`}></div>Sıraya Alınsın</button>
+                             <button onClick={() => setForm({...form, aciliyet: 'Kritik (Makine Durdu)'})} className={`p-4 rounded-2xl border-2 text-xs font-bold transition-all flex flex-col items-center gap-2 text-center ${form.aciliyet === 'Kritik (Makine Durdu)' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}><div className={`w-3 h-3 rounded-full ${form.aciliyet === 'Kritik (Makine Durdu)' ? 'bg-red-500 animate-ping absolute' : 'bg-slate-300'}`}></div>KRİTİK (Acil)</button>
+                         </div>
+                     </div>
+
+                     <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200">
+                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between mb-3 ml-1">
+                             <span className="flex items-center gap-2"><Mic size={14}/> Sesli Anlatım (Hızlı)</span>
+                         </label>
+
+                         {kayitDurumu === 'bekliyor' && (
+                             <button onClick={sesKaydiBaslat} className="w-full py-4 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-2xl text-blue-600 font-bold transition flex flex-col items-center gap-2 shadow-sm">
+                                 <div className="bg-blue-500 text-white p-3 rounded-full"><Mic size={24} /></div>
+                                 <span className="text-[10px] uppercase tracking-widest mt-1">Dokun ve Konuş</span>
+                             </button>
+                         )}
+
+                         {kayitDurumu === 'kaydediyor' && (
+                             <button onClick={sesKaydiDurdur} className="w-full py-6 border-2 border-red-300 bg-red-50 rounded-2xl text-red-600 font-bold transition flex flex-col items-center gap-3 shadow-inner">
+                                 <div className="bg-red-500 text-white p-4 rounded-full animate-pulse shadow-lg shadow-red-500/50"><StopCircle size={32} /></div>
+                                 <span className="text-[10px] uppercase tracking-widest mt-1 animate-pulse">Kaydediliyor... Bitirmek için dokun</span>
+                             </button>
+                         )}
+
+                         {kayitDurumu === 'tamamlandi' && sesOnizleme && (
+                             <div className="relative bg-white border border-slate-200 p-3 rounded-xl flex flex-col gap-3">
+                                 <div className="flex items-center justify-between">
+                                     <span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 size={14}/> Ses Kaydı Hazır</span>
+                                     <button onClick={sesKaydiSil} className="text-red-500 hover:text-red-700 bg-red-50 p-1.5 rounded-lg transition"><Trash2 size={14}/></button>
+                                 </div>
+                                 <audio src={sesOnizleme} controls className="w-full h-10" />
+                             </div>
+                         )}
+                     </div>
+
+                     {kayitDurumu === 'bekliyor' && (
+                         <div>
+                             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertCircle size={14}/> Veya Yazarak Anlatın</label>
+                             <textarea rows={3} placeholder="Şikayetinizi buraya yazabilirsiniz..." value={form.sorun} onChange={e => setForm({...form, sorun: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition leading-relaxed"/>
+                         </div>
+                     )}
+
+                     <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200">
+                         <div className="flex justify-between items-center mb-3 ml-1">
+                             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2"><Camera size={14}/> Kanıt Ekle (Max 5)</label>
+                             <span className="text-[10px] font-bold text-blue-500 bg-blue-100 px-2 py-0.5 rounded-full">{medyaOnizlemeler.length}/5</span>
+                         </div>
+                         
+                         <input type="file" accept="image/*, video/*" multiple ref={dosyaInputRef} onChange={medyaSecildi} className="hidden" />
+                         
+                         <div className="grid grid-cols-3 gap-2">
+                             {medyaOnizlemeler.map((medya, index) => (
+                                 <div key={index} className="relative rounded-xl overflow-hidden border border-slate-300 aspect-square group bg-black">
+                                     {medya.type === 'image' ? (
+                                         <img src={medya.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" />
+                                     ) : (
+                                         <video src={medya.url} className="w-full h-full object-cover opacity-80" />
+                                     )}
+                                     <button onClick={() => medyaSil(index)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-lg shadow-lg hover:bg-red-600 transition z-10"><Trash2 size={12}/></button>
+                                     {medya.type === 'video' && <div className="absolute bottom-1 left-1 bg-black/60 p-1 rounded-md"><Video size={12} className="text-white"/></div>}
+                                 </div>
+                             ))}
+                             
+                             {medyaOnizlemeler.length < 5 && (
+                                 <button onClick={() => dosyaInputRef.current?.click()} className="aspect-square border-2 border-dashed border-slate-300 bg-white rounded-xl text-slate-400 font-bold hover:border-blue-500 hover:text-blue-500 transition flex flex-col items-center justify-center gap-1">
+                                     <div className="flex gap-1"><ImageIcon size={16} /><Video size={16} /></div>
+                                     <span className="text-[9px] text-center px-1">Ekle</span>
+                                 </button>
+                             )}
+                         </div>
+                     </div>
+
+                     <button onClick={detayOnayla} className="w-full mt-4 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">
+                       KAYDET VE ONAYLA
+                     </button>
+                  </div>
+                )}
+
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
