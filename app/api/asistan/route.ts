@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db, tools, runTool } from "@/lib/agent-tools";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY });
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3.8-flash";
 
 const SYSTEM = `Sen Buvisan, Birikiton, ZM Çelik ve ZM Kumlama şirketlerinin teknik servis, finans, depo ve operasyon süreçlerini yöneten asistansın. Patronun Kaya.
 Kurallar:
