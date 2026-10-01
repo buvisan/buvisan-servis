@@ -5,7 +5,7 @@ export default function AiAsistan() {
   const { messages, input, handleInputChange, handleSubmit } = useChat();
 
   return (
-    <div className="flex flex-col h-[500px] w-[400px] border border-gray-300 p-4 bg-white rounded-xl shadow-2xl fixed bottom-5 right-5 z-50">
+    <div className="flex flex-col h-[500px] w-[400px] border border-gray-300 p-4 bg-white rounded-xl shadow-2xl fixed bottom-5 right-5 z-[99999]">
       <div className="bg-slate-900 text-white p-3 -mx-4 -mt-4 mb-4 rounded-t-xl font-bold">
         Buvisan Otonom Asistan
       </div>
