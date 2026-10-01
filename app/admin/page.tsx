@@ -15,6 +15,7 @@ import {
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
   AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, Play, ClipboardList
 } from 'lucide-react';
+import AiAsistan from '@/components/AiAsistan';
 
 const PERSONEL_LISTESI = [
   "VOLKAN ACAR", "HAMZA ATTAR", "VEYSEL ÇARKLI", "KERİM AKDOĞAN" , "GÖKHAN GÖK" , "BASİL HAVATİMİ" , "BURHAN KANDEMİR" , "OKAN ARAN" , "ADEM ACAR"
@@ -778,3 +779,4 @@ export default function AdminPanel() {
     </div>
   );
 }
+<AiAsistan/>
