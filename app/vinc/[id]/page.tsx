@@ -9,7 +9,7 @@ import {
   FileText, Download, AlertTriangle, CheckCircle2, Construction, 
   MapPin, ArrowUpFromLine, Weight, Camera, Loader2, History, 
   Wrench, Truck, CheckCircle, FolderOpen, ChevronRight, ShieldCheck, 
-  X, Video, Image as ImageIcon, Search, HardHat, FileSignature, Info
+  X, Video, Image as ImageIcon, Search, HardHat, FileSignature, Info, Mail, AlertCircle
 } from 'lucide-react';
 
 export default function VincDetaySayfasi() {
@@ -27,6 +27,7 @@ export default function VincDetaySayfasi() {
   
   // --- MÜŞTERİ FORM STATELERİ ---
   const [arizaNotu, setArizaNotu] = useState("");
+  const [musteriEmail, setMusteriEmail] = useState(""); // YENİ: Bakım teklifi için e-posta
   const [secilenBolge, setSecilenBolge] = useState("");
   const [bildirimDurumu, setBildirimDurumu] = useState("");
   const [secilenMedyalar, setSecilenMedyalar] = useState<File[]>([]);
@@ -111,6 +112,7 @@ export default function VincDetaySayfasi() {
     const mesaj = `${baslikEmoji} *${baslikMetni}*\n\n` +
                   `🏗️ *Vinç:* ${vinc.model_name}\n` +
                   `🏢 *Müşteri:* ${vinc.customer_name}\n` +
+                  `${musteriEmail && tip === 'bakim' ? `📧 *E-Posta:* ${musteriEmail}\n` : ''}` +
                   `📍 *Konum:* ${vinc.location_address}\n` +
                   `${bolge ? `🎯 *Arıza Bölgesi:* ${bolge}\n` : ''}` +
                   `------------------\n` +
@@ -128,6 +130,7 @@ export default function VincDetaySayfasi() {
   // --- MÜŞTERİ TALEP GÖNDERME (ARIZA, KEŞİF, BAKIM) ---
   const talepGonder = async () => {
     if (aktifMenu === 'ariza' && !secilenBolge) return alert("Lütfen arızalı bölgeyi seçin.");
+    if (aktifMenu === 'bakim' && !musteriEmail) return alert("Lütfen teklif için e-posta adresinizi girin.");
     if (aktifMenu !== 'bakim' && !arizaNotu) return alert("Lütfen talebinizi açıklayan bir not yazın.");
     
     setBildirimDurumu("loading");
@@ -148,14 +151,18 @@ export default function VincDetaySayfasi() {
 
         let issueType = 'Genel Arıza';
         let desc = arizaNotu;
+        let pipelineStat = 'bekliyor';
 
         if (aktifMenu === 'ariza') {
             issueType = `Arıza Bildirimi (${secilenBolge})`;
+            pipelineStat = 'acil_cozum';
         } else if (aktifMenu === 'kesif') {
             issueType = `Keşif Talebi`;
+            pipelineStat = 'kesif_bekliyor';
         } else if (aktifMenu === 'bakim') {
             issueType = `Bakım Sözleşmesi Talebi`;
-            desc = "Sistem üzerinden periyodik bakım sözleşmesi teklifi talep edildi.";
+            desc = arizaNotu || "Sistem üzerinden periyodik bakım sözleşmesi teklifi talep edildi.";
+            pipelineStat = 'teklif_hazirlanacak';
         }
 
         const { error } = await supabase.from('service_tickets').insert([{ 
@@ -163,6 +170,7 @@ export default function VincDetaySayfasi() {
             issue_type: issueType, 
             description: desc, 
             status: 'beklemede', 
+            pipeline_status: pipelineStat,
             media_urls: medyaLinkleri
         }]);
 
@@ -175,6 +183,7 @@ export default function VincDetaySayfasi() {
             setBildirimDurumu("");
             setAktifMenu('none');
             setArizaNotu("");
+            setMusteriEmail("");
             setSecilenBolge("");
             setSecilenMedyalar([]);
         }, 3000);
@@ -185,7 +194,7 @@ export default function VincDetaySayfasi() {
     }
   };
 
-  // --- YENİ: PERSONEL RAPOR KAYDETME ---
+  // --- PERSONEL RAPOR KAYDETME ---
   const personelRaporKaydet = async () => {
     if (!perAd || !perBaslik || !perDetay) return alert("Lütfen adınızı, başlığı ve detayları doldurun.");
     setPerDurum("loading");
@@ -529,8 +538,21 @@ export default function VincDetaySayfasi() {
                      </div>
                      <div>
                         <h2 className="text-2xl font-black text-slate-800 mb-2">Bakım Sözleşmesi</h2>
-                        <p className="text-sm text-slate-500">Mevcut vinciniz için size özel yıllık periyodik bakım teklifimizi ileteceğiz. Müşteri temsilcimiz sizinle iletişime geçecektir.</p>
+                        <p className="text-sm text-slate-500">Mevcut vinciniz için size özel yıllık periyodik bakım teklifimizi ileteceğiz.</p>
                      </div>
+                     
+                     {/* YENİ EKLENEN E-POSTA VE NOT ALANLARI */}
+                     <div className="text-left space-y-4">
+                        <div>
+                           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Mail size={14}/> E-Posta Adresiniz <span className="text-red-500">*</span></label>
+                           <input type="email" placeholder="Teklifin gönderileceği mail adresi" value={musteriEmail} onChange={e => setMusteriEmail(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"/>
+                        </div>
+                        <div>
+                           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertCircle size={14}/> Ek Notunuz (Opsiyonel)</label>
+                           <textarea rows={2} placeholder="Kaç adet vinç var, özel talepleriniz neler?" value={arizaNotu} onChange={e => setArizaNotu(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition leading-relaxed"/>
+                        </div>
+                     </div>
+
                      <button onClick={talepGonder} disabled={bildirimDurumu==="loading"} className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-200 active:scale-95 transition-all">
                        {bildirimDurumu==="loading" ? <Loader2 className="animate-spin"/> : "TEKLİF TALEP ET"}
                      </button>
