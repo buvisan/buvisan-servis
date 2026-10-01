@@ -1,8 +1,8 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN MÜŞTERİ ARIZA BİLDİRİM PORTALI 🚀 V3.1 (PREMIUM UI)
-// (Bottom Sheet ve Mobil Uygulama Standartlarına Yükseltildi)
+// BUVISAN MÜŞTERİ ARIZA BİLDİRİM PORTALI 🚀 V4.0 (ULTRA PREMIUM)
+// (Fiyatlandırma, Bakım Sözleşmesi, Keşif ve Bölge Seçimi Entegre Edildi)
 // ----------------------------------------------------------------------------
 
 import { useState, useRef } from 'react';
@@ -10,18 +10,21 @@ import { supabase } from '@/lib/supabaseClient';
 import { 
   Building2, User, Phone, MapPin, Settings, AlertTriangle, 
   AlertCircle, Send, Loader2, CheckCircle2, Info, Camera, Video, Trash2, Image as ImageIcon,
-  Mic, StopCircle, ChevronRight, X
+  Mic, StopCircle, ChevronRight, X, Search, FileSignature, Mail, Wrench
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ArizaBildirimEkrani() {
   const [form, setForm] = useState({
-      firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', sorun: ''
+      firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', email: '', sorun: ''
   });
 
   // --- UI KONTROL STATELERİ ---
-  const [aktifSheet, setAktifSheet] = useState<'none' | 'iletisim' | 'detay'>('none');
-  const [adimBasarili, setAdimBasarili] = useState({ iletisim: false, detay: false });
+  const [aktifMenu, setAktifMenu] = useState<'none' | 'iletisim' | 'ariza' | 'kesif' | 'bakim'>('none');
+  const [iletisimTamam, setIletisimTamam] = useState(false);
+  
+  const [secilenBolge, setSecilenBolge] = useState("");
+  const bolgeler = ['Genel', 'Köprü', 'Kedi / Araba', 'Halat / Zincir', 'Kanca', 'Elektrik Panosu', 'Kumanda', 'Yürüyüş Takımı'];
 
   // 🔥 ÇOKLU MEDYA (FOTO/VİDEO) STATE'LERİ 🔥
   const [medyaDosyalar, setMedyaDosyalar] = useState<File[]>([]);
@@ -104,21 +107,40 @@ export default function ArizaBildirimEkrani() {
       setKayitDurumu('bekliyor');
   };
 
-  // --- TELEGRAM BİLDİRİMİ (QR SAYFASINDAKİ GİBİ GÜÇLENDİRİLDİ) ---
-  const telegramBildirimiGonder = async (not: string, medyaSayisi: number) => {
+  // --- TELEGRAM BİLDİRİMİ ---
+  const telegramBildirimiGonder = async (not: string, medyaSayisi: number, tip: string, bolge: string) => {
     const botToken = "8567697885:AAGCSyckJKLG11HwTQaMGGUwMyXIm0UqAK0"; 
     const grupId = "-5079408473"; 
 
-    const baslik = medyaSayisi > 0 ? `📸 *${medyaSayisi} MEDYALI MANUEL ARIZA!*` : "🚨 *YENİ MANUEL ARIZA!*";
+    let onayMetni = "";
+    let baslikEmoji = "🚨";
+    let baslikMetni = "YENİ MANUEL TALEP!";
+
+    if (tip === 'ariza') {
+        onayMetni = "✅ *Müşteri 8.500 TL + KDV servis bedelini ONAYLADI.*";
+        baslikEmoji = medyaSayisi > 0 ? "📸" : "🚨";
+        baslikMetni = "YENİ MANUEL ARIZA BİLDİRİMİ!";
+    } else if (tip === 'kesif') {
+        onayMetni = "✅ *Müşteri 5.000 TL + KDV keşif bedelini ONAYLADI.*";
+        baslikEmoji = "🔍";
+        baslikMetni = "YENİ MANUEL KEŞİF TALEBİ!";
+    } else if (tip === 'bakim') {
+        onayMetni = "✅ *Müşteri Periyodik Bakım Sözleşmesi talep ediyor.*";
+        baslikEmoji = "📝";
+        baslikMetni = "MANUEL BAKIM SÖZLEŞMESİ TALEBİ!";
+    }
     
-    const mesaj = `${baslik}\n\n` +
+    const mesaj = `${baslikEmoji} *${baslikMetni}*\n\n` +
                   `🏗️ *Vinç / Makine:* ${form.vinc_bilgisi || 'Belirtilmedi'}\n` +
                   `🏢 *Müşteri:* ${form.firma_adi}\n` +
+                  `👤 *Yetkili:* ${form.yetkili || '-'}\n` +
                   `📞 *Telefon:* ${form.telefon}\n` +
+                  `${form.email && tip === 'bakim' ? `📧 *E-Posta:* ${form.email}\n` : ''}` +
                   `📍 *Adres:* ${form.adres || 'Belirtilmedi'}\n` +
-                  `🔥 *Aciliyet:* ${form.aciliyet}\n` +
+                  `${bolge ? `🎯 *Arıza Bölgesi:* ${bolge}\n` : ''}` +
                   `------------------\n` +
-                  `💬 *Sorun:* ${not}`;
+                  `💬 *Müşteri Notu:* ${not || 'Not girilmedi.'}\n\n` +
+                  `${onayMetni}`;
     try {
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
@@ -130,10 +152,9 @@ export default function ArizaBildirimEkrani() {
 
   // --- GÖNDERME İŞLEMİ ---
   const talebiGonder = async () => {
-      if (!form.firma_adi || !form.telefon || (!form.sorun && !sesKaydi)) {
-          alert("Lütfen Firma Adı, Telefon giriniz ve arızayı yazarak veya ses ile belirtiniz.");
-          return;
-      }
+      if (aktifMenu === 'ariza' && !secilenBolge) return alert("Lütfen arızalı bölgeyi seçin.");
+      if (aktifMenu === 'bakim' && !form.email) return alert("Lütfen teklif için e-posta adresinizi girin.");
+      if (aktifMenu !== 'bakim' && !form.sorun && !sesKaydi) return alert("Lütfen talebinizi açıklayan bir not yazın veya ses kaydı bırakın.");
 
       setGonderiliyor(true);
       let yuklenenMedyaUrlleri: string[] = [];
@@ -169,26 +190,43 @@ export default function ArizaBildirimEkrani() {
 
         setYuklemeMesaji("Talebiniz Sisteme Kaydediliyor...");
 
+        let issueType = 'Genel Arıza';
+        let desc = form.sorun || "Ses kaydı ile bildirildi.";
+        let pipelineStat = 'bekliyor';
+
+        if (aktifMenu === 'ariza') {
+            issueType = `Arıza Bildirimi (${secilenBolge})`;
+            pipelineStat = 'acil_cozum';
+        } else if (aktifMenu === 'kesif') {
+            issueType = `Keşif Talebi`;
+            pipelineStat = 'kesif_bekliyor';
+        } else if (aktifMenu === 'bakim') {
+            issueType = `Bakım Sözleşmesi Talebi`;
+            desc = form.sorun || "Sistem üzerinden periyodik bakım sözleşmesi teklifi talep edildi.";
+            pipelineStat = 'teklif_hazirlanacak';
+        }
+
         const { error } = await supabase.from('service_tickets').insert([{
-            description: form.sorun || "Müşteri sorunu ses kaydı ile bildirdi.",
+            issue_type: issueType,
+            description: desc,
             status: 'bekliyor',
-            pipeline_status: form.aciliyet === 'Kritik (Makine Durdu)' ? 'acil_cozum' : 'bekliyor',
+            pipeline_status: pipelineStat,
             manual_customer_name: form.firma_adi,
             manual_customer_rep: form.yetkili,
             manual_phone: form.telefon,
             manual_location: form.adres,
             manual_crane_info: form.vinc_bilgisi,
-            priority: form.aciliyet,
+            priority: aktifMenu === 'ariza' ? 'Kritik (Makine Durdu)' : 'Normal',
             media_urls: yuklenenMedyaUrlleri,
             audio_url: yuklenenSesUrl
         }]);
 
         if (error) throw error;
 
-        await telegramBildirimiGonder(form.sorun || "Ses kaydı ile bildirim.", yuklenenMedyaUrlleri.length);
+        await telegramBildirimiGonder(desc, yuklenenMedyaUrlleri.length, aktifMenu, secilenBolge);
 
         setBasarili(true);
-        setAktifSheet('none');
+        setAktifMenu('none');
       } catch (err: any) {
         alert("Gönderim sırasında hata oluştu: " + err.message);
       } finally {
@@ -200,19 +238,12 @@ export default function ArizaBildirimEkrani() {
   // --- İLETİŞİM FORMU ONAYI ---
   const iletisimOnayla = () => {
     if(!form.firma_adi || !form.telefon) return alert("Firma Adı ve Telefon zorunludur!");
-    setAdimBasarili({...adimBasarili, iletisim: true});
-    setAktifSheet('none');
-  }
-
-  // --- DETAY FORMU ONAYI ---
-  const detayOnayla = () => {
-    if(!form.sorun && !sesKaydi) return alert("Lütfen sorunu yazarak veya ses kaydı ile belirtin!");
-    setAdimBasarili({...adimBasarili, detay: true});
-    setAktifSheet('none');
+    setIletisimTamam(true);
+    setAktifMenu('none');
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#0A1128] flex flex-col items-center py-10 px-4 font-sans selection:bg-blue-200 relative overflow-hidden">
+    <div className="min-h-[100dvh] bg-[#0A1128] flex flex-col items-center py-10 px-4 font-sans selection:bg-blue-200 relative overflow-hidden pb-32">
       
       {/* Arka Plan Efekti */}
       <div className="absolute top-0 left-0 w-full h-96 bg-blue-600/20 blur-[100px] rounded-full pointer-events-none -translate-y-1/2"></div>
@@ -229,52 +260,62 @@ export default function ArizaBildirimEkrani() {
               
               <div className="bg-blue-900/40 border border-blue-500/30 p-4 rounded-2xl flex gap-3 text-blue-100 text-xs font-medium leading-relaxed mb-6 backdrop-blur-md shadow-xl">
                   <Info size={24} className="text-blue-400 shrink-0" />
-                  <p>Hızlı ve doğru bir müdahale için lütfen aşağıdaki adımları eksiksiz tamamlayın.</p>
+                  <p>Hızlı ve doğru bir müdahale için lütfen önce iletişim bilgilerinizi girin, ardından talebinizi seçin.</p>
               </div>
 
-              {/* ADIM 1: İLETİŞİM BİLGİLERİ */}
-              <button onClick={() => setAktifSheet('iletisim')} className={`w-full p-5 rounded-[2rem] text-left shadow-lg relative overflow-hidden group transition-all border ${adimBasarili.iletisim ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white border-slate-100'}`}>
+              {/* ADIM 1: İLETİŞİM BİLGİLERİ (ZORUNLU İLK ADIM) */}
+              <button onClick={() => setAktifMenu('iletisim')} className={`w-full p-5 rounded-[2rem] text-left shadow-lg relative overflow-hidden group transition-all border ${iletisimTamam ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white border-slate-100'}`}>
                   <div className="flex items-center justify-between relative z-10">
                       <div className="flex gap-4 items-center">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${adimBasarili.iletisim ? 'bg-emerald-500 text-white shadow-emerald-500/50' : 'bg-blue-50 text-blue-600'} shadow-lg transition-colors`}>
-                             {adimBasarili.iletisim ? <CheckCircle2 size={20}/> : <User size={20}/>}
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${iletisimTamam ? 'bg-emerald-500 text-white shadow-emerald-500/50' : 'bg-blue-50 text-blue-600'} shadow-lg transition-colors`}>
+                             {iletisimTamam ? <CheckCircle2 size={20}/> : <User size={20}/>}
                           </div>
                           <div>
-                              <h4 className={`font-extrabold text-base ${adimBasarili.iletisim ? 'text-emerald-400' : 'text-slate-800'}`}>İletişim Bilgileri</h4>
-                              <p className={`text-xs mt-0.5 font-medium ${adimBasarili.iletisim ? 'text-emerald-500/70' : 'text-slate-500'}`}>{adimBasarili.iletisim ? 'Bilgiler kaydedildi.' : 'Firma ve Adres girin.'}</p>
+                              <h4 className={`font-extrabold text-base ${iletisimTamam ? 'text-emerald-400' : 'text-slate-800'}`}>İletişim Bilgileri</h4>
+                              <p className={`text-xs mt-0.5 font-medium ${iletisimTamam ? 'text-emerald-500/70' : 'text-slate-500'}`}>{iletisimTamam ? `${form.firma_adi}` : 'Firma, Adres ve Vinç bilgisini girin.'}</p>
                           </div>
                       </div>
-                      <ChevronRight className={`w-5 h-5 ${adimBasarili.iletisim ? 'text-emerald-500' : 'text-slate-300'}`}/>
+                      <ChevronRight className={`w-5 h-5 ${iletisimTamam ? 'text-emerald-500' : 'text-slate-300'}`}/>
                   </div>
               </button>
 
-              {/* ADIM 2: ARIZA DETAYLARI */}
-              <button onClick={() => { if(!adimBasarili.iletisim) return alert('Önce iletişim bilgilerini doldurmalısınız.'); setAktifSheet('detay'); }} className={`w-full p-5 rounded-[2rem] text-left shadow-lg relative overflow-hidden group transition-all border ${!adimBasarili.iletisim ? 'opacity-50 cursor-not-allowed bg-white/50 border-transparent' : adimBasarili.detay ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white border-slate-100'}`}>
-                  <div className="flex items-center justify-between relative z-10">
-                      <div className="flex gap-4 items-center">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${adimBasarili.detay ? 'bg-emerald-500 text-white shadow-emerald-500/50' : 'bg-rose-50 text-rose-600'} shadow-lg transition-colors`}>
-                             {adimBasarili.detay ? <CheckCircle2 size={20}/> : <AlertTriangle size={20}/>}
-                          </div>
-                          <div>
-                              <h4 className={`font-extrabold text-base ${adimBasarili.detay ? 'text-emerald-400' : 'text-slate-800'}`}>Arıza Detayları</h4>
-                              <p className={`text-xs mt-0.5 font-medium ${adimBasarili.detay ? 'text-emerald-500/70' : 'text-slate-500'}`}>{adimBasarili.detay ? 'Sorun ve kanıtlar eklendi.' : 'Sorunu ve medyaları ekleyin.'}</p>
-                          </div>
-                      </div>
-                      <ChevronRight className={`w-5 h-5 ${adimBasarili.detay ? 'text-emerald-500' : 'text-slate-300'}`}/>
-                  </div>
-              </button>
-
-              {/* FİNAL: GÖNDER BUTONU */}
+              {/* ADIM 2: TALEP OLUŞTURMA (SADECE İLETİŞİM TAMAMLANINCA AÇILIR) */}
               <AnimatePresence>
-                {adimBasarili.iletisim && adimBasarili.detay && (
-                  <motion.button initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} onClick={talebiGonder} disabled={gonderiliyor} className="w-full mt-8 py-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-black text-base rounded-[2rem] shadow-[0_10px_40px_rgba(37,99,235,0.3)] flex flex-col items-center justify-center gap-1 transition-all active:scale-[0.98] border border-blue-500/50 relative overflow-hidden">
-                      <div className="absolute inset-0 bg-white/10 w-full h-full transform -skew-x-12 -translate-x-full animate-[shimmer_2s_infinite]"></div>
-                      <div className="flex items-center gap-2 relative z-10">
-                          {gonderiliyor ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>}
-                          {gonderiliyor ? 'SİSTEME AKTARILIYOR...' : 'SERVİS TALEBİNİ GÖNDER'}
-                      </div>
-                      {yuklemeMesaji && <span className="text-[10px] text-blue-200 font-bold uppercase tracking-wider relative z-10 mt-1">{yuklemeMesaji}</span>}
-                  </motion.button>
+                {iletisimTamam && (
+                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="pt-4 space-y-4">
+                       <h3 className="text-white/90 font-bold text-sm uppercase tracking-wider ml-2 flex items-center gap-2 mb-2">
+                           <Wrench className="w-4 h-4 text-rose-400"/> İşlem Seçin
+                       </h3>
+
+                       {/* BUTON 1: DİREKT ARIZA */}
+                       <button onClick={() => setAktifMenu('ariza')} className="w-full bg-gradient-to-r from-rose-500 to-red-600 p-5 rounded-[2rem] text-left shadow-lg relative overflow-hidden group active:scale-[0.98] transition-all">
+                           <div className="absolute right-[-20px] top-[-20px] opacity-20"><AlertTriangle className="w-32 h-32"/></div>
+                           <div className="relative z-10">
+                               <h4 className="text-white font-extrabold text-lg flex items-center gap-2"><AlertTriangle className="w-5 h-5"/> Arıza & Servis Çağır</h4>
+                               <p className="text-rose-100 text-xs mt-1 font-medium leading-relaxed">Vinciniz çalışmıyor veya acil müdahale gerekiyorsa. <br/><strong className="text-white bg-black/20 px-2 py-0.5 rounded mt-1 inline-block">Servis Bedeli: 8.500 TL + KDV</strong></p>
+                           </div>
+                       </button>
+
+                       {/* BUTON 2: KEŞİF */}
+                       <button onClick={() => setAktifMenu('kesif')} className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 p-5 rounded-[2rem] text-left shadow-lg relative overflow-hidden group active:scale-[0.98] transition-all">
+                           <div className="absolute right-[-20px] top-[-20px] opacity-20"><Search className="w-32 h-32"/></div>
+                           <div className="relative z-10">
+                               <h4 className="text-white font-extrabold text-lg flex items-center gap-2"><Search className="w-5 h-5"/> Sadece Arıza Keşfi</h4>
+                               <p className="text-purple-100 text-xs mt-1 font-medium leading-relaxed">Arızanın ne olduğunu öğrenmek için keşif talep edin. <br/><strong className="text-white bg-black/20 px-2 py-0.5 rounded mt-1 inline-block">Keşif Bedeli: 5.000 TL + KDV</strong></p>
+                           </div>
+                       </button>
+
+                       {/* BUTON 3: BAKIM */}
+                       <button onClick={() => setAktifMenu('bakim')} className="w-full bg-white p-5 rounded-[2rem] text-left shadow-lg relative overflow-hidden group active:scale-[0.98] transition-all border border-slate-100">
+                           <div className="flex items-center justify-between relative z-10">
+                               <div>
+                                   <h4 className="text-slate-800 font-extrabold text-base flex items-center gap-2"><FileSignature className="w-5 h-5 text-blue-600"/> Periyodik Bakım Sözleşmesi</h4>
+                                   <p className="text-slate-500 text-xs mt-1 font-medium">Yıllık bakım planı için teklif isteyin.</p>
+                               </div>
+                               <ChevronRight className="w-5 h-5 text-slate-300"/>
+                           </div>
+                       </button>
+                   </motion.div>
                 )}
               </AnimatePresence>
 
@@ -283,7 +324,7 @@ export default function ArizaBildirimEkrani() {
           <motion.div key="success" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-md bg-white rounded-[32px] p-10 text-center flex flex-col items-center justify-center shadow-2xl relative z-10 border-t-8 border-t-emerald-500 mt-10">
               <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mb-6 shadow-inner"><CheckCircle2 size={50} className="text-emerald-500" /></div>
               <h2 className="text-2xl font-black text-slate-800 mb-2">Talebiniz Alındı!</h2>
-              <p className="text-slate-500 text-sm leading-relaxed mb-8">Arıza bildiriminiz ve ekleriniz teknik servis merkezimize başarıyla iletildi. Ekiplerimiz en kısa sürede sizinle iletişime geçecektir.</p>
+              <p className="text-slate-500 text-sm leading-relaxed mb-8">Bildiriminiz ve ekleriniz teknik servis merkezimize başarıyla iletildi. Ekiplerimiz en kısa sürede sizinle iletişime geçecektir.</p>
               <button onClick={() => window.location.reload()} className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl transition text-sm">Yeni Talep Oluştur</button>
           </motion.div>
         )}
@@ -296,25 +337,25 @@ export default function ArizaBildirimEkrani() {
           MODALLAR (BOTTOM SHEETS)
           ========================================== */}
       <AnimatePresence>
-        {aktifSheet !== 'none' && (
+        {aktifMenu !== 'none' && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAktifSheet('none')} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100]"/>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAktifMenu('none')} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100]"/>
             
             <motion.div 
               initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }}
               className="fixed inset-x-0 bottom-0 z-[101] bg-white rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.2)] overflow-hidden max-h-[90dvh] flex flex-col"
             >
-              <div className="w-full flex justify-center pt-4 pb-2 bg-white shrink-0" onClick={() => setAktifSheet('none')}>
+              <div className="w-full flex justify-center pt-4 pb-2 bg-white shrink-0" onClick={() => setAktifMenu('none')}>
                  <div className="w-12 h-1.5 bg-slate-200 rounded-full"></div>
               </div>
 
               <div className="overflow-y-auto px-6 pb-8 pt-2 custom-scrollbar">
                 
                 {/* 1. İLETİŞİM BİLGİLERİ SHEET */}
-                {aktifSheet === 'iletisim' && (
+                {aktifMenu === 'iletisim' && (
                   <div className="space-y-4">
                      <div className="mb-6 flex justify-between items-center">
-                        <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><User className="w-6 h-6 text-blue-500"/> İletişim Bilgileri</h2>
+                        <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><User className="w-6 h-6 text-blue-500"/> İletişim & Konum</h2>
                      </div>
 
                      <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Building2 size={14}/> Firma Adınız <span className="text-red-500">*</span></label><input type="text" placeholder="Firmanızın tam adı" value={form.firma_adi} onChange={e => setForm({...form, firma_adi: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"/></div>
@@ -323,6 +364,7 @@ export default function ArizaBildirimEkrani() {
                          <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Phone size={14}/> Telefon <span className="text-red-500">*</span></label><input type="tel" placeholder="05XX XXX XX" value={form.telefon} onChange={e => setForm({...form, telefon: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"/></div>
                      </div>
                      <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><MapPin size={14}/> Açık Adres</label><input type="text" placeholder="İl, ilçe, tam adres..." value={form.adres} onChange={e => setForm({...form, adres: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"/></div>
+                     <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Settings size={14}/> Makine / Vinç Bilgisi</label><input type="text" placeholder="Örn: 10 Ton Tavan Vinci" value={form.vinc_bilgisi} onChange={e => setForm({...form, vinc_bilgisi: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"/></div>
 
                      <button onClick={iletisimOnayla} className="w-full mt-4 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">
                        KAYDET VE İLERLE
@@ -330,51 +372,53 @@ export default function ArizaBildirimEkrani() {
                   </div>
                 )}
 
-                {/* 2. ARIZA DETAYLARI SHEET */}
-                {aktifSheet === 'detay' && (
+                {/* 2. ARIZA ÇAĞIRMA SHEET */}
+                {aktifMenu === 'ariza' && (
                   <div className="space-y-5">
-                     <div className="mb-2 flex justify-between items-center">
-                        <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><AlertTriangle className="w-6 h-6 text-rose-500"/> Arıza Detayları</h2>
-                     </div>
-
-                     <div><label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Settings size={14}/> Vinç Bilgisi</label><input type="text" placeholder="Örn: 10 Ton Tavan Vinci" value={form.vinc_bilgisi} onChange={e => setForm({...form, vinc_bilgisi: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"/></div>
-                     
                      <div>
-                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertTriangle size={14}/> Aciliyet</label>
-                         <div className="grid grid-cols-2 gap-3">
-                             <button onClick={() => setForm({...form, aciliyet: 'Normal'})} className={`p-4 rounded-2xl border-2 text-xs font-bold transition-all flex flex-col items-center gap-2 ${form.aciliyet === 'Normal' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}><div className={`w-3 h-3 rounded-full ${form.aciliyet === 'Normal' ? 'bg-blue-500' : 'bg-slate-300'}`}></div>Sıraya Alınsın</button>
-                             <button onClick={() => setForm({...form, aciliyet: 'Kritik (Makine Durdu)'})} className={`p-4 rounded-2xl border-2 text-xs font-bold transition-all flex flex-col items-center gap-2 text-center ${form.aciliyet === 'Kritik (Makine Durdu)' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}><div className={`w-3 h-3 rounded-full ${form.aciliyet === 'Kritik (Makine Durdu)' ? 'bg-red-500 animate-ping absolute' : 'bg-slate-300'}`}></div>KRİTİK (Acil)</button>
-                         </div>
+                        <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2 mb-2"><AlertTriangle className="w-6 h-6 text-rose-500"/> Arıza Kaydı</h2>
+                        <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl flex gap-3 items-start">
+                           <Info className="w-5 h-5 text-rose-500 shrink-0 mt-0.5"/>
+                           <p className="text-xs text-rose-700 font-medium leading-relaxed">Bu işlem için <strong>8.500 TL + KDV</strong> servis bedeli yansıtılacaktır. Onaylıyorsanız formu doldurun.</p>
+                        </div>
                      </div>
 
-                     <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200">
-                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between mb-3 ml-1">
-                             <span className="flex items-center gap-2"><Mic size={14}/> Sesli Anlatım (Hızlı)</span>
-                         </label>
-
-                         {kayitDurumu === 'bekliyor' && (
-                             <button onClick={sesKaydiBaslat} className="w-full py-4 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-2xl text-blue-600 font-bold transition flex flex-col items-center gap-2 shadow-sm">
-                                 <div className="bg-blue-500 text-white p-3 rounded-full"><Mic size={24} /></div>
-                                 <span className="text-[10px] uppercase tracking-widest mt-1">Dokun ve Konuş</span>
+                     <div>
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Arızalı Bölge Seçin <span className="text-rose-500">*</span></label>
+                        <div className="flex flex-wrap gap-2">
+                           {bolgeler.map(b => (
+                             <button key={b} onClick={() => setSecilenBolge(b)} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${secilenBolge === b ? 'bg-rose-500 text-white border-rose-500 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                               {b}
                              </button>
-                         )}
+                           ))}
+                        </div>
+                     </div>
 
-                         {kayitDurumu === 'kaydediyor' && (
-                             <button onClick={sesKaydiDurdur} className="w-full py-6 border-2 border-red-300 bg-red-50 rounded-2xl text-red-600 font-bold transition flex flex-col items-center gap-3 shadow-inner">
-                                 <div className="bg-red-500 text-white p-4 rounded-full animate-pulse shadow-lg shadow-red-500/50"><StopCircle size={32} /></div>
-                                 <span className="text-[10px] uppercase tracking-widest mt-1 animate-pulse">Kaydediliyor... Bitirmek için dokun</span>
-                             </button>
-                         )}
-
-                         {kayitDurumu === 'tamamlandi' && sesOnizleme && (
-                             <div className="relative bg-white border border-slate-200 p-3 rounded-xl flex flex-col gap-3">
-                                 <div className="flex items-center justify-between">
-                                     <span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 size={14}/> Ses Kaydı Hazır</span>
-                                     <button onClick={sesKaydiSil} className="text-red-500 hover:text-red-700 bg-red-50 p-1.5 rounded-lg transition"><Trash2 size={14}/></button>
-                                 </div>
-                                 <audio src={sesOnizleme} controls className="w-full h-10" />
-                             </div>
-                         )}
+                     <div>
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between mb-3 ml-1">
+                            <span className="flex items-center gap-2"><Mic size={14}/> Sesli Anlatım (Hızlı Seçenek)</span>
+                        </label>
+                        {kayitDurumu === 'bekliyor' && (
+                            <button onClick={sesKaydiBaslat} className="w-full py-4 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-2xl text-blue-600 font-bold transition flex flex-col items-center gap-2 shadow-sm">
+                                <div className="bg-blue-500 text-white p-3 rounded-full"><Mic size={24} /></div>
+                                <span className="text-[10px] uppercase tracking-widest mt-1">Dokun ve Konuş</span>
+                            </button>
+                        )}
+                        {kayitDurumu === 'kaydediyor' && (
+                            <button onClick={sesKaydiDurdur} className="w-full py-6 border-2 border-red-300 bg-red-50 rounded-2xl text-red-600 font-bold transition flex flex-col items-center gap-3 shadow-inner">
+                                <div className="bg-red-500 text-white p-4 rounded-full animate-pulse shadow-lg shadow-red-500/50"><StopCircle size={32} /></div>
+                                <span className="text-[10px] uppercase tracking-widest mt-1 animate-pulse">Kaydediliyor... Bitirmek için dokun</span>
+                            </button>
+                        )}
+                        {kayitDurumu === 'tamamlandi' && sesOnizleme && (
+                            <div className="relative bg-white border border-slate-200 p-3 rounded-xl flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 size={14}/> Ses Kaydı Hazır</span>
+                                    <button onClick={sesKaydiSil} className="text-red-500 hover:text-red-700 bg-red-50 p-1.5 rounded-lg transition"><Trash2 size={14}/></button>
+                                </div>
+                                <audio src={sesOnizleme} controls className="w-full h-10" />
+                            </div>
+                        )}
                      </div>
 
                      {kayitDurumu === 'bekliyor' && (
@@ -389,22 +433,15 @@ export default function ArizaBildirimEkrani() {
                              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2"><Camera size={14}/> Kanıt Ekle (Max 5)</label>
                              <span className="text-[10px] font-bold text-blue-500 bg-blue-100 px-2 py-0.5 rounded-full">{medyaOnizlemeler.length}/5</span>
                          </div>
-                         
                          <input type="file" accept="image/*, video/*" multiple ref={dosyaInputRef} onChange={medyaSecildi} className="hidden" />
-                         
                          <div className="grid grid-cols-3 gap-2">
                              {medyaOnizlemeler.map((medya, index) => (
                                  <div key={index} className="relative rounded-xl overflow-hidden border border-slate-300 aspect-square group bg-black">
-                                     {medya.type === 'image' ? (
-                                         <img src={medya.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" />
-                                     ) : (
-                                         <video src={medya.url} className="w-full h-full object-cover opacity-80" />
-                                     )}
+                                     {medya.type === 'image' ? <img src={medya.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" /> : <video src={medya.url} className="w-full h-full object-cover opacity-80" />}
                                      <button onClick={() => medyaSil(index)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-lg shadow-lg hover:bg-red-600 transition z-10"><Trash2 size={12}/></button>
                                      {medya.type === 'video' && <div className="absolute bottom-1 left-1 bg-black/60 p-1 rounded-md"><Video size={12} className="text-white"/></div>}
                                  </div>
                              ))}
-                             
                              {medyaOnizlemeler.length < 5 && (
                                  <button onClick={() => dosyaInputRef.current?.click()} className="aspect-square border-2 border-dashed border-slate-300 bg-white rounded-xl text-slate-400 font-bold hover:border-blue-500 hover:text-blue-500 transition flex flex-col items-center justify-center gap-1">
                                      <div className="flex gap-1"><ImageIcon size={16} /><Video size={16} /></div>
@@ -414,8 +451,84 @@ export default function ArizaBildirimEkrani() {
                          </div>
                      </div>
 
-                     <button onClick={detayOnayla} className="w-full mt-4 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">
-                       KAYDET VE ONAYLA
+                     <button onClick={talebiGonder} disabled={gonderiliyor} className="w-full py-4 bg-rose-600 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all flex justify-center items-center gap-2">
+                       {gonderiliyor ? <Loader2 className="animate-spin"/> : "ŞARTLARI KABUL ET VE ÇAĞIR"}
+                     </button>
+                  </div>
+                )}
+
+                {/* 3. KEŞİF BİLDİRİMİ SHEET */}
+                {aktifMenu === 'kesif' && (
+                  <div className="space-y-5">
+                     <div>
+                        <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2 mb-2"><Search className="w-6 h-6 text-indigo-500"/> Arıza Keşfi</h2>
+                        <div className="bg-indigo-50 border border-indigo-200 p-3 rounded-xl flex gap-3 items-start">
+                           <Info className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5"/>
+                           <p className="text-xs text-indigo-700 font-medium leading-relaxed">
+                             Sadece arızanın tespitini istiyorsanız <strong>5.000 TL + KDV</strong> keşif bedeli alınır.<br/><br/>
+                             <span className="opacity-80 text-[10px]">Eğer keşif sonrası işin yapılmasını onaylarsanız, bu bedel alınmaz ve sadece 8.500 TL + KDV arıza çözüm bedeli geçerli olur. (İkisi ayrı ayrı tahsil edilmez.)</span>
+                           </p>
+                        </div>
+                     </div>
+
+                     <div>
+                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertCircle size={14}/> Gözlemlerinizi Yazın</label>
+                         <textarea rows={3} placeholder="Sıkıntı nedir? Hangi durumda ortaya çıkıyor?" value={form.sorun} onChange={e => setForm({...form, sorun: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm resize-none outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition leading-relaxed"/>
+                     </div>
+
+                     <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200">
+                         <div className="flex justify-between items-center mb-3 ml-1">
+                             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2"><Camera size={14}/> Kanıt Ekle (Max 5)</label>
+                             <span className="text-[10px] font-bold text-blue-500 bg-blue-100 px-2 py-0.5 rounded-full">{medyaOnizlemeler.length}/5</span>
+                         </div>
+                         <input type="file" accept="image/*, video/*" multiple ref={dosyaInputRef} onChange={medyaSecildi} className="hidden" />
+                         <div className="grid grid-cols-3 gap-2">
+                             {medyaOnizlemeler.map((medya, index) => (
+                                 <div key={index} className="relative rounded-xl overflow-hidden border border-slate-300 aspect-square group bg-black">
+                                     {medya.type === 'image' ? <img src={medya.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" /> : <video src={medya.url} className="w-full h-full object-cover opacity-80" />}
+                                     <button onClick={() => medyaSil(index)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-lg shadow-lg hover:bg-red-600 transition z-10"><Trash2 size={12}/></button>
+                                     {medya.type === 'video' && <div className="absolute bottom-1 left-1 bg-black/60 p-1 rounded-md"><Video size={12} className="text-white"/></div>}
+                                 </div>
+                             ))}
+                             {medyaOnizlemeler.length < 5 && (
+                                 <button onClick={() => dosyaInputRef.current?.click()} className="aspect-square border-2 border-dashed border-slate-300 bg-white rounded-xl text-slate-400 font-bold hover:border-indigo-500 hover:text-indigo-500 transition flex flex-col items-center justify-center gap-1">
+                                     <div className="flex gap-1"><ImageIcon size={16} /><Video size={16} /></div>
+                                     <span className="text-[9px] text-center px-1">Ekle</span>
+                                 </button>
+                             )}
+                         </div>
+                     </div>
+
+                     <button onClick={talebiGonder} disabled={gonderiliyor} className="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all flex justify-center items-center gap-2">
+                       {gonderiliyor ? <Loader2 className="animate-spin"/> : "ŞARTLARI KABUL ET VE KEŞİF İSTE"}
+                     </button>
+                  </div>
+                )}
+
+                {/* 4. BAKIM SÖZLEŞMESİ SHEET */}
+                {aktifMenu === 'bakim' && (
+                  <div className="space-y-6 text-center py-4">
+                     <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto text-blue-600">
+                        <FileSignature className="w-10 h-10"/>
+                     </div>
+                     <div>
+                        <h2 className="text-2xl font-black text-slate-800 mb-2">Bakım Sözleşmesi</h2>
+                        <p className="text-sm text-slate-500">Mevcut makineleriniz için size özel yıllık periyodik bakım teklifimizi ileteceğiz.</p>
+                     </div>
+
+                     <div className="text-left space-y-4">
+                        <div>
+                           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><Mail size={14}/> E-Posta Adresiniz <span className="text-red-500">*</span></label>
+                           <input type="email" placeholder="Teklifin gönderileceği mail adresi" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"/>
+                        </div>
+                        <div>
+                           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-1.5 ml-1"><AlertCircle size={14}/> Ek Notunuz (Opsiyonel)</label>
+                           <textarea rows={2} placeholder="Kaç adet vinç var, özel talepleriniz neler?" value={form.sorun} onChange={e => setForm({...form, sorun: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition leading-relaxed"/>
+                        </div>
+                     </div>
+
+                     <button onClick={talebiGonder} disabled={gonderiliyor} className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-200 active:scale-95 transition-all">
+                       {gonderiliyor ? <Loader2 className="animate-spin"/> : "TEKLİF TALEP ET"}
                      </button>
                   </div>
                 )}
