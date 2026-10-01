@@ -8,7 +8,12 @@ export default function AiAsistan() {
   // @ts-ignore
   const { messages, input, handleInputChange, handleSubmit } = useChat();
 
-  // Kapalıysa sadece şık bir buton göster
+  // Sayfanın yenilenmesini kesin olarak engelleyen fonksiyon
+  const mesajGonder = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    handleSubmit(e);
+  };
+
   if (!acik) {
     return (
       <button
@@ -20,7 +25,6 @@ export default function AiAsistan() {
     );
   }
 
-  // Açıksa daha kompakt ve minimize edilebilir sohbet penceresi
   return (
     <div className="flex flex-col h-[450px] w-[350px] border border-slate-200 p-0 bg-white rounded-2xl shadow-2xl fixed bottom-6 right-6 z-[99999] overflow-hidden">
       
@@ -50,8 +54,8 @@ export default function AiAsistan() {
         ))}
       </div>
 
-      {/* Mesaj Gönderme Formu */}
-      <form onSubmit={handleSubmit} className="p-3 bg-white border-t border-slate-200 flex gap-2">
+      {/* Mesaj Gönderme Formu - onSubmit kısmına özel fonksiyonu bağladık */}
+      <form onSubmit={mesajGonder} className="p-3 bg-white border-t border-slate-200 flex gap-2">
         <input
           className="bg-slate-100 border border-slate-200 p-2.5 flex-1 rounded-xl text-slate-700 text-sm outline-none focus:border-blue-500 transition"
           value={input}
