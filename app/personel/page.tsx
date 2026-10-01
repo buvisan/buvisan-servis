@@ -1,7 +1,7 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN SAHA PERSONELİ UYGULAMASI 🛠️ V1.0 (MOBİL ODAKLI)
+// BUVISAN SAHA PERSONELİ UYGULAMASI 🛠️ V1.1 (MOBİL ODAKLI & KARANLIK MOD FİX)
 // (Dijital Servis Formu ve Operasyon Takibi)
 // ----------------------------------------------------------------------------
 
@@ -252,7 +252,7 @@ export default function PersonelEkrani() {
                                     <h2 className="font-black text-slate-800 text-lg">Servis Raporu</h2>
                                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Saha Formu (No: {seciliIs.id.slice(0,5).toUpperCase()})</p>
                                 </div>
-                                <div className="w-10"></div> {/* Ortalamak için boş div */}
+                                <div className="w-10"></div>
                             </div>
 
                             {/* Form Body (Scrollable) */}
@@ -270,11 +270,11 @@ export default function PersonelEkrani() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1 block">İşyerine Varış</label>
-                                        <input type="text" placeholder="Giriş Saati" value={raporForm.isyerine_varis} onChange={e=>setRaporForm({...raporForm, isyerine_varis: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm" />
+                                        <input type="text" placeholder="Giriş Saati" value={raporForm.isyerine_varis} onChange={e=>setRaporForm({...raporForm, isyerine_varis: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 shadow-sm" />
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1 block">İşyerinden Ayrılış</label>
-                                        <input type="text" placeholder="Çıkış Saati" value={raporForm.isyerinden_ayrilis} onChange={e=>setRaporForm({...raporForm, isyerinden_ayrilis: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm" />
+                                        <input type="text" placeholder="Çıkış Saati" value={raporForm.isyerinden_ayrilis} onChange={e=>setRaporForm({...raporForm, isyerinden_ayrilis: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 shadow-sm" />
                                     </div>
                                 </div>
 
@@ -286,16 +286,16 @@ export default function PersonelEkrani() {
                                     
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block">Modeli</label>
-                                        <input type="text" value={raporForm.vinc_modeli} onChange={e=>setRaporForm({...raporForm, vinc_modeli: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 outline-none focus:border-blue-500 shadow-sm" />
+                                        <input type="text" placeholder="Model bilgisi" value={raporForm.vinc_modeli} onChange={e=>setRaporForm({...raporForm, vinc_modeli: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 shadow-sm" />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block">Seri No</label>
-                                            <input type="text" value={raporForm.vinc_seri_no} onChange={e=>setRaporForm({...raporForm, vinc_seri_no: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-mono text-slate-700 outline-none focus:border-blue-500 shadow-sm" />
+                                            <input type="text" placeholder="Seri no" value={raporForm.vinc_seri_no} onChange={e=>setRaporForm({...raporForm, vinc_seri_no: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-mono text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 shadow-sm" />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block">Kapasite / Tonaj</label>
-                                            <input type="text" value={raporForm.vinc_kapasite} onChange={e=>setRaporForm({...raporForm, vinc_kapasite: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 outline-none focus:border-blue-500 shadow-sm" />
+                                            <input type="text" placeholder="Tonaj" value={raporForm.vinc_kapasite} onChange={e=>setRaporForm({...raporForm, vinc_kapasite: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 shadow-sm" />
                                         </div>
                                     </div>
                                 </div>
@@ -314,14 +314,14 @@ export default function PersonelEkrani() {
                                     </div>
                                     <div className="space-y-1.5 mt-4">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1 block">Arızanın Cinsi (Sorun Ne İdi?)</label>
-                                        <textarea rows={2} value={raporForm.arizanin_cinsi} onChange={e=>setRaporForm({...raporForm, arizanin_cinsi: e.target.value})} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:bg-white focus:border-blue-500 transition resize-none leading-relaxed" />
+                                        <textarea rows={2} placeholder="Arıza detayını buraya girin..." value={raporForm.arizanin_cinsi} onChange={e=>setRaporForm({...raporForm, arizanin_cinsi: e.target.value})} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-500 transition resize-none leading-relaxed" />
                                     </div>
                                 </div>
 
                                 {/* YAPILAN İŞLER (BÜYÜK ALAN) */}
                                 <div className="space-y-1.5">
                                     <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider ml-1 flex items-center gap-2"><Wrench className="w-4 h-4 text-amber-500"/> Yapılan İşlemler (Detaylı)</label>
-                                    <textarea rows={4} placeholder="Makine incelendi, şu parçalar söküldü, yerine bu takıldı, test edildi vb..." value={raporForm.yapilan_isler} onChange={e=>setRaporForm({...raporForm, yapilan_isler: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-3xl text-sm outline-none focus:border-amber-400 shadow-inner resize-none leading-relaxed" />
+                                    <textarea rows={4} placeholder="Makine incelendi, şu parçalar söküldü, yerine bu takıldı, test edildi vb..." value={raporForm.yapilan_isler} onChange={e=>setRaporForm({...raporForm, yapilan_isler: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-3xl text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-amber-400 shadow-inner resize-none leading-relaxed" />
                                 </div>
 
                                 {/* DEĞİŞEN PARÇALAR TABLOSU (DİNAMİK) */}
@@ -338,15 +338,15 @@ export default function PersonelEkrani() {
                                                 <div className="grid grid-cols-12 gap-3 mt-2">
                                                     <div className="col-span-3">
                                                         <label className="text-[9px] font-bold text-slate-400 uppercase px-1">Kod / No</label>
-                                                        <input type="text" placeholder="No" value={parca.parca_no} onChange={(e) => parcaGuncelle(index, 'parca_no', e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-center outline-none focus:bg-white" />
+                                                        <input type="text" placeholder="No" value={parca.parca_no} onChange={(e) => parcaGuncelle(index, 'parca_no', e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-900 placeholder:text-slate-400 text-center outline-none focus:bg-white" />
                                                     </div>
                                                     <div className="col-span-6">
                                                         <label className="text-[9px] font-bold text-slate-400 uppercase px-1">Parça Adı</label>
-                                                        <input type="text" placeholder="Örn: 98 VDC Diyot" value={parca.parca_adi} onChange={(e) => parcaGuncelle(index, 'parca_adi', e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:bg-white" />
+                                                        <input type="text" placeholder="Örn: Diyot" value={parca.parca_adi} onChange={(e) => parcaGuncelle(index, 'parca_adi', e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white" />
                                                     </div>
                                                     <div className="col-span-3 relative">
                                                         <label className="text-[9px] font-bold text-slate-400 uppercase px-1">Adet</label>
-                                                        <input type="text" placeholder="Adet" value={parca.adet} onChange={(e) => parcaGuncelle(index, 'adet', e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-center outline-none focus:bg-white pr-7" />
+                                                        <input type="text" placeholder="Adet" value={parca.adet} onChange={(e) => parcaGuncelle(index, 'adet', e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 text-center outline-none focus:bg-white pr-7" />
                                                         
                                                         {raporForm.degisen_parcalar.length > 1 && (
                                                             <button onClick={() => parcaSil(index)} className="absolute -right-2 -top-6 bg-red-100 text-red-500 p-1.5 rounded-full hover:bg-red-500 hover:text-white transition shadow-sm"><Trash2 size={12}/></button>
