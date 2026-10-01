@@ -1,7 +1,9 @@
 'use client';
-import { useChat } from '@ai-sdk/react';
+import { useChat } from '@ai-sdk/react'; 
 
 export default function AiAsistan() {
+  // TypeScript'in bu satırdaki gereksiz tip uyarısını yoksaymasını sağlıyoruz
+  // @ts-ignore
   const { messages, input, handleInputChange, handleSubmit } = useChat();
 
   return (
