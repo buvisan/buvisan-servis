@@ -1,7 +1,7 @@
 "use client";
 // --------------------------------------------------------
 // BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V4.2 🛠️
-// (Çoklu Medya & Video Destekli Sürüm 🎬)
+// (Çoklu Medya & Video Destekli Sürüm 🎬 + Saha Raporları)
 // --------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -13,7 +13,7 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, Play
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, Play, ClipboardList
 } from 'lucide-react';
 
 const PERSONEL_LISTESI = [
@@ -284,12 +284,19 @@ export default function AdminPanel() {
         {/* OPERASYON MENÜSÜ */}
         <div>
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><div className="w-1 h-6 bg-slate-800 rounded-full"></div> Operasyonlar</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 <motion.button whileHover={{ y: -3 }} onClick={() => { setDuzenlenenKayitId(null); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: '', ticket_type: 'ariza', pipeline_status: 'bekliyor' }); setSecilenManuelPersoneller([]); setManuelFormAcik(true); }} className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-md border border-slate-700 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
                     <div className="absolute -right-4 -bottom-4 opacity-10"><Settings size={80}/></div>
                     <div className="bg-white/10 text-white w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-white/20 transition-colors relative z-10"><Plus size={20}/></div>
                     <div className="relative z-10"><h3 className="font-bold text-white text-sm">İş Emri Ekle</h3><p className="text-[10px] text-slate-400">Arıza veya Keşif Girişi</p></div>
                 </motion.button>
+                
+                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/raporlar')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-emerald-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
+                    <div className="absolute -right-4 -bottom-4 opacity-[0.03]"><ClipboardList size={80}/></div>
+                    <div className="bg-emerald-50 text-emerald-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors relative z-10"><ClipboardList size={20}/></div>
+                    <div className="relative z-10"><h3 className="font-bold text-slate-700 text-sm">Saha Raporları</h3><p className="text-[10px] text-slate-400">Personel formları</p></div>
+                </motion.button>
+
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/yeni-vinc')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-blue-50 text-blue-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors"><Plus size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Yeni Vinç</h3><p className="text-[10px] text-slate-400">Envantere ekle</p></div></motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/vincler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-indigo-50 text-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors"><List size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Vinç Listesi</h3><p className="text-[10px] text-slate-400">Filoyu yönet</p></div></motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/analiz')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-green-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-green-50 text-green-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-colors"><TrendingUp size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Finans</h3><p className="text-[10px] text-slate-400">Gelir raporları</p></div></motion.button>
@@ -358,7 +365,6 @@ export default function AdminPanel() {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                       <div className="flex-1 space-y-3 w-full">
                         
-                        {/* ROZETLER VE PİPELİNE DURUMU */}
                         <div className="flex flex-wrap items-center gap-2">
                             {getPipelineStatusBadge(kayit.pipeline_status)}
                             
@@ -381,7 +387,6 @@ export default function AdminPanel() {
                             )}
                         </div>
 
-                        {/* MÜŞTERİ BİLGİLERİ */}
                         <div>
                           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                               {kayit.cranes?.customer_name || kayit.manual_customer_name || "Bilinmeyen Müşteri"}
@@ -421,17 +426,14 @@ export default function AdminPanel() {
                           </div>
                         </div>
 
-                        {/* SORUN DETAYI */}
                         <div className={`p-4 rounded-xl border text-sm relative ${(isKritik || kayit.pipeline_status === 'acil_cozum') && kayit.pipeline_status !== 'tamamlandi' ? 'bg-red-50 border-red-100 text-red-900' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
                             <Wrench className={`w-6 h-6 absolute top-2 right-2 ${(isKritik || kayit.pipeline_status === 'acil_cozum') ? 'text-red-200' : 'text-slate-200'}`} />
                             <span className="font-bold block mb-1 text-xs uppercase">Sorun / Arıza / Keşif Detayı:</span> 
                             <p className="whitespace-pre-line">{kayit.description}</p>
                         </div>
                         
-                        {/* 🔥 YENİ: ÇOKLU MEDYA (VİDEO VE FOTOĞRAF) GÖRÜNTÜLEME 🔥 */}
                         <div className="pt-3 space-y-3">
                             
-                            {/* SES KAYDI (GÜNCELLENMEDİ - AYNI) */}
                             {kayit.audio_url && (
                                 <div className="bg-slate-100 p-3 rounded-xl border border-slate-200 shadow-inner">
                                     <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-2"><Mic size={12} className="text-blue-500"/> Müşteri Ses Kaydı:</span>
@@ -439,7 +441,6 @@ export default function AdminPanel() {
                                 </div>
                             )}
 
-                            {/* FOTOĞRAF VE VİDEOLAR DİNAMİK LİSTELEME */}
                             {kayit.media_urls && kayit.media_urls.length > 0 && (
                                 <div className="bg-blue-50/50 p-3.5 rounded-xl border border-blue-100">
                                     <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-3">
@@ -451,7 +452,6 @@ export default function AdminPanel() {
                                             const isVideo = isVideoUrl(url);
                                             
                                             return isVideo ? (
-                                              // VİDEO İSE OYNATICIYLA GÖSTER
                                               <div key={i} className="relative group rounded-xl overflow-hidden border border-slate-200 shadow-sm w-32 h-32 bg-black flex-shrink-0">
                                                  <video src={url} className="w-full h-full object-cover opacity-80" />
                                                  <a href={url} target="_blank" rel="noreferrer" className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 hover:bg-black/20 transition-all text-white">
@@ -460,7 +460,6 @@ export default function AdminPanel() {
                                                  </a>
                                               </div>
                                             ) : (
-                                              // FOTOĞRAF İSE RESİM OLARAK GÖSTER
                                               <a key={i} href={url} target="_blank" rel="noreferrer" className="relative group rounded-xl overflow-hidden border border-slate-200 shadow-sm w-32 h-32 flex-shrink-0 block">
                                                  <img src={url} alt={`Ariza Foto ${i+1}`} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
                                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
@@ -476,7 +475,6 @@ export default function AdminPanel() {
 
                       </div>
 
-                      {/* İŞLEM VE PIPELINE BUTONLARI */}
                       <div className="w-full md:w-[220px] flex flex-col gap-2 shrink-0">
                           
                           {teklifler.some(t => t.related_ticket_id === kayit.id) && (
