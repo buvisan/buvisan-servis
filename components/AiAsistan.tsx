@@ -48,8 +48,14 @@ export default function AiAsistan() {
         ))}
       </div>
 
-      {/* Doğrudan handleSubmit bağlıyoruz */}
-      <form onSubmit={handleSubmit} className="p-3 bg-white border-t border-slate-200 flex gap-2">
+      {/* Güvenli Gönderim Sarmalayıcısı */}
+      <form 
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit(e);
+        }} 
+        className="p-3 bg-white border-t border-slate-200 flex gap-2"
+      >
         <input
           className="bg-slate-100 border border-slate-200 p-2.5 flex-1 rounded-xl text-slate-700 text-sm outline-none focus:border-blue-500 transition"
           value={input}
