@@ -1,8 +1,8 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN SAHA PERSONELİ UYGULAMASI 🛠️ V1.2 (SES KAYDI ENTEGRELİ)
-// (Dijital Servis Formu, Sesli Müşteri Kaydı ve Operasyon Takibi)
+// BUVISAN SAHA PERSONELİ UYGULAMASI 🛠️ V1.3 (EKİP SEÇİMİ EKLENDİ)
+// (Dijital Servis Formu, Sesli Müşteri Kaydı ve Çoklu Personel Takibi)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -11,8 +11,13 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LogOut, MapPin, CheckCircle2, Clock, Truck, 
-  Wrench, ChevronRight, FileSignature, ArrowLeft, Plus, Trash2, Send, Loader2, User, HardHat, FileText, CalendarClock, Mic
+  Wrench, ChevronRight, FileSignature, ArrowLeft, Plus, Trash2, Send, Loader2, User, HardHat, FileText, CalendarClock, Mic,
+  Users, CheckSquare, Square // <-- YENİ İKONLAR
 } from 'lucide-react';
+
+const SAHA_PERSONELLERI = [
+  "Veysel Çarklı", "Okan Aran", "Gökhan Gök", "Kerim Akdoğan", "Kaya Ali Tosun"
+];
 
 export default function PersonelEkrani() {
   const router = useRouter();
@@ -31,7 +36,8 @@ export default function PersonelEkrani() {
       isyerine_varis: '', isyerinden_ayrilis: '', 
       vinc_modeli: '', vinc_seri_no: '', vinc_kapasite: '',
       arizanin_cinsi: '', islem_turu: 'Servis', yapilan_isler: '',
-      degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '' }]
+      degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '' }],
+      secilen_personeller: [] as string[] // <-- YENİ EKLENDİ (Çoklu Personel Seçimi)
   });
 
   useEffect(() => { verileriGetir(); }, []);
@@ -46,7 +52,6 @@ export default function PersonelEkrani() {
           
           setAktifPersonel(profil);
 
-          // Sadece bekleyen veya acil olan işleri çek
           const { data: isData } = await supabase
               .from('service_tickets')
               .select('*, cranes(*)')
@@ -75,6 +80,16 @@ export default function PersonelEkrani() {
       setRaporForm({...raporForm, degisen_parcalar: yeniListe});
   }
 
+  // --- YENİ: PERSONEL SEÇİM FONKSİYONU ---
+  const personelToggle = (isim: string) => {
+      const mevcutListe = raporForm.secilen_personeller;
+      if (mevcutListe.includes(isim)) {
+          setRaporForm({ ...raporForm, secilen_personeller: mevcutListe.filter(p => p !== isim) });
+      } else {
+          setRaporForm({ ...raporForm, secilen_personeller: [...mevcutListe, isim] });
+      }
+  };
+
   const formuAc = (isKaydi: any) => {
       setSeciliIs(isKaydi);
       
@@ -90,7 +105,8 @@ export default function PersonelEkrani() {
           arizanin_cinsi: isKaydi.description || '', 
           islem_turu: isKaydi.ticket_type === 'kesif' ? 'Diğer' : 'Servis', 
           yapilan_isler: '',
-          degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '' }]
+          degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '' }],
+          secilen_personeller: [] // Form her açıldığında sıfırlanır
       });
       setFormAcik(true);
       setBasarili(false);
@@ -102,10 +118,15 @@ export default function PersonelEkrani() {
       const firma_adi = seciliIs.cranes?.customer_name || seciliIs.manual_customer_name || 'Bilinmiyor';
       const firma_adresi = seciliIs.cranes?.location_address || seciliIs.manual_location || 'Belirtilmedi';
 
+      // Çoklu seçilen personelleri araya tire (-) koyarak birleştir, seçilmediyse formu dolduranın adını yaz
+      const kaydedilecekPersoneller = raporForm.secilen_personeller.length > 0 
+          ? raporForm.secilen_personeller.join(" - ") 
+          : aktifPersonel?.full_name || 'Bilinmeyen Personel';
+
       try {
           const { error } = await supabase.from('service_reports').insert([{
               ticket_id: seciliIs.id,
-              personel_adi: aktifPersonel.full_name || 'Bilinmeyen Personel',
+              personel_adi: kaydedilecekPersoneller, // <-- YENİ BİRLEŞTİRİLMİŞ İSİMLER BURAYA GİDER
               firma_adi: firma_adi,
               firma_adresi: firma_adresi,
               isyerine_varis_tarih_saat: raporForm.isyerine_varis,
@@ -206,12 +227,10 @@ export default function PersonelEkrani() {
                               <p className="leading-snug">{adres}</p>
                           </div>
 
-                          {/* Sorun Açıklaması */}
                           <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-xs text-slate-700 font-medium mb-3">
                               <strong className="text-slate-800 block mb-1">Sorun:</strong> {is.description}
                           </div>
 
-                          {/* 🎙️ SES KAYDI ALANI (LİSTE KARTI) */}
                           {is.audio_url && (
                               <div className="bg-blue-50 border border-blue-100 p-3 rounded-2xl mb-4 shadow-sm">
                                   <span className="text-[10px] font-bold text-blue-700 uppercase flex items-center gap-1.5 mb-2">
@@ -273,7 +292,30 @@ export default function PersonelEkrani() {
                                     <div className="font-medium text-sm text-blue-50 leading-snug">{seciliIs.cranes?.location_address || seciliIs.manual_location}</div>
                                 </div>
 
-                                {/* 🎙️ SES KAYDI ALANI (FORM MODAL İÇİNDE) */}
+                                {/* YENİ: OPERASYONA KATILAN EKİP */}
+                                <div className="space-y-4 bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm">
+                                    <div>
+                                        <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2 mb-1">
+                                            <Users className="w-4 h-4 text-blue-500"/> Operasyona Katılan Ekip
+                                        </h3>
+                                        <p className="text-[10px] text-slate-500 font-medium ml-1">Lütfen sahada işlemi gerçekleştiren tüm personelleri seçiniz.</p>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {SAHA_PERSONELLERI.map(personel => (
+                                            <button 
+                                                key={personel} 
+                                                onClick={() => personelToggle(personel)} 
+                                                className={`py-3 px-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2 ${raporForm.secilen_personeller.includes(personel) ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                                            >
+                                                {raporForm.secilen_personeller.includes(personel) ? <CheckSquare size={14}/> : <Square size={14}/>}
+                                                <span className="truncate">{personel}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* SES KAYDI ALANI */}
                                 {seciliIs.audio_url && (
                                     <div className="bg-blue-50 border border-blue-200 p-4 rounded-3xl shadow-sm">
                                         <div className="flex items-center gap-2 text-xs font-bold text-blue-800 uppercase mb-2">
