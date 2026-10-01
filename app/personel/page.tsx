@@ -1,8 +1,8 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN SAHA PERSONELİ UYGULAMASI 🛠️ V1.1 (MOBİL ODAKLI & KARANLIK MOD FİX)
-// (Dijital Servis Formu ve Operasyon Takibi)
+// BUVISAN SAHA PERSONELİ UYGULAMASI 🛠️ V1.2 (SES KAYDI ENTEGRELİ)
+// (Dijital Servis Formu, Sesli Müşteri Kaydı ve Operasyon Takibi)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LogOut, MapPin, CheckCircle2, Clock, Truck, 
-  Wrench, ChevronRight, FileSignature, ArrowLeft, Plus, Trash2, Send, Loader2, User, HardHat, FileText, CalendarClock
+  Wrench, ChevronRight, FileSignature, ArrowLeft, Plus, Trash2, Send, Loader2, User, HardHat, FileText, CalendarClock, Mic
 } from 'lucide-react';
 
 export default function PersonelEkrani() {
@@ -79,10 +79,8 @@ export default function PersonelEkrani() {
       setSeciliIs(isKaydi);
       
       const suan = new Date();
-      // Saat formatı HH:MM ayarlama
       const varisSaati = `${suan.getHours().toString().padStart(2, '0')}:${suan.getMinutes().toString().padStart(2, '0')}`;
 
-      // Formu veritabanındaki bilgilerle önden dolduralım
       setRaporForm({
           isyerine_varis: `${suan.toLocaleDateString('tr-TR')} ${varisSaati}`, 
           isyerinden_ayrilis: '', 
@@ -123,7 +121,6 @@ export default function PersonelEkrani() {
 
           if (error) throw error;
 
-          // Rapor yazıldıktan sonra İş Emrinin durumunu da "Çözüldü" yapalım
           await supabase.from('service_tickets').update({ pipeline_status: 'tamamlandi', status: 'tamamlandi' }).eq('id', seciliIs.id);
 
           setBasarili(true);
@@ -138,7 +135,6 @@ export default function PersonelEkrani() {
           setGonderiliyor(false);
       }
   }
-
 
   if (yukleniyor) return (
       <div className="min-h-[100dvh] bg-slate-900 flex flex-col items-center justify-center text-white">
@@ -205,14 +201,25 @@ export default function PersonelEkrani() {
 
                           <h3 className="text-lg font-extrabold text-slate-800 leading-tight mb-2">{firma}</h3>
                           
-                          <div className="flex items-start gap-2 text-slate-500 text-xs font-medium mb-4">
+                          <div className="flex items-start gap-2 text-slate-500 text-xs font-medium mb-3">
                               <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                               <p className="leading-snug">{adres}</p>
                           </div>
 
-                          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-xs text-slate-600 font-medium mb-4 line-clamp-2">
+                          {/* Sorun Açıklaması */}
+                          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-xs text-slate-700 font-medium mb-3">
                               <strong className="text-slate-800 block mb-1">Sorun:</strong> {is.description}
                           </div>
+
+                          {/* 🎙️ SES KAYDI ALANI (LİSTE KARTI) */}
+                          {is.audio_url && (
+                              <div className="bg-blue-50 border border-blue-100 p-3 rounded-2xl mb-4 shadow-sm">
+                                  <span className="text-[10px] font-bold text-blue-700 uppercase flex items-center gap-1.5 mb-2">
+                                      <Mic size={14} className="text-blue-600 animate-pulse" /> Müşterinin Ses Kaydı:
+                                  </span>
+                                  <audio src={is.audio_url} controls className="w-full h-9 rounded-lg" />
+                              </div>
+                          )}
 
                           <button onClick={() => formuAc(is)} className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl flex items-center justify-between px-5 hover:bg-black transition shadow-md active:scale-95">
                               <span className="flex items-center gap-2"><FileSignature size={18}/> DİJİTAL FORMU DOLDUR</span>
@@ -265,6 +272,16 @@ export default function PersonelEkrani() {
                                     <div className="text-[10px] font-bold text-blue-200 uppercase tracking-wider mb-1">Firma Adresi</div>
                                     <div className="font-medium text-sm text-blue-50 leading-snug">{seciliIs.cranes?.location_address || seciliIs.manual_location}</div>
                                 </div>
+
+                                {/* 🎙️ SES KAYDI ALANI (FORM MODAL İÇİNDE) */}
+                                {seciliIs.audio_url && (
+                                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-3xl shadow-sm">
+                                        <div className="flex items-center gap-2 text-xs font-bold text-blue-800 uppercase mb-2">
+                                            <Mic size={16} className="text-blue-600 animate-pulse" /> Müşterinin Ses Kaydı:
+                                        </div>
+                                        <audio src={seciliIs.audio_url} controls className="w-full h-10 rounded-xl" />
+                                    </div>
+                                )}
 
                                 {/* TARİH / SAAT ALANI */}
                                 <div className="grid grid-cols-2 gap-4">
