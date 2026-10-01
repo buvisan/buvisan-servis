@@ -1,5 +1,4 @@
 import Image from "next/image";
-import AiAsistan from '@/components/AiAsistan';
 
 export default function Home() {
   return (
@@ -60,7 +59,6 @@ export default function Home() {
             Documentation
           </a>
         </div>
-        <AiAsistan/>
       </main>
     </div>
   );

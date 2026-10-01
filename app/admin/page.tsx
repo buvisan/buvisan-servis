@@ -280,6 +280,7 @@ export default function AdminPanel() {
                 <p className="text-slate-400 text-xs mt-1">v4.3 Aktif</p>
                 <div className="mt-4 w-full h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 w-2/3 rounded-full"></div></div>
             </div>
+            <AiAsistan />
         </div>
 
         {/* OPERASYON MENÜSÜ */}
@@ -777,7 +778,5 @@ export default function AdminPanel() {
       </AnimatePresence>
 
     </div>
-    
   );
 }
-<AiAsistan/>
