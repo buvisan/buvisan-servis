@@ -1,7 +1,7 @@
 "use client";
 // --------------------------------------------------------
-// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V4.2 🛠️
-// (Çoklu Medya & Video Destekli Sürüm 🎬 + Saha Raporları)
+// BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V4.3 🛠️
+// (Saha Personel Raporları Sekmesi Eklendi 📋)
 // --------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
@@ -13,7 +13,8 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, Play, ClipboardList
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, Play,
+  ClipboardList // <-- YENİ EKLENDİ
 } from 'lucide-react';
 
 const PERSONEL_LISTESI = [
@@ -29,7 +30,6 @@ export default function AdminPanel() {
   const [erisimIzni, setErisimIzni] = useState(false);
   const [istatistikler, setIstatistikler] = useState({ bekleyen: 0, cozulen: 0, toplam: 0 });
 
-  // İŞ EMRİ FİLTRELEME STATE'İ
   const [aktifSekme, setAktifSekme] = useState<'hepsi' | 'bekliyor' | 'tamamlandi'>('bekliyor');
   const [aramaMetni, setAramaMetni] = useState("");
 
@@ -45,7 +45,6 @@ export default function AdminPanel() {
       pipeline_status: 'bekliyor' 
   });
 
-  // TEKLİF SİSTEMİ İÇİN GEREKLİ STATELER VE REF 
   const [teklifler, setTeklifler] = useState<any[]>([]);
   const [seciliTeklif, setSeciliTeklif] = useState<any | null>(null);
   const [onizlemeAcik, setOnizlemeAcik] = useState(false);
@@ -75,25 +74,16 @@ export default function AdminPanel() {
             });
         }
 
-        if (teklifData) {
-            setTeklifler(teklifData);
-        }
+        if (teklifData) setTeklifler(teklifData);
 
     } catch (error) { console.error("Hata:", error); } 
     finally { setYukleniyor(false); }
   }
 
-  // PIPELINE (SÜREÇ) GÜNCELLEME
   async function durumGuncelle(id: string, yeniDurum: string) {
     if(!confirm(`Bu işin durumunu "${yeniDurum.toUpperCase()}" olarak değiştirmek istiyor musunuz?`)) return;
-    
     const legacyStatus = yeniDurum === 'tamamlandi' ? 'tamamlandi' : 'bekliyor';
-    
-    const { error } = await supabase.from('service_tickets').update({ 
-        pipeline_status: yeniDurum,
-        status: legacyStatus
-    }).eq('id', id);
-
+    const { error } = await supabase.from('service_tickets').update({ pipeline_status: yeniDurum, status: legacyStatus }).eq('id', id);
     if (!error) guvenlikVeVeri(); else alert("Güncelleme hatası: " + error.message);
   }
 
@@ -106,7 +96,6 @@ export default function AdminPanel() {
 
   function kayitDuzenleAc(kayit: any) {
       setDuzenlenenKayitId(kayit.id);
-      
       setManuelKayit({
           firma_adi: kayit.manual_customer_name || kayit.cranes?.customer_name || '',
           yetkili: kayit.manual_customer_rep || '',
@@ -121,10 +110,8 @@ export default function AdminPanel() {
           ticket_type: kayit.ticket_type || 'ariza',
           pipeline_status: kayit.pipeline_status || 'bekliyor'
       });
-
       if(kayit.assigned_team) setSecilenManuelPersoneller(kayit.assigned_team.split(" - ").map((p:string) => p.trim()));
       else setSecilenManuelPersoneller([]);
-
       setManuelFormAcik(true);
   }
 
@@ -132,7 +119,6 @@ export default function AdminPanel() {
       let yeniListe = [...secilenManuelPersoneller];
       if (yeniListe.includes(personel)) yeniListe = yeniListe.filter(p => p !== personel);
       else yeniListe.push(personel);
-      
       setSecilenManuelPersoneller(yeniListe);
       setManuelKayit({...manuelKayit, ekip: yeniListe.join(" - ")});
   };
@@ -140,18 +126,13 @@ export default function AdminPanel() {
   async function manuelArizaKaydet() {
       if(!manuelKayit.firma_adi || !manuelKayit.sorun) return alert("Lütfen en azından Firma Adı ve Sorun alanlarını doldurun.");
       setKaydediliyor(true);
-
       const legacyStatus = manuelKayit.pipeline_status === 'tamamlandi' ? 'tamamlandi' : 'bekliyor';
-
       const veriPaketi = {
           description: manuelKayit.sorun, manual_customer_name: manuelKayit.firma_adi, manual_customer_rep: manuelKayit.yetkili,
           manual_phone: manuelKayit.telefon, manual_location: manuelKayit.adres, manual_crane_info: manuelKayit.vinc_bilgisi,
           priority: manuelKayit.aciliyet, assigned_team: manuelKayit.ekip,
-          lat: manuelKayit.lat ? Number(manuelKayit.lat) : null, 
-          lng: manuelKayit.lng ? Number(manuelKayit.lng) : null,
-          ticket_type: manuelKayit.ticket_type,
-          pipeline_status: manuelKayit.pipeline_status,
-          status: legacyStatus
+          lat: manuelKayit.lat ? Number(manuelKayit.lat) : null, lng: manuelKayit.lng ? Number(manuelKayit.lng) : null,
+          ticket_type: manuelKayit.ticket_type, pipeline_status: manuelKayit.pipeline_status, status: legacyStatus
       };
 
       let error;
@@ -159,7 +140,6 @@ export default function AdminPanel() {
       else error = (await supabase.from('service_tickets').insert([veriPaketi])).error;
 
       setKaydediliyor(false);
-
       if (error) alert("Kaydedilemedi: " + error.message);
       else {
           setManuelFormAcik(false); setSecilenManuelPersoneller([]);
@@ -170,11 +150,8 @@ export default function AdminPanel() {
 
   async function cikisYap() { await supabase.auth.signOut(); router.push('/login'); }
 
-  const haritayaGit = (lat: number, lng: number) => {
-    router.push(`/admin/harita?lat=${lat}&lng=${lng}`);
-  };
+  const haritayaGit = (lat: number, lng: number) => { router.push(`/admin/harita?lat=${lat}&lng=${lng}`); };
 
-  // İŞ EMİRLERİNİ FİLTRELEME FONKSİYONU
   const filtrelenmisBildirimler = bildirimler.filter(kayit => {
       const aramaKriteri = aramaMetni.toLowerCase();
       const firmaAd = (kayit.cranes?.customer_name || kayit.manual_customer_name || "").toLowerCase();
@@ -185,7 +162,6 @@ export default function AdminPanel() {
       if (aktifSekme === 'hepsi') sekmeUyumu = true;
       if (aktifSekme === 'bekliyor') sekmeUyumu = kayit.pipeline_status !== 'tamamlandi';
       if (aktifSekme === 'tamamlandi') sekmeUyumu = kayit.pipeline_status === 'tamamlandi';
-
       return aramaUyumu && sekmeUyumu;
   });
 
@@ -201,45 +177,18 @@ export default function AdminPanel() {
       }
   };
 
-  // --- YARDIMCI: DOSYA UZANTISINDAN MEDYA TÜRÜNÜ BULMA ---
   const isVideoUrl = (url: string) => {
     if (!url) return false;
     const lowerUrl = url.toLowerCase();
     return lowerUrl.includes('.mp4') || lowerUrl.includes('.mov') || lowerUrl.includes('.webm') || lowerUrl.includes('.ogg');
   };
 
-  const yazdir = () => {
-    const printContent = printRef.current;
-    if (!printContent) return;
-    
-    const win = window.open('', '', 'width=900,height=650');
-    win?.document.write(`
-      <html>
-        <head>
-          <title>Buvisan Teklif</title>
-          <script src="https://cdn.tailwindcss.com"></script>
-          <style>
-              @media print {
-                  body { -webkit-print-color-adjust: exact; }
-              }
-          </style>
-        </head>
-        <body>${printContent.innerHTML}</body>
-      </html>
-    `);
-    win?.document.close();
-    win?.focus();
-    setTimeout(() => { win?.print(); win?.close(); }, 500);
-  };
-
-  if (yukleniyor || !erisimIzni) {
-    return (
+  if (yukleniyor || !erisimIzni) return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
          <div className="font-bold text-lg animate-pulse">Güvenlik Kontrolü Yapılıyor...</div>
       </div>
-    );
-  }
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-20">
@@ -272,25 +221,25 @@ export default function AdminPanel() {
                 </div>
                 <div className="relative z-10 mt-4"><span className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-xl text-xs font-bold transition cursor-default">Toplam {istatistikler.toplam} Kayıt</span></div>
             </motion.div>
-
             <div className="hidden md:flex bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex-col justify-center items-center text-center">
                 <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4"><LayoutDashboard size={32}/></div>
                 <h3 className="text-slate-800 font-bold text-lg">Yönetim Paneli</h3>
-                <p className="text-slate-400 text-xs mt-1">v4.2 Aktif</p>
+                <p className="text-slate-400 text-xs mt-1">v4.3 Aktif</p>
                 <div className="mt-4 w-full h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 w-2/3 rounded-full"></div></div>
             </div>
         </div>
 
-        {/* OPERASYON MENÜSÜ */}
+        {/* OPERASYON MENÜSÜ (SAHA RAPORLARI BUTONU EKLENDİ) */}
         <div>
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><div className="w-1 h-6 bg-slate-800 rounded-full"></div> Operasyonlar</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
                 <motion.button whileHover={{ y: -3 }} onClick={() => { setDuzenlenenKayitId(null); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: '', ticket_type: 'ariza', pipeline_status: 'bekliyor' }); setSecilenManuelPersoneller([]); setManuelFormAcik(true); }} className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-md border border-slate-700 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
                     <div className="absolute -right-4 -bottom-4 opacity-10"><Settings size={80}/></div>
                     <div className="bg-white/10 text-white w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-white/20 transition-colors relative z-10"><Plus size={20}/></div>
-                    <div className="relative z-10"><h3 className="font-bold text-white text-sm">İş Emri Ekle</h3><p className="text-[10px] text-slate-400">Arıza veya Keşif Girişi</p></div>
+                    <div className="relative z-10"><h3 className="font-bold text-white text-sm">İş Emri Ekle</h3><p className="text-[10px] text-slate-400">Arıza veya Keşif</p></div>
                 </motion.button>
                 
+                {/* YENİ EKLENEN SAHA RAPORLARI BUTONU */}
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/raporlar')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-emerald-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
                     <div className="absolute -right-4 -bottom-4 opacity-[0.03]"><ClipboardList size={80}/></div>
                     <div className="bg-emerald-50 text-emerald-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors relative z-10"><ClipboardList size={20}/></div>
@@ -299,14 +248,7 @@ export default function AdminPanel() {
 
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/yeni-vinc')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-blue-50 text-blue-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors"><Plus size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Yeni Vinç</h3><p className="text-[10px] text-slate-400">Envantere ekle</p></div></motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/vincler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-indigo-50 text-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors"><List size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Vinç Listesi</h3><p className="text-[10px] text-slate-400">Filoyu yönet</p></div></motion.button>
-                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/analiz')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-green-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-green-50 text-green-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-colors"><TrendingUp size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Finans</h3><p className="text-[10px] text-slate-400">Gelir raporları</p></div></motion.button>
-                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/malzemeler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-yellow-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-yellow-50 text-yellow-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-yellow-500 group-hover:text-white transition-colors"><Package size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Depo</h3><p className="text-[10px] text-slate-400">Stok & Fiyat</p></div></motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/teklifler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-purple-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-purple-50 text-purple-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors"><FileText size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Teklif</h3><p className="text-[10px] text-slate-400">Sözleşme & Form</p></div></motion.button>
-                
-                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/mimli-sirketler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-red-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
-                    <div className="bg-red-50 text-red-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-colors"><Ban size={20}/></div>
-                    <div><h3 className="font-bold text-slate-700 text-sm">Mimli Şirketler</h3><p className="text-[10px] text-slate-400">Gidilmeyecek yerler</p></div>
-                </motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/periyodik-bakim')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-teal-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
                     <div className="bg-teal-50 text-teal-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors"><CalendarClock size={20}/></div>
                     <div><h3 className="font-bold text-slate-700 text-sm">Bakım Takibi</h3><p className="text-[10px] text-slate-400">Periyodik bakımlar</p></div>
@@ -323,7 +265,6 @@ export default function AdminPanel() {
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 mt-8 gap-4">
                <div className="flex items-center gap-3 w-full md:w-auto">
                    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 whitespace-nowrap"><div className="w-1 h-6 bg-blue-500 rounded-full"></div> Operasyon Takibi</h2>
-                   
                    <div className="relative w-full md:w-64 ml-2">
                       <Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4"/>
                       <input type="text" placeholder="Firma, Sorun Ara..." value={aramaMetni} onChange={e => setAramaMetni(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 transition shadow-sm"/>
@@ -367,21 +308,17 @@ export default function AdminPanel() {
                         
                         <div className="flex flex-wrap items-center gap-2">
                             {getPipelineStatusBadge(kayit.pipeline_status)}
-                            
                             <span className="text-slate-400 text-[10px] font-bold font-mono bg-slate-100 px-3 py-1 rounded-full flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(kayit.created_at).toLocaleString('tr-TR', { day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' })}</span>
-                            
                             {kayit.ticket_type === 'kesif' ? (
                                 <span className="bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1"><Eye size={12}/> KEŞİF TALEBİ</span>
                             ) : (
                                 <span className="bg-slate-50 text-slate-600 border border-slate-200 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1"><Wrench size={12}/> ARIZA BİLDİRİMİ</span>
                             )}
-
                             {kayit.assigned_team && (
                                 <span className="bg-blue-50 text-blue-600 border border-blue-200 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1">
                                     <Truck className="w-3 h-3"/> Ekip: {kayit.assigned_team}
                                 </span>
                             )}
-                            
                             {kayit.manual_customer_name && (
                                 <span className="bg-slate-800 text-white text-[9px] font-bold px-2 py-1 rounded-full flex items-center gap-1"><User size={10}/> Dış Servis (Manuel)</span>
                             )}
@@ -392,34 +329,19 @@ export default function AdminPanel() {
                               {kayit.cranes?.customer_name || kayit.manual_customer_name || "Bilinmeyen Müşteri"}
                           </h3>
                           <div className="flex flex-wrap items-center gap-3 text-slate-500 text-xs mt-1">
-                              
                               <div className="flex items-center gap-1">
                                   <MapPin className="w-3 h-3 text-blue-500" /> 
-                                  <span>
-                                      {adresMetni ? adresMetni : koordinatVarMi ? "📍 Harita Konumu Girildi" : "Adres Belirtilmemiş"}
-                                  </span>
+                                  <span>{adresMetni ? adresMetni : koordinatVarMi ? "📍 Harita Konumu Girildi" : "Adres Belirtilmemiş"}</span>
                                   {koordinatVarMi && (
-                                      <button 
-                                          onClick={() => haritayaGit(kayit.lat, kayit.lng)}
-                                          className="ml-2 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-bold transition flex items-center gap-1 shadow-sm"
-                                      >
-                                          <Map size={10}/> Haritada Gör
-                                      </button>
+                                      <button onClick={() => haritayaGit(kayit.lat, kayit.lng)} className="ml-2 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-bold transition flex items-center gap-1 shadow-sm"><Map size={10}/> Haritada Gör</button>
                                   )}
                               </div>
-                              
                               {kayit.manual_phone && (
-                                  <a href={`tel:${kayit.manual_phone}`} className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded hover:bg-emerald-100 transition">
-                                      <Phone className="w-3 h-3" /> {kayit.manual_phone}
-                                  </a>
+                                  <a href={`tel:${kayit.manual_phone}`} className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded hover:bg-emerald-100 transition"><Phone className="w-3 h-3" /> {kayit.manual_phone}</a>
                               )}
-                              
                               {(kayit.cranes?.model_name || kayit.manual_crane_info) && (
-                                  <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                      {kayit.cranes?.model_name || kayit.manual_crane_info}
-                                  </span>
+                                  <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{kayit.cranes?.model_name || kayit.manual_crane_info}</span>
                               )}
-
                               {kayit.manual_customer_rep && (
                                   <span className="font-semibold text-slate-500"><User size={12} className="inline mr-1"/>{kayit.manual_customer_rep}</span>
                               )}
@@ -433,7 +355,6 @@ export default function AdminPanel() {
                         </div>
                         
                         <div className="pt-3 space-y-3">
-                            
                             {kayit.audio_url && (
                                 <div className="bg-slate-100 p-3 rounded-xl border border-slate-200 shadow-inner">
                                     <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-2"><Mic size={12} className="text-blue-500"/> Müşteri Ses Kaydı:</span>
@@ -450,7 +371,6 @@ export default function AdminPanel() {
                                     <div className="flex flex-wrap gap-3">
                                         {kayit.media_urls.map((url: string, i: number) => {
                                             const isVideo = isVideoUrl(url);
-                                            
                                             return isVideo ? (
                                               <div key={i} className="relative group rounded-xl overflow-hidden border border-slate-200 shadow-sm w-32 h-32 bg-black flex-shrink-0">
                                                  <video src={url} className="w-full h-full object-cover opacity-80" />
@@ -462,9 +382,7 @@ export default function AdminPanel() {
                                             ) : (
                                               <a key={i} href={url} target="_blank" rel="noreferrer" className="relative group rounded-xl overflow-hidden border border-slate-200 shadow-sm w-32 h-32 flex-shrink-0 block">
                                                  <img src={url} alt={`Ariza Foto ${i+1}`} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
-                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                                   <ImageIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-md w-6 h-6"/>
-                                                 </div>
+                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center"><ImageIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-md w-6 h-6"/></div>
                                               </a>
                                             );
                                         })}
@@ -478,14 +396,7 @@ export default function AdminPanel() {
                       <div className="w-full md:w-[220px] flex flex-col gap-2 shrink-0">
                           
                           {teklifler.some(t => t.related_ticket_id === kayit.id) && (
-                              <button 
-                                  onClick={() => {
-                                      const teklif = teklifler.find(t => t.related_ticket_id === kayit.id);
-                                      setSeciliTeklif(teklif);
-                                      setOnizlemeAcik(true);
-                                  }}
-                                  className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md mb-1"
-                              >
+                              <button onClick={() => { setSeciliTeklif(teklifler.find(t => t.related_ticket_id === kayit.id)); setOnizlemeAcik(true); }} className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md mb-1">
                                   <Printer size={14} className="text-blue-400"/> GÖNDERİLEN TEKLİFİ GÖR
                               </button>
                           )}
@@ -493,14 +404,12 @@ export default function AdminPanel() {
                           {kayit.pipeline_status !== 'tamamlandi' && (
                               <div className="bg-slate-50 border border-slate-200 p-2 rounded-xl flex flex-col gap-2 mb-2">
                                   <span className="text-[10px] font-bold text-slate-400 uppercase text-center">Durumu Güncelle</span>
-                                  
                                   <div className="grid grid-cols-2 gap-1.5">
                                       <button onClick={() => durumGuncelle(kayit.id, 'kesif_bekliyor')} className="bg-purple-100 hover:bg-purple-200 text-purple-700 p-2 rounded-lg text-[9px] font-bold transition flex items-center justify-center" title="Keşif Bekliyor"><Eye size={12}/></button>
                                       <button onClick={() => durumGuncelle(kayit.id, 'teklif_hazirlanacak')} className="bg-orange-100 hover:bg-orange-200 text-orange-700 p-2 rounded-lg text-[9px] font-bold transition flex items-center justify-center" title="Teklif Hazırlanacak"><FileText size={12}/></button>
                                       <button onClick={() => durumGuncelle(kayit.id, 'teklif_bekliyor')} className="bg-yellow-100 hover:bg-yellow-200 text-yellow-700 p-2 rounded-lg text-[9px] font-bold transition flex items-center justify-center" title="Teklif Onayı Bekleniyor"><Clock size={12}/></button>
                                       <button onClick={() => durumGuncelle(kayit.id, 'mudahale_edilecek')} className="bg-blue-100 hover:bg-blue-200 text-blue-700 p-2 rounded-lg text-[9px] font-bold transition flex items-center justify-center" title="Onaylandı / Gidilecek"><Truck size={12}/></button>
                                   </div>
-                                  
                                   <button onClick={() => durumGuncelle(kayit.id, 'acil_cozum')} className="w-full bg-red-100 hover:bg-red-200 text-red-700 py-2 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1"><AlertTriangle size={12}/> ACİL ÇÖZÜM</button>
                                   <button onClick={() => durumGuncelle(kayit.id, 'tamamlandi')} className="w-full bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-lg text-xs font-bold transition shadow-sm flex items-center justify-center gap-1"><CheckCircle2 size={14}/> ÇÖZÜLDÜ (BİTİR)</button>
                               </div>
@@ -516,7 +425,6 @@ export default function AdminPanel() {
                           </div>
                       </div>
                     </div>
-                    {/* CHAT ALANI ENTEGRASYONU */}
                     <AnimatePresence>
                         {aktifChatId === kayit.id && !kayit.manual_customer_name && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-6 border-t pt-4 overflow-hidden">
@@ -532,7 +440,6 @@ export default function AdminPanel() {
 
       </div>
 
-      {/* MANUEL EKLEME MODALI (AYNI KALDI - DEĞİŞTİRİLMEDİ) */}
       <AnimatePresence>
         {manuelFormAcik && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto" onClick={() => { setManuelFormAcik(false); setSecilenManuelPersoneller([]); setManuelKayit({ firma_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', aciliyet: 'Normal', ekip: '', sorun: '', lat: '', lng: '', ticket_type: 'ariza', pipeline_status: 'bekliyor' }); setDuzenlenenKayitId(null); }}>
@@ -654,7 +561,6 @@ export default function AdminPanel() {
         )}
       </AnimatePresence>
 
-      {/* TEKLİF ÖNİZLEME (AYNI KALDI - DEĞİŞTİRİLMEDİ) */}
       <AnimatePresence>
         {onizlemeAcik && seciliTeklif && (
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-slate-900/90 z-[9999] flex items-center justify-center p-4">
