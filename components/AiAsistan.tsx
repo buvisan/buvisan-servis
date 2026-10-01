@@ -6,7 +6,19 @@ import { MessageSquare, Minus } from 'lucide-react';
 export default function AiAsistan() {
   const [acik, setAcik] = useState(false);
   // @ts-ignore
-  const { messages, input, handleInputChange, handleSubmit } = useChat();
+  const { messages, input, handleInputChange, setInput, append } = useChat();
+
+  // Kendi akıllı gönderim fonksiyonumuz (handleSubmit'e ve 's' hatasına son!)
+  const mesajGonder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    const gonderilecekMetin = input;
+    setInput(''); // Kutuyu hemen temizle
+
+    // Mesajı doğrudan yapay zeka akışına ekle
+    await append({ role: 'user', content: gonderilecekMetin });
+  };
 
   if (!acik) {
     return (
@@ -48,14 +60,8 @@ export default function AiAsistan() {
         ))}
       </div>
 
-      {/* Güvenli Gönderim Sarmalayıcısı */}
-      <form 
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSubmit(e);
-        }} 
-        className="p-3 bg-white border-t border-slate-200 flex gap-2"
-      >
+      {/* Kendi yazdığımız hatasız fonksiyonu bağlıyoruz */}
+      <form onSubmit={mesajGonder} className="p-3 bg-white border-t border-slate-200 flex gap-2">
         <input
           className="bg-slate-100 border border-slate-200 p-2.5 flex-1 rounded-xl text-slate-700 text-sm outline-none focus:border-blue-500 transition"
           value={input}
