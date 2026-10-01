@@ -1,8 +1,7 @@
 'use client';
-import { useChat } from '@ai-sdk/react'; 
+import { useChat } from '@ai-sdk/react'; // Eğer hata veriyorsa 'ai/react' olarak bırakabilirsin
 
 export default function AiAsistan() {
-  // TypeScript'in bu satırdaki gereksiz tip uyarısını yoksaymasını sağlıyoruz
   // @ts-ignore
   const { messages, input, handleInputChange, handleSubmit } = useChat();
 
@@ -13,7 +12,7 @@ export default function AiAsistan() {
       </div>
       
       <div className="flex-1 overflow-y-auto mb-4 space-y-3">
-        {messages.map(m => (
+        {messages.map((m: any) => (
           <div key={m.id} className={m.role === 'user' ? 'text-right' : 'text-left'}>
             <span className={`inline-block p-2 rounded-lg ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-slate-800'}`}>
               {m.content}
