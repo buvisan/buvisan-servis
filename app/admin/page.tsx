@@ -777,6 +777,7 @@ export default function AdminPanel() {
       </AnimatePresence>
 
     </div>
+    
   );
 }
 <AiAsistan/>
