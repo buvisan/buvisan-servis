@@ -1,9 +1,20 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-export const db = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+let _db: SupabaseClient | null = null;
+
+// Bağlantı ancak ilk kullanıldığında kurulur, build sırasında değil
+export const db = new Proxy({} as SupabaseClient, {
+  get(_, prop) {
+    if (!_db) {
+      _db = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+    }
+    const v = (_db as any)[prop];
+    return typeof v === "function" ? v.bind(_db) : v;
+  },
+});
 
 const gunKaldi = (tarih?: string | null) =>
   tarih ? Math.ceil((new Date(tarih).getTime() - Date.now()) / 86400000) : null;
