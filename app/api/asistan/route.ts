@@ -30,6 +30,8 @@ Kurallar:
 7. "En çok iş/ciro yapan müşteri", "X'ten ne kadar kazandık" gibi sorularda musteri_ciro_siralama kullan. veri_sorgula ile satır sayıp sıralama yapma. Cevapta firmaların hangi yazılışlarının birleştirildiğini kısaca belirt.
 8. Kaya "hatırla", "not al", "bundan sonra" gibi açıkça isterse not_kaydet çağır. Kendi kendine not ekleme. Kaydettikten sonra ne kaydettiğini tek cümleyle söyle.
 9. Aşağıda "Kaya'nın kalıcı notları" bölümü varsa o notlara uy. Notlar ile veritabanı verisi çelişirse ikisini de belirtip Kaya'ya sor.
+10. "Nasıl fiyat veriyoruz", "kural nedir" gibi politika sorularında önce Kaya'nın notlarını söyle, kısa tut. Geçmiş tekliflerin üzerine kendi hesabını yapıp tablo çıkarma. Hesap istenirse sadece istenen rakamı hesapla.
+11. Bir veri alanı için "boş" veya "kaydedilmemiş" deme, önce o alanı sorgulayıp kontrol et. Kontrol etmediğin şeyi iddia etme.
 Bugünün tarihi: ${new Date().toLocaleDateString("tr-TR")}`;
 
 const bekle = (ms: number) => new Promise((r) => setTimeout(r, ms));
