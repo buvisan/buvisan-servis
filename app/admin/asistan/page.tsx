@@ -47,26 +47,34 @@ export default function Asistan() {
     if (!yazi.trim() || bekle) return;
     const yeni: Msg[] = [...mesajlar, { role: "user", content: yazi }];
     setMesajlar(yeni); setYazi(""); setBekle(true); setBildirim("");
-    const r = await fetch("/api/asistan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
-      body: JSON.stringify({ mesajlar: yeni }),
-    });
-    const j = await r.json();
-    setMesajlar([...yeni, { role: "assistant", content: j.cevap ?? j.hata }]);
+    try {
+      const r = await fetch("/api/asistan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
+        body: JSON.stringify({ mesajlar: yeni }),
+      });
+      const j = await r.json();
+      setMesajlar([...yeni, { role: "assistant", content: j.cevap ?? j.hata ?? "Cevap alınamadı." }]);
+    } catch {
+      setMesajlar([...yeni, { role: "assistant", content: "Bağlantı hatası, tekrar dener misin?" }]);
+    }
     setBekle(false);
     onaylariYukle();
   }
 
   async function karar(id: string, k: "onayla" | "reddet") {
     setIslemde(id);
-    const r = await fetch("/api/onay", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
-      body: JSON.stringify({ id, karar: k }),
-    });
-    const j = await r.json();
-    setBildirim(j.mesaj ?? j.hata);
+    try {
+      const r = await fetch("/api/onay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
+        body: JSON.stringify({ id, karar: k }),
+      });
+      const j = await r.json();
+      setBildirim(j.mesaj ?? j.hata);
+    } catch {
+      setBildirim("Bağlantı hatası.");
+    }
     setIslemde(null);
     onaylariYukle();
   }

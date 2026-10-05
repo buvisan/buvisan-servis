@@ -6,58 +6,55 @@ export const maxDuration = 60;
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY });
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
-const GROQ_MODEL = process.env.GROQ_MODEL || "";
 
-const SYSTEM = `Sen Buvisan, Birikiton, ZM Çelik ve ZM Kumlama şirketlerinin teknik servis, finans, depo ve operasyon süreçlerini yöneten asistansın. Patronun Kaya.
-Veritabanı tabloların (veri_sorgula ile bakabilirsin):
-- blacklisted_companies: mimli firmalar
-- offers: teklifler (customer_name, total_price, final_price, status, items)
-- materials: depo/işçilik fiyatları (name, buy_price, sale_price)
-- completed_services: tamamlanan servisler ve ciro (customer_text, price, service_date)
-- service_tickets: iş emirleri (status, pipeline_status, priority, manual_customer_name)
-- service_reports, field_reports: saha ve servis raporları
-- cranes, crane_history: müşterilerdeki vinçler ve geçmişi
-- fleet_vehicles, fleet_fines, fleet_fuel, fleet_maintenance: araç filosu, cezalar, yakıt, bakım
-- maintenance_contracts: periyodik bakım sözleşmeleri
-- financial_records: aylık giderler (month_key örn. 2026-09)
+const SYSTEM = `Sen Buvisan, Birikiton, ZM Çelik ve ZM Kumlama'nın servis, finans, depo ve operasyon asistanısın. Patronun Kaya.
+Tablolar (veri_sorgula ile): blacklisted_companies (mimli), offers (teklifler), materials (depo fiyatları), completed_services (ciro), service_tickets (iş emirleri), service_reports, field_reports, cranes, crane_history, fleet_vehicles, fleet_fines, fleet_fuel, fleet_maintenance, maintenance_contracts, financial_records (month_key örn 2026-09).
 Kurallar:
-1. Herhangi bir firma için teklif, iş emri veya yönlendirme konuşulursa önce mimli_sirket_kontrol aracını çağır. Firma mimliyse dur, Kaya'ya uyar.
-2. Birikiton sadece 1 ve 2 tonluk monoray vinçlerdir. Buvisan ile Birikiton'u asla karıştırma.
-3. Yetkin okuma, not_kaydet ve teklif_taslagi_hazirla ile sınırlı. Teklifi doğrudan kaydedemezsin: taslak hazırlarsın, Kaya ekrandaki Bekleyen Onaylar kutusundan Onayla'ya basınca kaydedilir. Taslaktan sonra "kaydettim" deme, "taslak hazır, onayını bekliyor" de. İş emri açma, silme, değiştirme yetkin yok.
-4. Bilmiyorsan veya veri yoksa uydurma, söyle. Her cevapta hangi veriye (tablo/kayıt) dayandığını belirt.
-5. Türkçe, kısa ve net cevap ver. Para birimi TL.
-6. Hazır araçlar sorunu karşılamıyorsa veri_sorgula'yı kullan, "yapamam" demeden önce mutlaka dene. Firma adı arayıp bulamazsan "yok" deme, önce kelimeyi kısaltıp tekrar ara. Kullanıcı soruyu nasıl sorarsa sorsun (günlük konuşma dili dahil) niyetini anla ve uygun aracı seç.
-7. "En çok iş/ciro yapan müşteri", "X'ten ne kadar kazandık" gibi sorularda musteri_ciro_siralama kullan. veri_sorgula ile satır sayıp sıralama yapma. Cevapta firmaların hangi yazılışlarının birleştirildiğini kısaca belirt.
-8. Kaya "hatırla", "not al", "bundan sonra" gibi açıkça isterse not_kaydet çağır. Kendi kendine not ekleme. Kaydettikten sonra ne kaydettiğini tek cümleyle söyle.
-9. Aşağıda "Kaya'nın kalıcı notları" bölümü varsa o notlara uy. Notlar ile veritabanı verisi çelişirse ikisini de belirtip Kaya'ya sor.
-10. "Nasıl fiyat veriyoruz", "kural nedir" gibi politika sorularında önce Kaya'nın notlarını söyle, kısa tut. Geçmiş tekliflerin üzerine kendi hesabını yapıp tablo çıkarma.
-11. Bir veri alanı için "boş" veya "kaydedilmemiş" deme, önce o alanı sorgulayıp kontrol et. Kontrol etmediğin şeyi iddia etme.
-12. Teklif taslağında fiyat uydurma veya hesaplama, kod depodan alıyor. indirim_yuzde'yi sadece Kaya bu teklif için açıkça söylediyse gir. Notlardaki eski indirimleri kendiliğinden uygulama, öner ve sor. Depoda bulunmayan veya birden fazla eşleşen kalemde Kaya'ya sor.
+1. Bir firma için teklif/iş emri konuşulursa önce mimli_sirket_kontrol çağır. Mimliyse dur, Kaya'ya uyar.
+2. Birikiton sadece 1 ve 2 tonluk monoray vinçlerdir. Buvisan ile karıştırma.
+3. Yetkin: okuma, not_kaydet, teklif_taslagi_hazirla. Teklifi doğrudan kaydedemezsin; taslak hazırlarsın, Kaya ekrandaki Bekleyen Onaylar kutusundan onaylayınca kaydolur. Taslaktan sonra "kaydettim" deme, "taslak hazır, onayını bekliyor" de. İş emri açma/silme/değiştirme yetkin yok.
+4. Uydurma. Veri yoksa söyle. Cevapta hangi veriye dayandığını kısaca belirt. Bir alanı sorgulamadan "boş" deme.
+5. Türkçe, kısa ve net. Para birimi TL.
+6. Hazır araç yetmezse veri_sorgula'yı dene. Firma bulamazsan kelimeyi kısaltıp tekrar ara.
+7. En çok ciro/iş yapan müşteri ve "X'ten ne kadar kazandık" için musteri_ciro_siralama kullan, veri_sorgula ile sayma. Birleştirilen firma yazılışlarını belirt.
+8. Kaya "hatırla/not al/bundan sonra" derse not_kaydet çağır, kendiliğinden not ekleme.
+9. Kaya'nın kalıcı notlarına uy. Not ile veri çelişirse ikisini de söyle, sor.
+10. Politika sorularında ("nasıl fiyat veriyoruz") önce notları söyle, geçmiş tekliflerin üstüne kendi hesabını yapma.
+11. Teklifte fiyat uydurma, kod depodan alır. indirim_yuzde'yi sadece Kaya bu teklif için açıkça söylediyse gir. Kalem adı belirsizse ("depodan bir kalem", "uygun bir şey") KENDİN SEÇME: depoda arayıp adayları listele, Kaya'ya hangisini istediğini sor. Depoda yok veya birden fazla eşleşme varsa sor.
 Bugünün tarihi: ${new Date().toLocaleDateString("tr-TR")}`;
 
 const bekle = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const gecici = (e: any) => {
-  const m = String(e?.message ?? "");
-  return /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|rate/i.test(m);
-};
+const gecici = (e: any) =>
+  /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|rate limit|timeout/i.test(String(e?.message ?? ""));
 
-// Geçici hatada kısa bekleyip 2 kez dener
 async function tekrar<T>(fn: () => Promise<T>): Promise<T> {
   let son: any;
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     try {
       return await fn();
     } catch (e: any) {
       son = e;
       if (!gecici(e)) throw e;
-      // Hata mesajında "try again in 4.2s" gibi süre varsa o kadar bekle (en fazla 8 sn)
       const m = String(e?.message ?? "").match(/try again in ([\d.]+)\s*(ms|s)/i);
       const ms = m ? (m[2].toLowerCase() === "s" ? Number(m[1]) * 1000 : Number(m[1])) + 500 : 1500 * (i + 1);
-      await bekle(Math.min(ms, 8000));
+      await bekle(Math.min(ms, 6000));
     }
   }
   throw son;
+}
+
+// Arac sonuclarini kisaltir (token tasarrufu)
+const sonucMetni = (out: any) => {
+  const s = JSON.stringify(out);
+  return s.length > 5000 ? s.slice(0, 5000) + " ...(sonuç kısaltıldı, filtreyi daralt)" : s;
+};
+
+// Sohbetin son 10 mesaji, ilk mesaj kullanicidan olacak sekilde
+function gecmisiKisalt(mesajlar: any[]) {
+  const m = mesajlar.slice(-10);
+  while (m.length && m[0].role !== "user") m.shift();
+  return m;
 }
 
 // ---------- GEMINI ----------
@@ -68,7 +65,7 @@ const geminiAraclar = tools.map((t: any) => ({
 }));
 
 async function geminiCalistir(mesajlar: any[], kullanilan: string[], sistem: string): Promise<string> {
-  const contents: any[] = mesajlar.map((m) => ({
+  const contents: any[] = gecmisiKisalt(mesajlar).map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
   }));
@@ -81,7 +78,7 @@ async function geminiCalistir(mesajlar: any[], kullanilan: string[], sistem: str
         config: {
           systemInstruction: sistem,
           tools: [{ functionDeclarations: geminiAraclar }],
-          maxOutputTokens: 2000,
+          maxOutputTokens: 1200,
         },
       })
     );
@@ -93,64 +90,60 @@ async function geminiCalistir(mesajlar: any[], kullanilan: string[], sistem: str
     for (const c of calls) {
       kullanilan.push(c.name!);
       const out = await runTool(c.name!, c.args ?? {});
-      parts.push({ functionResponse: { name: c.name, response: { sonuc: out } } });
+      parts.push({ functionResponse: { name: c.name, response: { sonuc: sonucMetni(out) } } });
     }
     contents.push({ role: "user", parts });
   }
   return "Çok fazla adım gerekti, soruyu daha basit sorar mısın?";
 }
 
-// ---------- GROQ (OpenAI uyumlu) ----------
-const groqAraclar = tools.map((t: any) => ({
+// ---------- OPENAI UYUMLU SAGLAYICILAR (Mistral, Groq, OpenRouter) ----------
+// Anahtari ve modeli girilmemis olanlar zincire girmez.
+type Saglayici = { ad: string; url: string; key?: string; model?: string };
+
+const OPENAI_UYUMLU: Saglayici[] = [
+  { ad: "mistral", url: "https://api.mistral.ai/v1/chat/completions", key: process.env.MISTRAL_API_KEY, model: process.env.MISTRAL_MODEL },
+  { ad: "groq", url: "https://api.groq.com/openai/v1/chat/completions", key: process.env.GROQ_API_KEY, model: process.env.GROQ_MODEL },
+  { ad: "openrouter", url: "https://openrouter.ai/api/v1/chat/completions", key: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL },
+];
+
+const openaiAraclar = tools.map((t: any) => ({
   type: "function",
   function: { name: t.name, description: t.description, parameters: t.input_schema },
 }));
 
-async function groqIstek(messages: any[]) {
-  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+async function openaiIstek(sp: Saglayici, messages: any[]) {
+  const r = await fetch(sp.url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages,
-      tools: groqAraclar,
-      max_tokens: 2000,
-    }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${sp.key}` },
+    body: JSON.stringify({ model: sp.model, messages, tools: openaiAraclar, max_tokens: 1200 }),
   });
-  if (!r.ok) throw new Error(`Groq ${r.status}: ${(await r.text()).slice(0, 300)}`);
+  if (!r.ok) throw new Error(`${sp.ad} ${r.status}: ${(await r.text()).slice(0, 300)}`);
   return r.json();
 }
 
-async function groqCalistir(mesajlar: any[], kullanilan: string[], sistem: string): Promise<string> {
-  const messages: any[] = [{ role: "system", content: sistem }, ...mesajlar];
+async function openaiCalistir(sp: Saglayici, mesajlar: any[], kullanilan: string[], sistem: string): Promise<string> {
+  const messages: any[] = [{ role: "system", content: sistem }, ...gecmisiKisalt(mesajlar)];
 
   for (let tur = 0; tur < 8; tur++) {
-    const j = await tekrar(() => groqIstek(messages));
+    const j = await tekrar(() => openaiIstek(sp, messages));
     const msg = j.choices?.[0]?.message;
-    if (!msg) throw new Error("Groq boş cevap döndü");
+    if (!msg) throw new Error(`${sp.ad} boş cevap döndü`);
     if (!msg.tool_calls || msg.tool_calls.length === 0) return msg.content ?? "Cevap üretemedim.";
 
     messages.push(msg);
     for (const c of msg.tool_calls) {
       kullanilan.push(c.function.name);
-      let args = {};
+      let args: any = {};
       try { args = JSON.parse(c.function.arguments || "{}"); } catch {}
       const out = await runTool(c.function.name, args);
-      const ham = JSON.stringify(out);
-      messages.push({
-        role: "tool",
-        tool_call_id: c.id,
-        content: ham.length > 6000 ? ham.slice(0, 6000) + " ...(sonuç kısaltıldı)" : ham,
-      });
+      messages.push({ role: "tool", tool_call_id: c.id, content: sonucMetni(out) });
     }
   }
   return "Çok fazla adım gerekti, soruyu daha basit sorar mısın?";
 }
 
-// ---------- ANA AKIŞ ----------
+// ---------- ANA AKIS ----------
 export async function POST(req: Request) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ hata: "Giriş yok" }, { status: 401 });
@@ -161,23 +154,23 @@ export async function POST(req: Request) {
 
   const { mesajlar } = await req.json();
 
-  // Kaya'nın kalıcı notlarını her konuşmanın başında oku
+  // Kaya'nin kalici notlarini her konusmanin basinda oku
   const { data: notlar } = await db
     .from("ajan_notlari")
     .select("konu, not_metni")
     .eq("aktif", true)
     .order("created_at");
   const notMetni = (notlar ?? [])
-    .map((n) => `- ${n.konu ? n.konu + ": " : ""}${n.not_metni}`)
+    .map((n: any) => `- ${n.konu ? n.konu + ": " : ""}${n.not_metni}`)
     .join("\n");
-  const SYSTEM_FULL = notMetni
-    ? `${SYSTEM}\n\nKaya'nın kalıcı notları (bunlara uy):\n${notMetni}`
-    : SYSTEM;
+  const SYSTEM_FULL = notMetni ? `${SYSTEM}\n\nKaya'nın kalıcı notları (bunlara uy):\n${notMetni}` : SYSTEM;
 
-  // Sırayla denenecek sağlayıcılar (anahtarı olan varsa listeye girer)
-  const zincir: { ad: string; calistir: typeof geminiCalistir }[] = [];
+  // Sirayla denenecek saglayicilar
+  const zincir: { ad: string; calistir: (m: any[], k: string[], s: string) => Promise<string> }[] = [];
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) zincir.push({ ad: "gemini", calistir: geminiCalistir });
-  if (process.env.GROQ_API_KEY && GROQ_MODEL) zincir.push({ ad: "groq", calistir: groqCalistir });
+  for (const sp of OPENAI_UYUMLU) {
+    if (sp.key && sp.model) zincir.push({ ad: sp.ad, calistir: (m, k, s) => openaiCalistir(sp, m, k, s) });
+  }
 
   const hatalar: string[] = [];
   for (const s of zincir) {

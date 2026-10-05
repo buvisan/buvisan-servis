@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   if (!id || !["onayla", "reddet"].includes(karar))
     return NextResponse.json({ hata: "Geçersiz istek" }, { status: 400 });
 
-  // Kaydı "sahiplen": çift tıklamada iki kez işlenmesin
+  // Kaydi "sahiplen": cift tiklamada iki kez islenmesin
   const { data: kayit } = await db
     .from("bekleyen_onaylar")
     .update({
@@ -49,6 +49,7 @@ export async function POST(req: Request) {
     if (kayit.tur !== "teklif") throw new Error("Bilinmeyen işlem türü");
     const t = kayit.veri.teklif;
 
+    // Onay aninda mimli kontrolu bir daha yapilir
     const mimli = await mimliBul(t.customer_name);
     if (mimli.length) throw new Error("Firma mimli listede, kayıt yapılmadı.");
 
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
     await db.from("bekleyen_onaylar").update({ durum: "onaylandi" }).eq("id", id);
     return NextResponse.json({ mesaj: `Teklif kaydedildi: ${t.customer_name}. Teklifler sayfasında "beklemede" görünür.` });
   } catch (e: any) {
-    // Hata olursa kayıt tekrar beklemeye döner
+    // Hata olursa kayit tekrar beklemeye doner
     await db.from("bekleyen_onaylar").update({ durum: "bekliyor", karar_veren: null, karar_zamani: null }).eq("id", id);
     return NextResponse.json({ hata: "Kaydedilemedi: " + e.message }, { status: 500 });
   }

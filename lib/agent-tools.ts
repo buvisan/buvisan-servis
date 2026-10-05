@@ -2,7 +2,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 let _db: SupabaseClient | null = null;
 
-// Bağlantı ancak ilk kullanıldığında kurulur, build sırasında değil
+// Baglanti build sirasinda degil, ilk kullanildiginda kurulur
 export const db = new Proxy({} as SupabaseClient, {
   get(_, prop) {
     if (!_db) {
@@ -16,10 +16,11 @@ export const db = new Proxy({} as SupabaseClient, {
   },
 });
 
+// ---------- YARDIMCI FONKSIYONLAR ----------
 const gunKaldi = (tarih?: string | null) =>
   tarih ? Math.ceil((new Date(tarih).getTime() - Date.now()) / 86400000) : null;
 
-// Türkçe harfleri sadeleştirir: "ALAN KALIP" ve "Alan Kalıp" aynı olur
+// Turkce harfleri sadelestirir: "ALAN KALIP" ve "Alan Kalıp" ayni olur
 const sade = (s: string) =>
   (s ?? "")
     .toLocaleLowerCase("tr")
@@ -27,8 +28,7 @@ const sade = (s: string) =>
     .replace(/ç/g, "c").replace(/ö/g, "o").replace(/ü/g, "u")
     .replace(/[^a-z0-9]/g, "");
 
-// Veritabanı araması için: Türkçe harfleri joker (_) yapar
-// "Kalıp" -> "%kal_p%" ; KALIP, Kalip, kalıp hepsiyle eşleşir
+// Veritabani aramasi icin: Turkce harfleri joker (_) yapar
 const desen = (s: string) =>
   "%" +
   s.trim().replace(/[%_\\]/g, "")
@@ -43,22 +43,7 @@ const IZINLI_TABLOLAR = [
   "offers", "service_reports", "service_tickets", "ticket_messages",
 ];
 
-export async function mimliBul(firma: string) {
-  const { data, error } = await db
-    .from("blacklisted_companies")
-    .select("company_name, reason_category, details");
-  if (error) throw new Error(error.message); // kontrol yapılamazsa işlem durur
-  const a = sade(firma);
-  return (data ?? []).filter((k) => {
-    const ad = sade(k.company_name);
-    return a.length >= 3 && ad.length >= 3 && (ad.includes(a) || a.includes(ad));
-  });
-}
-
-const VARSAYILAN_NOT = "Bu teklif 15 gün süreyle geçerlidir. Fiyatlara KDV dahil değildir.";
-const bugunTR = (gunEkle = 0) =>
-  new Date(Date.now() + gunEkle * 86400000).toLocaleDateString("sv-SE", { timeZone: "Europe/Istanbul" });
-
+// Firma adi normallestirme (bosluklari korur)
 const adNorm = (s: string) =>
   (s ?? "")
     .toLocaleLowerCase("tr")
@@ -66,7 +51,7 @@ const adNorm = (s: string) =>
     .replace(/ç/g, "c").replace(/ö/g, "o").replace(/ü/g, "u")
     .replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 
-// Kısa ad, uzun adın başındaysa hepsini kısa ada bağlar
+// Kisa ad, uzun adin basindaysa hepsini kisa ada baglar ("RB KARESI TEKSTIL" -> "RB KARESI")
 function firmaHaritasi(adlar: string[]) {
   const norm = [...new Set(adlar.map(adNorm).filter(Boolean))].sort((a, b) => a.length - b.length);
   const kanon: string[] = [];
@@ -79,7 +64,22 @@ function firmaHaritasi(adlar: string[]) {
   return harita;
 }
 
-// Claude'a tanıttığımız araçların listesi
+// Mimli kontrolu tek yerden. Kontrol yapilamazsa hata firlatir, islem durur.
+export async function mimliBul(firma: string) {
+  const { data, error } = await db
+    .from("blacklisted_companies")
+    .select("company_name, reason_category, details");
+  if (error) throw new Error(error.message);
+  const a = sade(firma);
+  return (data ?? []).filter((k: any) => {
+    const ad = sade(k.company_name);
+    return a.length >= 3 && ad.length >= 3 && (ad.includes(a) || a.includes(ad));
+  });
+}
+
+const VARSAYILAN_NOT = "Bu teklif 15 gün süreyle geçerlidir. Fiyatlara KDV dahil değildir.";
+
+// ---------- CLAUDE/GEMINI'YE TANITILAN ARACLAR ----------
 export const tools = [
   {
     name: "mimli_sirket_kontrol",
@@ -116,7 +116,7 @@ export const tools = [
     description: "Depodaki malzeme veya işçiliğin alış fiyatını, satış fiyatını ve marjını getirir.",
     input_schema: { type: "object", properties: { aranan: { type: "string" } }, required: ["aranan"] },
   },
-    {
+  {
     name: "veri_sorgula",
     description: "Hazır araçlar yetmediğinde herhangi bir tabloyu (sadece okuma) sorgular. Firma/isim aramasında 'ilike' kullan, 'eq' kullanma. Sonuç boşsa kelimeyi kısaltıp tekrar dene.",
     input_schema: {
@@ -138,12 +138,12 @@ export const tools = [
         },
         sirala: { type: "string", description: "Sıralanacak sütun" },
         azalan: { type: "boolean" },
-        limit: { type: "number", description: "En fazla 100" },
+        limit: { type: "number", description: "En fazla 50" },
       },
       required: ["tablo"],
     },
   },
-    {
+  {
     name: "musteri_ciro_siralama",
     description: "Müşterileri ciroya veya iş sayısına göre sıralar. 'En çok iş/ciro yapan müşteri', 'X firmasından toplam ne kadar kazandık' gibi sorularda MUTLAKA bunu kullan, veri_sorgula ile sayma. Sadece fiyatı girilmiş işleri sayar, firma adı varyantlarını birleştirir (analiz sayfasıyla aynı kaynak).",
     input_schema: {
@@ -156,21 +156,21 @@ export const tools = [
       },
     },
   },
-    {
+  {
     name: "not_kaydet",
     description: "Kaya'nın kalıcı olarak hatırlanmasını istediği bir kuralı veya bilgiyi kaydeder. Sadece Kaya açıkça 'hatırla', 'not al', 'bundan sonra' gibi bir şey derse çağır. Kendi kendine not ekleme.",
     input_schema: {
       type: "object",
       properties: {
-        konu: { type: "string", description: "Kısa başlık, örn: Coats indirim" },
+        konu: { type: "string", description: "Kısa başlık" },
         not_metni: { type: "string", description: "Hatırlanacak bilginin tam metni" },
       },
       required: ["not_metni"],
     },
   },
-    {
+  {
     name: "teklif_taslagi_hazirla",
-    description: "Müşteri için teklif TASLAĞI hazırlar. Teklifi kaydetmez, Kaya'nın onayına sunar. Fiyatlar depodan koddan gelir, birim_fiyat'ı sadece Kaya özellikle bir fiyat söylediyse gir. indirim_yuzde'yi sadece Kaya bu teklif için açıkça söylediyse gir.",
+    description: "Müşteri için teklif TASLAĞI hazırlar. Teklifi kaydetmez, Kaya'nın onayına sunar. Fiyatlar depodan koddan gelir, birim_fiyat'ı sadece Kaya özellikle bir fiyat söylediyse gir. indirim_yuzde'yi sadece Kaya bu teklif için açıkça söylediyse gir. Kalem adı belirsizse çağırma, önce Kaya'ya sor.",
     input_schema: {
       type: "object",
       properties: {
@@ -197,23 +197,18 @@ export const tools = [
   },
 ];
 
-// Araçların gerçekte yaptığı işler (hepsi sadece SELECT)
+// ---------- ARACLARIN GERCEKTE YAPTIGI ISLER ----------
 export async function runTool(name: string, input: any) {
   switch (name) {
     case "mimli_sirket_kontrol": {
-      // Liste küçük olduğu için hepsini çekip kod tarafında sadeleştirerek karşılaştırıyoruz
-      const { data, error } = await db
-        .from("blacklisted_companies")
-        .select("company_name, contact_person, reason_category, details, created_at");
-      if (error) return { hata: error.message };
-      const aranan = sade(input.firma_adi);
-      const eslesen = (data ?? []).filter((k) => {
-        const ad = sade(k.company_name);
-        return aranan.length >= 3 && (ad.includes(aranan) || aranan.includes(ad));
-      });
-      return eslesen.length
-        ? { mimli: true, kayitlar: eslesen, uyari: "DURDUR. Kaya'dan onay bekle." }
-        : { mimli: false, kontrol_edilen_toplam_kayit: data?.length };
+      try {
+        const eslesen = await mimliBul(input.firma_adi);
+        return eslesen.length
+          ? { mimli: true, kayitlar: eslesen, uyari: "DURDUR. Kaya'dan onay bekle." }
+          : { mimli: false };
+      } catch (e: any) {
+        return { hata: "Mimli kontrolü yapılamadı: " + e.message };
+      }
     }
 
     case "musteri_gecmisi": {
@@ -227,21 +222,6 @@ export async function runTool(name: string, input: any) {
       return { teklifler: teklif.data, servisler: servis.data };
     }
 
-    case "veri_sorgula": {
-      if (!IZINLI_TABLOLAR.includes(input.tablo)) return { hata: "Bu tabloya erişim yok" };
-      const sut = input.sutunlar || "*";
-      if (!/^[a-z0-9_,\s*]+$/i.test(sut)) return { hata: "Geçersiz sütun listesi" };
-      let q: any = db.from(input.tablo).select(sut);
-      for (const f of input.filtreler ?? []) {
-        if (f.islem === "ilike") q = q.ilike(f.sutun, desen(f.deger));
-        else if (["eq", "neq", "gt", "gte", "lt", "lte"].includes(f.islem)) q = q[f.islem](f.sutun, f.deger);
-      }
-      if (input.sirala) q = q.order(input.sirala, { ascending: !input.azalan });
-      q = q.limit(Math.min(Number(input.limit) || 50, 100));
-      const { data, error } = await q;
-      return error ? { hata: error.message } : { adet: data.length, kayitlar: data };
-    }
-
     case "bekleyen_isler": {
       const { data, error } = await db
         .from("service_tickets")
@@ -252,7 +232,7 @@ export async function runTool(name: string, input: any) {
     }
 
     case "finans_ozet": {
-      const [y, m] = input.ay.split("-").map(Number);
+      const [y, m] = String(input.ay).split("-").map(Number);
       const bas = `${input.ay}-01`;
       const son = new Date(y, m, 0).getDate();
       const bit = `${input.ay}-${String(son).padStart(2, "0")}`;
@@ -260,11 +240,11 @@ export async function runTool(name: string, input: any) {
         db.from("completed_services").select("price, currency").gte("service_date", bas).lte("service_date", bit),
         db.from("financial_records").select("*").eq("month_key", input.ay).maybeSingle(),
       ]);
-      const ciro = (servis.data ?? []).reduce((t, s) => t + Number(s.price || 0), 0);
-      const g = fin.data;
+      const ciro = (servis.data ?? []).reduce((t: number, s: any) => t + Number(s.price || 0), 0);
+      const g: any = fin.data;
       const gider = g
-        ? ["maas","malzeme","kira","tazminat","yakit","yemek","mesai_yemek","arac_yipranma","arac_sigorta","arac_bakim"]
-            .reduce((t, k) => t + Number((g as any)[k] || 0), 0)
+        ? ["maas", "malzeme", "kira", "tazminat", "yakit", "yemek", "mesai_yemek", "arac_yipranma", "arac_sigorta", "arac_bakim"]
+            .reduce((t, k) => t + Number(g[k] || 0), 0)
         : null;
       return { ay: input.ay, servis_sayisi: servis.data?.length, ciro_toplam: ciro, gider_toplam: gider, gider_detay: g, not: "Ciro KDV durumu ve para birimi kontrol edilmeli." };
     }
@@ -273,7 +253,7 @@ export async function runTool(name: string, input: any) {
       const { data, error } = await db.from("fleet_vehicles")
         .select("plate, vehicle_name, insurance_date, casco_date, inspection_date, current_km, next_oil_km, assigned_driver");
       if (error) return { hata: error.message };
-      return data.map((a) => ({
+      return (data ?? []).map((a: any) => ({
         plat: a.plate, arac: a.vehicle_name, surucu: a.assigned_driver,
         sigorta_kalan_gun: gunKaldi(a.insurance_date),
         kasko_kalan_gun: gunKaldi(a.casco_date),
@@ -286,27 +266,43 @@ export async function runTool(name: string, input: any) {
       const { data, error } = await db.from("maintenance_contracts")
         .select("company_name, machine_count, price_per_machine, maintenance_period_months, start_date, end_date, status");
       if (error) return { hata: error.message };
-      return data.map((s) => ({ ...s, kalan_gun: gunKaldi(s.end_date) }));
+      return (data ?? []).map((s: any) => ({ ...s, kalan_gun: gunKaldi(s.end_date) }));
     }
 
     case "depo_fiyat_ara": {
       const { data, error } = await db.from("materials")
         .select("name, unit, buy_price, sale_price, discount_rate")
-        .ilike("name", `%${input.aranan}%`).limit(15);
+        .ilike("name", desen(input.aranan)).limit(15);
       if (error) return { hata: error.message };
-      return data.map((x) => ({
+      return (data ?? []).map((x: any) => ({
         ...x,
         marj_yuzde: x.buy_price > 0 ? Math.round(((x.sale_price - x.buy_price) / x.buy_price) * 100) : null,
       }));
     }
-        case "musteri_ciro_siralama": {
+
+    case "veri_sorgula": {
+      if (!IZINLI_TABLOLAR.includes(input.tablo)) return { hata: "Bu tabloya erişim yok" };
+      const sut = input.sutunlar || "*";
+      if (!/^[a-z0-9_,\s*]+$/i.test(sut)) return { hata: "Geçersiz sütun listesi" };
+      let q: any = db.from(input.tablo).select(sut);
+      for (const f of input.filtreler ?? []) {
+        if (f.islem === "ilike") q = q.ilike(f.sutun, desen(f.deger));
+        else if (["eq", "neq", "gt", "gte", "lt", "lte"].includes(f.islem)) q = q[f.islem](f.sutun, f.deger);
+      }
+      if (input.sirala) q = q.order(input.sirala, { ascending: !input.azalan });
+      q = q.limit(Math.min(Number(input.limit) || 20, 50));
+      const { data, error } = await q;
+      return error ? { hata: error.message } : { adet: data.length, kayitlar: data };
+    }
+
+    case "musteri_ciro_siralama": {
       const satirlar: any[] = [];
       for (let from = 0; ; from += 1000) {
         let q: any = db.from("completed_services")
           .select("customer_text, price, service_date")
           .order("service_date").range(from, from + 999);
         if (input.ay) {
-          const [y, m] = input.ay.split("-").map(Number);
+          const [y, m] = String(input.ay).split("-").map(Number);
           const son = new Date(y, m, 0).getDate();
           q = q.gte("service_date", `${input.ay}-01`).lte("service_date", `${input.ay}-${String(son).padStart(2, "0")}`);
         }
@@ -349,7 +345,7 @@ export async function runTool(name: string, input: any) {
       };
     }
 
-        case "not_kaydet": {
+    case "not_kaydet": {
       const { error } = await db.from("ajan_notlari").insert({
         konu: input.konu ?? null,
         not_metni: input.not_metni,
@@ -357,12 +353,12 @@ export async function runTool(name: string, input: any) {
       return error ? { hata: error.message } : { kaydedildi: true };
     }
 
-        case "teklif_taslagi_hazirla": {
+    case "teklif_taslagi_hazirla": {
       const musteri = String(input.musteri ?? "").trim();
       if (!musteri) return { hata: "Müşteri adı yok" };
       if (!Array.isArray(input.kalemler) || !input.kalemler.length) return { hata: "Kalem yok" };
 
-      let mimli;
+      let mimli: any[];
       try { mimli = await mimliBul(musteri); }
       catch (e: any) { return { hata: "Mimli kontrolü yapılamadı, taslak oluşturulmadı: " + e.message }; }
       if (mimli.length)
@@ -372,7 +368,8 @@ export async function runTool(name: string, input: any) {
       if (ind < 0 || ind > 50) return { hata: "İndirim 0-50 arasında olmalı" };
 
       const kalemler: any[] = [];
-      for (const [i, k] of input.kalemler.entries()) {
+      for (let i = 0; i < input.kalemler.length; i++) {
+        const k = input.kalemler[i];
         const adet = Number(k.adet);
         let ad = String(k.ad ?? "").trim();
         if (!ad || !(adet > 0)) return { hata: `Geçersiz kalem: ${ad || "(adsız)"}` };
@@ -381,12 +378,12 @@ export async function runTool(name: string, input: any) {
         if (!(fiyat > 0)) {
           const { data, error } = await db.from("materials").select("name, sale_price").ilike("name", desen(ad)).limit(20);
           if (error) return { hata: error.message };
-          const tam = (data ?? []).filter((x) => adNorm(x.name) === adNorm(ad));
-          const secilen = tam.length === 1 ? tam[0] : data?.length === 1 ? data[0] : null;
+          const tam = (data ?? []).filter((x: any) => adNorm(x.name) === adNorm(ad));
+          const secilen: any = tam.length === 1 ? tam[0] : data?.length === 1 ? data[0] : null;
           if (!secilen)
             return {
               hata: `"${ad}" için depoda ${data?.length ? "birden fazla eşleşme var" : "kayıt yok"}. Kaya'ya sor, tahmin etme.`,
-              adaylar: (data ?? []).slice(0, 8).map((x) => ({ ad: x.name, satis: x.sale_price })),
+              adaylar: (data ?? []).slice(0, 8).map((x: any) => ({ ad: x.name, satis: x.sale_price })),
             };
           if (!(Number(secilen.sale_price) > 0))
             return { hata: `"${secilen.name}" için depoda satış fiyatı girilmemiş. Kaya'dan fiyat iste.` };
@@ -410,6 +407,8 @@ export async function runTool(name: string, input: any) {
         description: input.not_metni || VARSAYILAN_NOT,
       };
       const ozet = `${musteri}: ${kalemler.length} kalem, ${toplam} TL${ind ? ` (%${ind} indirimli)` : ""}`;
+
+      // Ayni taslak 30 dk icinde ikinci kez olusmasin
       const { data: mevcut } = await db
         .from("bekleyen_onaylar")
         .select("id")
@@ -420,10 +419,10 @@ export async function runTool(name: string, input: any) {
         .limit(1);
       if (mevcut?.length)
         return { taslak_zaten_var: true, uyari: "Aynı teklif taslağı zaten onay bekliyor. Yeni taslak oluşturulmadı. Kaya'ya ekrandaki kutuyu söyle." };
-      const { data: kayit, error } = await db
+
+      const { error } = await db
         .from("bekleyen_onaylar")
-        .insert({ tur: "teklif", ozet, veri: { teklif, indirim_yuzde: ind } })
-        .select("id").single();
+        .insert({ tur: "teklif", ozet, veri: { teklif, indirim_yuzde: ind } });
       if (error) return { hata: error.message };
 
       return {
