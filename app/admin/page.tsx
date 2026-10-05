@@ -3,7 +3,7 @@
 // BUVISAN ADMIN PANELİ - ANA KUMANDA MERKEZİ V4.3 🛠️
 // (Saha Personel Raporları Sekmesi Eklendi 📋)
 // --------------------------------------------------------
-
+import KayoChat from '@/components/KayoChat';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -15,7 +15,6 @@ import {
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
   AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, Play, ClipboardList
 } from 'lucide-react';
-import AiAsistan from '@/components/AiAsistan';
 
 const PERSONEL_LISTESI = [
   "VOLKAN ACAR", "HAMZA ATTAR", "VEYSEL ÇARKLI", "KERİM AKDOĞAN" , "GÖKHAN GÖK" , "BASİL HAVATİMİ" , "BURHAN KANDEMİR" , "OKAN ARAN" , "ADEM ACAR"
@@ -775,7 +774,7 @@ export default function AdminPanel() {
             </motion.div>
         )}
       </AnimatePresence>
-        <AiAsistan />
+      <KayoChat/>
     </div>
   );
 }
