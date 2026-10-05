@@ -43,6 +43,22 @@ const IZINLI_TABLOLAR = [
   "offers", "service_reports", "service_tickets", "ticket_messages",
 ];
 
+export async function mimliBul(firma: string) {
+  const { data, error } = await db
+    .from("blacklisted_companies")
+    .select("company_name, reason_category, details");
+  if (error) throw new Error(error.message); // kontrol yapılamazsa işlem durur
+  const a = sade(firma);
+  return (data ?? []).filter((k) => {
+    const ad = sade(k.company_name);
+    return a.length >= 3 && ad.length >= 3 && (ad.includes(a) || a.includes(ad));
+  });
+}
+
+const VARSAYILAN_NOT = "Bu teklif 15 gün süreyle geçerlidir. Fiyatlara KDV dahil değildir.";
+const bugunTR = (gunEkle = 0) =>
+  new Date(Date.now() + gunEkle * 86400000).toLocaleDateString("sv-SE", { timeZone: "Europe/Istanbul" });
+
 const adNorm = (s: string) =>
   (s ?? "")
     .toLocaleLowerCase("tr")
@@ -150,6 +166,33 @@ export const tools = [
         not_metni: { type: "string", description: "Hatırlanacak bilginin tam metni" },
       },
       required: ["not_metni"],
+    },
+  },
+    {
+    name: "teklif_taslagi_hazirla",
+    description: "Müşteri için teklif TASLAĞI hazırlar. Teklifi kaydetmez, Kaya'nın onayına sunar. Fiyatlar depodan koddan gelir, birim_fiyat'ı sadece Kaya özellikle bir fiyat söylediyse gir. indirim_yuzde'yi sadece Kaya bu teklif için açıkça söylediyse gir.",
+    input_schema: {
+      type: "object",
+      properties: {
+        musteri: { type: "string", description: "Firma adı" },
+        yetkili: { type: "string" },
+        adres: { type: "string" },
+        kalemler: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              ad: { type: "string", description: "Depodaki malzeme/işçilik adı" },
+              adet: { type: "number" },
+              birim_fiyat: { type: "number", description: "Sadece Kaya fiyat söylediyse" },
+            },
+            required: ["ad", "adet"],
+          },
+        },
+        indirim_yuzde: { type: "number", description: "0-50, sadece Kaya söylediyse" },
+        not_metni: { type: "string", description: "Teklif notları/şartlar, boşsa standart metin" },
+      },
+      required: ["musteri", "kalemler"],
     },
   },
 ];
@@ -312,6 +355,75 @@ export async function runTool(name: string, input: any) {
         not_metni: input.not_metni,
       });
       return error ? { hata: error.message } : { kaydedildi: true };
+    }
+
+        case "teklif_taslagi_hazirla": {
+      const musteri = String(input.musteri ?? "").trim();
+      if (!musteri) return { hata: "Müşteri adı yok" };
+      if (!Array.isArray(input.kalemler) || !input.kalemler.length) return { hata: "Kalem yok" };
+
+      let mimli;
+      try { mimli = await mimliBul(musteri); }
+      catch (e: any) { return { hata: "Mimli kontrolü yapılamadı, taslak oluşturulmadı: " + e.message }; }
+      if (mimli.length)
+        return { reddedildi: true, neden: "Firma mimli listede", kayitlar: mimli, uyari: "Taslak OLUŞTURULMADI. Kaya'ya bildir ve onay bekle." };
+
+      const ind = Number(input.indirim_yuzde) || 0;
+      if (ind < 0 || ind > 50) return { hata: "İndirim 0-50 arasında olmalı" };
+
+      const kalemler: any[] = [];
+      for (const [i, k] of input.kalemler.entries()) {
+        const adet = Number(k.adet);
+        let ad = String(k.ad ?? "").trim();
+        if (!ad || !(adet > 0)) return { hata: `Geçersiz kalem: ${ad || "(adsız)"}` };
+        let fiyat = Number(k.birim_fiyat);
+
+        if (!(fiyat > 0)) {
+          const { data, error } = await db.from("materials").select("name, sale_price").ilike("name", desen(ad)).limit(20);
+          if (error) return { hata: error.message };
+          const tam = (data ?? []).filter((x) => adNorm(x.name) === adNorm(ad));
+          const secilen = tam.length === 1 ? tam[0] : data?.length === 1 ? data[0] : null;
+          if (!secilen)
+            return {
+              hata: `"${ad}" için depoda ${data?.length ? "birden fazla eşleşme var" : "kayıt yok"}. Kaya'ya sor, tahmin etme.`,
+              adaylar: (data ?? []).slice(0, 8).map((x) => ({ ad: x.name, satis: x.sale_price })),
+            };
+          if (!(Number(secilen.sale_price) > 0))
+            return { hata: `"${secilen.name}" için depoda satış fiyatı girilmemiş. Kaya'dan fiyat iste.` };
+          ad = secilen.name;
+          fiyat = Number(secilen.sale_price);
+        }
+
+        if (ind) fiyat = Math.round(fiyat * (1 - ind / 100) * 100) / 100;
+        kalemler.push({ ad, id: Date.now() + i, adet, birim_fiyat: fiyat, toplam: Math.round(adet * fiyat * 100) / 100 });
+      }
+
+      const toplam = Math.round(kalemler.reduce((t, k) => t + k.toplam, 0) * 100) / 100;
+      const teklif = {
+        customer_name: musteri,
+        customer_rep: input.yetkili ?? null,
+        customer_address: input.adres ?? null,
+        template_type: "standart",
+        items: kalemler,
+        total_price: toplam,
+        status: "beklemede",
+        description: input.not_metni || VARSAYILAN_NOT,
+      };
+      const ozet = `${musteri}: ${kalemler.length} kalem, ${toplam} TL${ind ? ` (%${ind} indirimli)` : ""}`;
+      const { data: kayit, error } = await db
+        .from("bekleyen_onaylar")
+        .insert({ tur: "teklif", ozet, veri: { teklif, indirim_yuzde: ind } })
+        .select("id").single();
+      if (error) return { hata: error.message };
+
+      return {
+        taslak_olusturuldu: true,
+        musteri,
+        kalemler: kalemler.map((k) => ({ ad: k.ad, adet: k.adet, birim_fiyat: k.birim_fiyat, toplam: k.toplam })),
+        genel_toplam: toplam,
+        indirim_yuzde: ind,
+        uyari: "Teklif HENÜZ KAYDEDİLMEDİ. Kaya ekrandaki Bekleyen Onaylar kutusundan Onayla'ya basınca kaydedilir. Kaya'ya bunu söyle.",
+      };
     }
     
     default:
