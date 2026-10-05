@@ -23,7 +23,7 @@ export default function KayoChat() {
 
     try {
       // Buradaki URL ileride senin bilgisayarındaki Python (Kayo) sunucusuna gidecek
-      const response = await fetch("HTTPS_NGROK_URL_GELECEK/api/chat", {
+      const response = await fetch("https://rockiness-confusion-canned.ngrok-free.dev/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mesaj: input }),
