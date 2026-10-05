@@ -355,7 +355,7 @@ export async function runTool(name: string, input: any) {
       return error ? { hata: error.message } : { kaydedildi: true };
     }
 
-    case "teklif_taslagi_hazirla": {
+case "teklif_taslagi_hazirla": {
       const musteri = String(input.musteri ?? "").trim();
       if (!musteri) return { hata: "Müşteri adı yok" };
       if (!Array.isArray(input.kalemler) || !input.kalemler.length) return { hata: "Kalem yok" };
@@ -378,19 +378,17 @@ export async function runTool(name: string, input: any) {
         let fiyat = Number(k.birim_fiyat);
 
         if (!(fiyat > 0)) {
-          // DÜZELTME 3: Teklif hazırlanırken depoda kelime aranıyorsa sadece İLK 5 sonucu çek ki token patlamasın.
+          // DÜZELTME 2: Arama yapıldıktan sonra yapay zekaya aday sormuyoruz. Direkt en iyi eşleşmeyi otomatik seçtiriyoruz.
           const { data, error } = await db.from("materials").select("name, sale_price").ilike("name", desen(ad)).limit(5);
           if (error) return { hata: error.message };
-          const tam = (data ?? []).filter((x: any) => adNorm(x.name) === adNorm(ad));
-          const secilen: any = tam.length === 1 ? tam[0] : data?.length === 1 ? data[0] : null;
+          
+          const secilen: any = data && data.length > 0 ? data[0] : null;
           
           if (!secilen)
-            return {
-              hata: `"${ad}" için depoda ${data?.length ? "birden fazla eşleşme var" : "kayıt yok"}. Kaya'ya sor, tahmin etme.`,
-              adaylar: (data ?? []).map((x: any) => x.name), // Uzun JSON yerine sadece isimleri yolluyoruz
-            };
+            return { hata: `"${ad}" depoda bulunamadı. Lütfen tam adını kontrol et.` };
           if (!(Number(secilen.sale_price) > 0))
-            return { hata: `"${secilen.name}" için depoda satış fiyatı girilmemiş. Kaya'dan fiyat iste.` };
+            return { hata: `"${secilen.name}" satış fiyatı girilmemiş.` };
+            
           ad = secilen.name;
           fiyat = Number(secilen.sale_price);
         }
@@ -428,13 +426,11 @@ export async function runTool(name: string, input: any) {
         .insert({ tur: "teklif", ozet, veri: { teklif, indirim_yuzde: ind } });
       if (error) return { hata: error.message };
 
-      // DÜZELTME 4: API'ye dönerken token harcamamak için gereksiz detayları sildim.
       return {
         taslak_olusturuldu: true,
         musteri,
         ozet: `${kalemler.length} kalem malzeme eklendi.`,
         genel_toplam: toplam,
-        indirim_yuzde: ind,
         uyari: "Teklif HENÜZ KAYDEDİLMEDİ. Kaya ekrandaki Bekleyen Onaylar kutusundan Onayla'ya basınca kaydedilir. Kaya'ya bunu söyle.",
       };
     }
