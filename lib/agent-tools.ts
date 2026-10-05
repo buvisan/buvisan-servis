@@ -19,6 +19,30 @@ export const db = new Proxy({} as SupabaseClient, {
 const gunKaldi = (tarih?: string | null) =>
   tarih ? Math.ceil((new Date(tarih).getTime() - Date.now()) / 86400000) : null;
 
+// Türkçe harfleri sadeleştirir: "ALAN KALIP" ve "Alan Kalıp" aynı olur
+const sade = (s: string) =>
+  (s ?? "")
+    .toLocaleLowerCase("tr")
+    .replace(/ı/g, "i").replace(/ş/g, "s").replace(/ğ/g, "g")
+    .replace(/ç/g, "c").replace(/ö/g, "o").replace(/ü/g, "u")
+    .replace(/[^a-z0-9]/g, "");
+
+// Veritabanı araması için: Türkçe harfleri joker (_) yapar
+// "Kalıp" -> "%kal_p%" ; KALIP, Kalip, kalıp hepsiyle eşleşir
+const desen = (s: string) =>
+  "%" +
+  s.trim().replace(/[%_\\]/g, "")
+    .replace(/[iıİIşŞçÇğĞöÖüÜ]/g, "_")
+    .replace(/\s+/g, "%") +
+  "%";
+
+const IZINLI_TABLOLAR = [
+  "blacklisted_companies", "completed_services", "crane_history", "cranes",
+  "field_reports", "financial_records", "fleet_fines", "fleet_fuel",
+  "fleet_maintenance", "fleet_vehicles", "maintenance_contracts", "materials",
+  "offers", "service_reports", "service_tickets", "ticket_messages",
+];
+
 // Claude'a tanıttığımız araçların listesi
 export const tools = [
   {
@@ -56,24 +80,56 @@ export const tools = [
     description: "Depodaki malzeme veya işçiliğin alış fiyatını, satış fiyatını ve marjını getirir.",
     input_schema: { type: "object", properties: { aranan: { type: "string" } }, required: ["aranan"] },
   },
+    {
+    name: "veri_sorgula",
+    description: "Hazır araçlar yetmediğinde herhangi bir tabloyu (sadece okuma) sorgular. Firma/isim aramasında 'ilike' kullan, 'eq' kullanma. Sonuç boşsa kelimeyi kısaltıp tekrar dene.",
+    input_schema: {
+      type: "object",
+      properties: {
+        tablo: { type: "string", description: "Tablo adı" },
+        sutunlar: { type: "string", description: "Virgülle ayrılmış sütunlar, boşsa hepsi" },
+        filtreler: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              sutun: { type: "string" },
+              islem: { type: "string", enum: ["eq", "neq", "ilike", "gt", "gte", "lt", "lte"] },
+              deger: { type: "string" },
+            },
+            required: ["sutun", "islem", "deger"],
+          },
+        },
+        sirala: { type: "string", description: "Sıralanacak sütun" },
+        azalan: { type: "boolean" },
+        limit: { type: "number", description: "En fazla 100" },
+      },
+      required: ["tablo"],
+    },
+  },
 ];
 
 // Araçların gerçekte yaptığı işler (hepsi sadece SELECT)
 export async function runTool(name: string, input: any) {
   switch (name) {
     case "mimli_sirket_kontrol": {
+      // Liste küçük olduğu için hepsini çekip kod tarafında sadeleştirerek karşılaştırıyoruz
       const { data, error } = await db
         .from("blacklisted_companies")
-        .select("company_name, contact_person, reason_category, details, created_at")
-        .ilike("company_name", `%${input.firma_adi}%`);
+        .select("company_name, contact_person, reason_category, details, created_at");
       if (error) return { hata: error.message };
-      return data.length
-        ? { mimli: true, kayitlar: data, uyari: "DURDUR. Kaya'dan onay bekle." }
-        : { mimli: false };
+      const aranan = sade(input.firma_adi);
+      const eslesen = (data ?? []).filter((k) => {
+        const ad = sade(k.company_name);
+        return aranan.length >= 3 && (ad.includes(aranan) || aranan.includes(ad));
+      });
+      return eslesen.length
+        ? { mimli: true, kayitlar: eslesen, uyari: "DURDUR. Kaya'dan onay bekle." }
+        : { mimli: false, kontrol_edilen_toplam_kayit: data?.length };
     }
 
     case "musteri_gecmisi": {
-      const f = `%${input.firma_adi}%`;
+      const f = desen(input.firma_adi);
       const [teklif, servis] = await Promise.all([
         db.from("offers").select("offer_date, template_type, total_price, final_price, status")
           .ilike("customer_name", f).order("offer_date", { ascending: false }).limit(10),
@@ -81,6 +137,21 @@ export async function runTool(name: string, input: any) {
           .ilike("customer_text", f).order("service_date", { ascending: false }).limit(10),
       ]);
       return { teklifler: teklif.data, servisler: servis.data };
+    }
+
+    case "veri_sorgula": {
+      if (!IZINLI_TABLOLAR.includes(input.tablo)) return { hata: "Bu tabloya erişim yok" };
+      const sut = input.sutunlar || "*";
+      if (!/^[a-z0-9_,\s*]+$/i.test(sut)) return { hata: "Geçersiz sütun listesi" };
+      let q: any = db.from(input.tablo).select(sut);
+      for (const f of input.filtreler ?? []) {
+        if (f.islem === "ilike") q = q.ilike(f.sutun, desen(f.deger));
+        else if (["eq", "neq", "gt", "gte", "lt", "lte"].includes(f.islem)) q = q[f.islem](f.sutun, f.deger);
+      }
+      if (input.sirala) q = q.order(input.sirala, { ascending: !input.azalan });
+      q = q.limit(Math.min(Number(input.limit) || 50, 100));
+      const { data, error } = await q;
+      return error ? { hata: error.message } : { adet: data.length, kayitlar: data };
     }
 
     case "bekleyen_isler": {
