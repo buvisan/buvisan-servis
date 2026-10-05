@@ -43,6 +43,26 @@ const IZINLI_TABLOLAR = [
   "offers", "service_reports", "service_tickets", "ticket_messages",
 ];
 
+const adNorm = (s: string) =>
+  (s ?? "")
+    .toLocaleLowerCase("tr")
+    .replace(/ı/g, "i").replace(/ş/g, "s").replace(/ğ/g, "g")
+    .replace(/ç/g, "c").replace(/ö/g, "o").replace(/ü/g, "u")
+    .replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+
+// Kısa ad, uzun adın başındaysa hepsini kısa ada bağlar
+function firmaHaritasi(adlar: string[]) {
+  const norm = [...new Set(adlar.map(adNorm).filter(Boolean))].sort((a, b) => a.length - b.length);
+  const kanon: string[] = [];
+  const harita: Record<string, string> = {};
+  for (const n of norm) {
+    const k = kanon.find((c) => n === c || n.startsWith(c + " "));
+    if (k) harita[n] = k;
+    else { kanon.push(n); harita[n] = n; }
+  }
+  return harita;
+}
+
 // Claude'a tanıttığımız araçların listesi
 export const tools = [
   {
@@ -105,6 +125,19 @@ export const tools = [
         limit: { type: "number", description: "En fazla 100" },
       },
       required: ["tablo"],
+    },
+  },
+    {
+    name: "musteri_ciro_siralama",
+    description: "Müşterileri ciroya veya iş sayısına göre sıralar. 'En çok iş/ciro yapan müşteri', 'X firmasından toplam ne kadar kazandık' gibi sorularda MUTLAKA bunu kullan, veri_sorgula ile sayma. Sadece fiyatı girilmiş işleri sayar, firma adı varyantlarını birleştirir (analiz sayfasıyla aynı kaynak).",
+    input_schema: {
+      type: "object",
+      properties: {
+        ay: { type: "string", description: "Örn 2026-09. Boşsa tüm zamanlar" },
+        anahtar_kelime: { type: "string", description: "Sadece adında bu geçen firmalar, örn 'karesi'" },
+        sirala: { type: "string", enum: ["ciro", "is_sayisi"] },
+        ilk: { type: "number", description: "Kaç firma gösterilsin (varsayılan 5)" },
+      },
     },
   },
 ];
@@ -211,7 +244,56 @@ export async function runTool(name: string, input: any) {
         marj_yuzde: x.buy_price > 0 ? Math.round(((x.sale_price - x.buy_price) / x.buy_price) * 100) : null,
       }));
     }
+        case "musteri_ciro_siralama": {
+      const satirlar: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        let q: any = db.from("completed_services")
+          .select("customer_text, price, service_date")
+          .order("service_date").range(from, from + 999);
+        if (input.ay) {
+          const [y, m] = input.ay.split("-").map(Number);
+          const son = new Date(y, m, 0).getDate();
+          q = q.gte("service_date", `${input.ay}-01`).lte("service_date", `${input.ay}-${String(son).padStart(2, "0")}`);
+        }
+        const { data, error } = await q;
+        if (error) return { hata: error.message };
+        satirlar.push(...data);
+        if (data.length < 1000) break;
+      }
 
+      const anahtar = input.anahtar_kelime ? adNorm(input.anahtar_kelime) : "";
+      const paralilar = satirlar.filter(
+        (r) => Number(r.price) > 0 && r.customer_text && (!anahtar || adNorm(r.customer_text).includes(anahtar))
+      );
+      const harita = firmaHaritasi(paralilar.map((r) => r.customer_text));
+
+      const gr: Record<string, { ciro: number; is_sayisi: number; yazilislar: Set<string> }> = {};
+      for (const r of paralilar) {
+        const k = harita[adNorm(r.customer_text)];
+        gr[k] ??= { ciro: 0, is_sayisi: 0, yazilislar: new Set() };
+        gr[k].ciro += Number(r.price);
+        gr[k].is_sayisi += 1;
+        gr[k].yazilislar.add(r.customer_text);
+      }
+
+      const liste = Object.entries(gr)
+        .map(([firma, v]) => ({
+          firma: firma.toUpperCase(),
+          ciro: Math.round(v.ciro * 100) / 100,
+          is_sayisi: v.is_sayisi,
+          birlestirilen_yazilislar: [...v.yazilislar],
+        }))
+        .sort((a, b) => (input.sirala === "is_sayisi" ? b.is_sayisi - a.is_sayisi : b.ciro - a.ciro))
+        .slice(0, Number(input.ilk) || 5);
+
+      return {
+        donem: input.ay || "tüm zamanlar",
+        fiyatli_is_toplam: paralilar.length,
+        liste,
+        not: "Sadece fiyatı girilmiş işler. Aynı firmanın farklı yazılışları birleştirildi.",
+      };
+    }
+    
     default:
       return { hata: "Bilinmeyen araç" };
   }
