@@ -5,31 +5,35 @@ import { db, tools, runTool } from "@/lib/agent-tools";
 export const maxDuration = 60;
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY });
-// DÜZELTME 1: Kota sorunu yaşamamak için Flash modelini sabitledik. (Pro modeli limitlere çabuk takılır)
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 
 const SYSTEM = `Sen Buvisan, Birikiton, ZM Çelik ve ZM Kumlama'nın servis, finans, depo ve operasyon asistanısın. Patronun Kaya.
 Tablolar (veri_sorgula ile): blacklisted_companies (mimli), offers (teklifler), materials (depo fiyatları), completed_services (ciro), service_tickets (iş emirleri), service_reports, field_reports, cranes, crane_history, fleet_vehicles, fleet_fines, fleet_fuel, fleet_maintenance, maintenance_contracts, financial_records (month_key örn 2026-09).
 Kurallar:
-1. Bir firma için teklif/iş emri konuşulursa önce mimli_sirket_kontrol çağır.
-2. Birikiton sadece 1 ve 2 tonluk monoray vinçlerdir.
-3. Yetkin: okuma, not_kaydet, teklif_taslagi_hazirla. Teklifi doğrudan kaydedemezsin; taslak hazırlarsın.
-4. Uydurma. Cevapta hangi veriye dayandığını kısaca belirt.
+1. Bir firma için teklif/iş emri konuşulursa önce mimli_sirket_kontrol çağır. Mimliyse dur, Kaya'ya uyar.
+2. Birikiton sadece 1 ve 2 tonluk monoray vinçlerdir. Buvisan ile karıştırma.
+3. Yetkin: okuma, not_kaydet, teklif_taslagi_hazirla. Teklifi doğrudan kaydedemezsin; taslak hazırlarsın, Kaya ekrandaki Bekleyen Onaylar kutusundan onaylayınca kaydolur. Taslaktan sonra "kaydettim" deme, "taslak hazır, onayını bekliyor" de. İş emri açma/silme/değiştirme yetkin yok.
+4. Uydurma. Veri yoksa söyle. Cevapta hangi veriye dayandığını kısaca belirt. Bir alanı sorgulamadan "boş" deme.
 5. Türkçe, kısa ve net. Para birimi TL.
-6. Hazır araç yetmezse veri_sorgula'yı dene.
-7. En çok ciro/iş yapan müşteri için musteri_ciro_siralama kullan.
-8. Kaya'nın kalıcı notlarına uy.
-9. ÇOK ÖNEMLİ: Teklif hazırlarken ÖNCE "depo_fiyat_ara" KULLANMA! Doğrudan "teklif_taslagi_hazirla" aracını çağır, o araç fiyatları veritabanından kendisi otomatik bulacaktır. Tek tek fiyat arayıp sistemi yorma.
+6. Hazır araç yetmezse veri_sorgula'yı dene. Firma bulamazsan kelimeyi kısaltıp tekrar ara.
+7. En çok ciro/iş yapan müşteri ve "X'ten ne kadar kazandık" için musteri_ciro_siralama kullan, veri_sorgula ile sayma. Birleştirilen firma yazılışlarını belirt.
+8. Kaya "hatırla/not al/bundan sonra" derse not_kaydet çağır, kendiliğinden not ekleme.
+9. Kaya'nın kalıcı notlarına uy. Not ile veri çelişirse ikisini de söyle, sor.
+10. Politika sorularında ("nasıl fiyat veriyoruz") önce notları söyle, geçmiş tekliflerin üstüne kendi hesabını yapma.
+11. Teklifte fiyat uydurma, kod depodan alır. indirim_yuzde'yi sadece Kaya bu teklif için açıkça söylediyse gir. Kalem adı belirsizse ("depodan bir kalem", "uygun bir şey") KENDİN SEÇME: depoda arayıp adayları listele, Kaya'ya hangisini istediğini sor. Depoda yok veya birden fazla eşleşme varsa sor.
 Bugünün tarihi: ${new Date().toLocaleDateString("tr-TR")}`;
 
 const bekle = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const gecici = (e: any) => /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|rate limit|timeout/i.test(String(e?.message ?? ""));
+
+const gecici = (e: any) =>
+  /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|rate limit|timeout/i.test(String(e?.message ?? ""));
 
 async function tekrar<T>(fn: () => Promise<T>): Promise<T> {
   let son: any;
   for (let i = 0; i < 2; i++) {
-    try { return await fn(); } 
-    catch (e: any) {
+    try {
+      return await fn();
+    } catch (e: any) {
       son = e;
       if (!gecici(e)) throw e;
       const m = String(e?.message ?? "").match(/try again in ([\d.]+)\s*(ms|s)/i);
@@ -40,31 +44,42 @@ async function tekrar<T>(fn: () => Promise<T>): Promise<T> {
   throw son;
 }
 
+// Arac sonuclarini kisaltir (token tasarrufu)
 const sonucMetni = (out: any) => {
   const s = JSON.stringify(out);
-  return s.length > 2000 ? s.slice(0, 2000) + " ...(sonuç kısaltıldı)" : s;
+  return s.length > 5000 ? s.slice(0, 5000) + " ...(sonuç kısaltıldı, filtreyi daralt)" : s;
 };
 
+// Sohbetin son 10 mesaji, ilk mesaj kullanicidan olacak sekilde
 function gecmisiKisalt(mesajlar: any[]) {
-  const m = mesajlar.slice(-6);
+  const m = mesajlar.slice(-10);
   while (m.length && m[0].role !== "user") m.shift();
   return m;
 }
 
+// ---------- GEMINI ----------
 const geminiAraclar = tools.map((t: any) => ({
-  name: t.name, description: t.description, parametersJsonSchema: t.input_schema,
+  name: t.name,
+  description: t.description,
+  parametersJsonSchema: t.input_schema,
 }));
 
 async function geminiCalistir(mesajlar: any[], kullanilan: string[], sistem: string): Promise<string> {
   const contents: any[] = gecmisiKisalt(mesajlar).map((m) => ({
-    role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }],
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
   }));
 
-  for (let tur = 0; tur < 4; tur++) {
+  for (let tur = 0; tur < 8; tur++) {
     const res = await tekrar(() =>
       ai.models.generateContent({
-        model: GEMINI_MODEL, contents,
-        config: { systemInstruction: sistem, tools: [{ functionDeclarations: geminiAraclar }], maxOutputTokens: 800 },
+        model: GEMINI_MODEL,
+        contents,
+        config: {
+          systemInstruction: sistem,
+          tools: [{ functionDeclarations: geminiAraclar }],
+          maxOutputTokens: 1200,
+        },
       })
     );
     const calls = res.functionCalls;
@@ -82,7 +97,10 @@ async function geminiCalistir(mesajlar: any[], kullanilan: string[], sistem: str
   return "Çok fazla adım gerekti, soruyu daha basit sorar mısın?";
 }
 
+// ---------- OPENAI UYUMLU SAGLAYICILAR (Mistral, Groq, OpenRouter) ----------
+// Anahtari ve modeli girilmemis olanlar zincire girmez.
 type Saglayici = { ad: string; url: string; key?: string; model?: string };
+
 const OPENAI_UYUMLU: Saglayici[] = [
   { ad: "mistral", url: "https://api.mistral.ai/v1/chat/completions", key: process.env.MISTRAL_API_KEY, model: process.env.MISTRAL_MODEL },
   { ad: "groq", url: "https://api.groq.com/openai/v1/chat/completions", key: process.env.GROQ_API_KEY, model: process.env.GROQ_MODEL },
@@ -90,13 +108,15 @@ const OPENAI_UYUMLU: Saglayici[] = [
 ];
 
 const openaiAraclar = tools.map((t: any) => ({
-  type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema },
+  type: "function",
+  function: { name: t.name, description: t.description, parameters: t.input_schema },
 }));
 
 async function openaiIstek(sp: Saglayici, messages: any[]) {
   const r = await fetch(sp.url, {
-    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sp.key}` },
-    body: JSON.stringify({ model: sp.model, messages, tools: openaiAraclar, max_tokens: 800 }),
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${sp.key}` },
+    body: JSON.stringify({ model: sp.model, messages, tools: openaiAraclar, max_tokens: 1200 }),
   });
   if (!r.ok) throw new Error(`${sp.ad} ${r.status}: ${(await r.text()).slice(0, 300)}`);
   return r.json();
@@ -105,7 +125,7 @@ async function openaiIstek(sp: Saglayici, messages: any[]) {
 async function openaiCalistir(sp: Saglayici, mesajlar: any[], kullanilan: string[], sistem: string): Promise<string> {
   const messages: any[] = [{ role: "system", content: sistem }, ...gecmisiKisalt(mesajlar)];
 
-  for (let tur = 0; tur < 4; tur++) {
+  for (let tur = 0; tur < 8; tur++) {
     const j = await tekrar(() => openaiIstek(sp, messages));
     const msg = j.choices?.[0]?.message;
     if (!msg) throw new Error(`${sp.ad} boş cevap döndü`);
@@ -123,6 +143,7 @@ async function openaiCalistir(sp: Saglayici, mesajlar: any[], kullanilan: string
   return "Çok fazla adım gerekti, soruyu daha basit sorar mısın?";
 }
 
+// ---------- ANA AKIS ----------
 export async function POST(req: Request) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ hata: "Giriş yok" }, { status: 401 });
@@ -133,10 +154,18 @@ export async function POST(req: Request) {
 
   const { mesajlar } = await req.json();
 
-  const { data: notlar } = await db.from("ajan_notlari").select("konu, not_metni").eq("aktif", true).order("created_at");
-  const notMetni = (notlar ?? []).map((n: any) => `- ${n.konu ? n.konu + ": " : ""}${n.not_metni}`).join("\n");
-  const SYSTEM_FULL = notMetni ? `${SYSTEM}\n\nKaya'nın kalıcı notları:\n${notMetni}` : SYSTEM;
+  // Kaya'nin kalici notlarini her konusmanin basinda oku
+  const { data: notlar } = await db
+    .from("ajan_notlari")
+    .select("konu, not_metni")
+    .eq("aktif", true)
+    .order("created_at");
+  const notMetni = (notlar ?? [])
+    .map((n: any) => `- ${n.konu ? n.konu + ": " : ""}${n.not_metni}`)
+    .join("\n");
+  const SYSTEM_FULL = notMetni ? `${SYSTEM}\n\nKaya'nın kalıcı notları (bunlara uy):\n${notMetni}` : SYSTEM;
 
+  // Sirayla denenecek saglayicilar
   const zincir: { ad: string; calistir: (m: any[], k: string[], s: string) => Promise<string> }[] = [];
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) zincir.push({ ad: "gemini", calistir: geminiCalistir });
   for (const sp of OPENAI_UYUMLU) {
@@ -148,7 +177,12 @@ export async function POST(req: Request) {
     const kullanilan: string[] = [];
     try {
       const cevap = await s.calistir(mesajlar, kullanilan, SYSTEM_FULL);
-      await db.from("ajan_loglari").insert({ kullanici: u.user.email, soru: mesajlar[mesajlar.length - 1]?.content, araclar: [`saglayici:${s.ad}`, ...kullanilan], cevap });
+      await db.from("ajan_loglari").insert({
+        kullanici: u.user.email,
+        soru: mesajlar[mesajlar.length - 1]?.content,
+        araclar: [`saglayici:${s.ad}`, ...kullanilan],
+        cevap,
+      });
       return NextResponse.json({ cevap });
     } catch (e: any) {
       hatalar.push(`${s.ad}: ${String(e?.message ?? "").slice(0, 200)}`);
@@ -156,5 +190,8 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ hata: "Yapay zeka şu an çok yoğun veya kota doldu. Lütfen 1 dakika sonra tekrar dene.\n\nDetay: " + hatalar[0] }, { status: 503 });
+  return NextResponse.json(
+    { hata: "Yapay zeka şu an yanıt vermiyor, 1 dakika sonra tekrar dener misin?\n\n" + hatalar.join("\n") },
+    { status: 503 }
+  );
 }

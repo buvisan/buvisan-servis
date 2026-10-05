@@ -138,7 +138,7 @@ export const tools = [
         },
         sirala: { type: "string", description: "Sıralanacak sütun" },
         azalan: { type: "boolean" },
-        limit: { type: "number", description: "En fazla 20" },
+        limit: { type: "number", description: "En fazla 50" },
       },
       required: ["tablo"],
     },
@@ -270,10 +270,9 @@ export async function runTool(name: string, input: any) {
     }
 
     case "depo_fiyat_ara": {
-      // DÜZELTME 1: Depo aramasında limit 15'ten 5'e düşürüldü. Token tasarrufu!
       const { data, error } = await db.from("materials")
         .select("name, unit, buy_price, sale_price, discount_rate")
-        .ilike("name", desen(input.aranan)).limit(5);
+        .ilike("name", desen(input.aranan)).limit(15);
       if (error) return { hata: error.message };
       return (data ?? []).map((x: any) => ({
         ...x,
@@ -291,8 +290,7 @@ export async function runTool(name: string, input: any) {
         else if (["eq", "neq", "gt", "gte", "lt", "lte"].includes(f.islem)) q = q[f.islem](f.sutun, f.deger);
       }
       if (input.sirala) q = q.order(input.sirala, { ascending: !input.azalan });
-      // DÜZELTME 2: İsteğe bağlı veri sorgulamalarda sonuç limiti en fazla 20 ile sınırlandırıldı.
-      q = q.limit(Math.min(Number(input.limit) || 10, 20));
+      q = q.limit(Math.min(Number(input.limit) || 20, 50));
       const { data, error } = await q;
       return error ? { hata: error.message } : { adet: data.length, kayitlar: data };
     }
@@ -355,7 +353,7 @@ export async function runTool(name: string, input: any) {
       return error ? { hata: error.message } : { kaydedildi: true };
     }
 
-case "teklif_taslagi_hazirla": {
+    case "teklif_taslagi_hazirla": {
       const musteri = String(input.musteri ?? "").trim();
       if (!musteri) return { hata: "Müşteri adı yok" };
       if (!Array.isArray(input.kalemler) || !input.kalemler.length) return { hata: "Kalem yok" };
@@ -378,17 +376,17 @@ case "teklif_taslagi_hazirla": {
         let fiyat = Number(k.birim_fiyat);
 
         if (!(fiyat > 0)) {
-          // DÜZELTME 2: Arama yapıldıktan sonra yapay zekaya aday sormuyoruz. Direkt en iyi eşleşmeyi otomatik seçtiriyoruz.
-          const { data, error } = await db.from("materials").select("name, sale_price").ilike("name", desen(ad)).limit(5);
+          const { data, error } = await db.from("materials").select("name, sale_price").ilike("name", desen(ad)).limit(20);
           if (error) return { hata: error.message };
-          
-          const secilen: any = data && data.length > 0 ? data[0] : null;
-          
+          const tam = (data ?? []).filter((x: any) => adNorm(x.name) === adNorm(ad));
+          const secilen: any = tam.length === 1 ? tam[0] : data?.length === 1 ? data[0] : null;
           if (!secilen)
-            return { hata: `"${ad}" depoda bulunamadı. Lütfen tam adını kontrol et.` };
+            return {
+              hata: `"${ad}" için depoda ${data?.length ? "birden fazla eşleşme var" : "kayıt yok"}. Kaya'ya sor, tahmin etme.`,
+              adaylar: (data ?? []).slice(0, 8).map((x: any) => ({ ad: x.name, satis: x.sale_price })),
+            };
           if (!(Number(secilen.sale_price) > 0))
-            return { hata: `"${secilen.name}" satış fiyatı girilmemiş.` };
-            
+            return { hata: `"${secilen.name}" için depoda satış fiyatı girilmemiş. Kaya'dan fiyat iste.` };
           ad = secilen.name;
           fiyat = Number(secilen.sale_price);
         }
@@ -410,6 +408,7 @@ case "teklif_taslagi_hazirla": {
       };
       const ozet = `${musteri}: ${kalemler.length} kalem, ${toplam} TL${ind ? ` (%${ind} indirimli)` : ""}`;
 
+      // Ayni taslak 30 dk icinde ikinci kez olusmasin
       const { data: mevcut } = await db
         .from("bekleyen_onaylar")
         .select("id")
@@ -419,7 +418,7 @@ case "teklif_taslagi_hazirla": {
         .gte("created_at", new Date(Date.now() - 30 * 60000).toISOString())
         .limit(1);
       if (mevcut?.length)
-        return { taslak_zaten_var: true, uyari: "Aynı teklif taslağı zaten onay bekliyor. Yeni taslak oluşturulmadı." };
+        return { taslak_zaten_var: true, uyari: "Aynı teklif taslağı zaten onay bekliyor. Yeni taslak oluşturulmadı. Kaya'ya ekrandaki kutuyu söyle." };
 
       const { error } = await db
         .from("bekleyen_onaylar")
@@ -429,8 +428,9 @@ case "teklif_taslagi_hazirla": {
       return {
         taslak_olusturuldu: true,
         musteri,
-        ozet: `${kalemler.length} kalem malzeme eklendi.`,
+        kalemler: kalemler.map((k) => ({ ad: k.ad, adet: k.adet, birim_fiyat: k.birim_fiyat, toplam: k.toplam })),
         genel_toplam: toplam,
+        indirim_yuzde: ind,
         uyari: "Teklif HENÜZ KAYDEDİLMEDİ. Kaya ekrandaki Bekleyen Onaylar kutusundan Onayla'ya basınca kaydedilir. Kaya'ya bunu söyle.",
       };
     }
