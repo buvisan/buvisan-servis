@@ -410,6 +410,16 @@ export async function runTool(name: string, input: any) {
         description: input.not_metni || VARSAYILAN_NOT,
       };
       const ozet = `${musteri}: ${kalemler.length} kalem, ${toplam} TL${ind ? ` (%${ind} indirimli)` : ""}`;
+      const { data: mevcut } = await db
+        .from("bekleyen_onaylar")
+        .select("id")
+        .eq("tur", "teklif")
+        .eq("durum", "bekliyor")
+        .eq("ozet", ozet)
+        .gte("created_at", new Date(Date.now() - 30 * 60000).toISOString())
+        .limit(1);
+      if (mevcut?.length)
+        return { taslak_zaten_var: true, uyari: "Aynı teklif taslağı zaten onay bekliyor. Yeni taslak oluşturulmadı. Kaya'ya ekrandaki kutuyu söyle." };
       const { data: kayit, error } = await db
         .from("bekleyen_onaylar")
         .insert({ tur: "teklif", ozet, veri: { teklif, indirim_yuzde: ind } })
@@ -425,7 +435,7 @@ export async function runTool(name: string, input: any) {
         uyari: "Teklif HENÜZ KAYDEDİLMEDİ. Kaya ekrandaki Bekleyen Onaylar kutusundan Onayla'ya basınca kaydedilir. Kaya'ya bunu söyle.",
       };
     }
-    
+
     default:
       return { hata: "Bilinmeyen araç" };
   }

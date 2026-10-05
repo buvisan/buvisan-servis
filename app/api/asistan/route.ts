@@ -45,13 +45,16 @@ const gecici = (e: any) => {
 // Geçici hatada kısa bekleyip 2 kez dener
 async function tekrar<T>(fn: () => Promise<T>): Promise<T> {
   let son: any;
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 3; i++) {
     try {
       return await fn();
-    } catch (e) {
+    } catch (e: any) {
       son = e;
       if (!gecici(e)) throw e;
-      await bekle(1500 * (i + 1));
+      // Hata mesajında "try again in 4.2s" gibi süre varsa o kadar bekle (en fazla 8 sn)
+      const m = String(e?.message ?? "").match(/try again in ([\d.]+)\s*(ms|s)/i);
+      const ms = m ? (m[2].toLowerCase() === "s" ? Number(m[1]) * 1000 : Number(m[1])) + 500 : 1500 * (i + 1);
+      await bekle(Math.min(ms, 8000));
     }
   }
   throw son;
@@ -136,7 +139,12 @@ async function groqCalistir(mesajlar: any[], kullanilan: string[], sistem: strin
       let args = {};
       try { args = JSON.parse(c.function.arguments || "{}"); } catch {}
       const out = await runTool(c.function.name, args);
-      messages.push({ role: "tool", tool_call_id: c.id, content: JSON.stringify(out) });
+      const ham = JSON.stringify(out);
+      messages.push({
+        role: "tool",
+        tool_call_id: c.id,
+        content: ham.length > 6000 ? ham.slice(0, 6000) + " ...(sonuç kısaltıldı)" : ham,
+      });
     }
   }
   return "Çok fazla adım gerekti, soruyu daha basit sorar mısın?";
@@ -171,7 +179,7 @@ export async function POST(req: Request) {
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) zincir.push({ ad: "gemini", calistir: geminiCalistir });
   if (process.env.GROQ_API_KEY && GROQ_MODEL) zincir.push({ ad: "groq", calistir: groqCalistir });
 
-  let sonHata: any;
+  const hatalar: string[] = [];
   for (const s of zincir) {
     const kullanilan: string[] = [];
     try {
@@ -183,14 +191,14 @@ export async function POST(req: Request) {
         cevap,
       });
       return NextResponse.json({ cevap });
-    } catch (e) {
-      sonHata = e;
+    } catch (e: any) {
+      hatalar.push(`${s.ad}: ${String(e?.message ?? "").slice(0, 200)}`);
       console.error(`${s.ad} hata:`, e);
     }
   }
 
   return NextResponse.json(
-    { hata: "Yapay zeka şu an yanıt vermiyor, 1 dakika sonra tekrar dener misin? (" + String(sonHata?.message ?? "").slice(0, 150) + ")" },
+    { hata: "Yapay zeka şu an yanıt vermiyor, 1 dakika sonra tekrar dener misin?\n\n" + hatalar.join("\n") },
     { status: 503 }
   );
 }
