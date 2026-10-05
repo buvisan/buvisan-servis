@@ -140,6 +140,18 @@ export const tools = [
       },
     },
   },
+    {
+    name: "not_kaydet",
+    description: "Kaya'nın kalıcı olarak hatırlanmasını istediği bir kuralı veya bilgiyi kaydeder. Sadece Kaya açıkça 'hatırla', 'not al', 'bundan sonra' gibi bir şey derse çağır. Kendi kendine not ekleme.",
+    input_schema: {
+      type: "object",
+      properties: {
+        konu: { type: "string", description: "Kısa başlık, örn: Coats indirim" },
+        not_metni: { type: "string", description: "Hatırlanacak bilginin tam metni" },
+      },
+      required: ["not_metni"],
+    },
+  },
 ];
 
 // Araçların gerçekte yaptığı işler (hepsi sadece SELECT)
@@ -292,6 +304,14 @@ export async function runTool(name: string, input: any) {
         liste,
         not: "Sadece fiyatı girilmiş işler. Aynı firmanın farklı yazılışları birleştirildi.",
       };
+    }
+
+        case "not_kaydet": {
+      const { error } = await db.from("ajan_notlari").insert({
+        konu: input.konu ?? null,
+        not_metni: input.not_metni,
+      });
+      return error ? { hata: error.message } : { kaydedildi: true };
     }
     
     default:

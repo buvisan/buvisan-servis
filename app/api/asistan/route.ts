@@ -23,11 +23,13 @@ Veritabanı tabloların (veri_sorgula ile bakabilirsin):
 Kurallar:
 1. Herhangi bir firma için teklif, iş emri veya yönlendirme konuşulursa önce mimli_sirket_kontrol aracını çağır. Firma mimliyse dur, Kaya'ya uyar.
 2. Birikiton sadece 1 ve 2 tonluk monoray vinçlerdir. Buvisan ile Birikiton'u asla karıştırma.
-3. Şu an SADECE OKUMA yetkin var. Kayıt oluşturamaz, değiştiremez, silemezsin. İstenirse "henüz yetkim yok" de.
+3. Yetkin SADECE OKUMA ve not kaydetmekle sınırlı. Teklif, iş emri vb. kayıt oluşturamaz, değiştiremez, silemezsin. İstenirse "henüz yetkim yok" de. Tek istisna not_kaydet aracıdır.
 4. Bilmiyorsan veya veri yoksa uydurma, söyle. Her cevapta hangi veriye (tablo/kayıt) dayandığını belirt.
 5. Türkçe, kısa ve net cevap ver. Para birimi TL.
 6. Hazır araçlar sorunu karşılamıyorsa veri_sorgula'yı kullan, "yapamam" demeden önce mutlaka dene. Firma adı arayıp bulamazsan "yok" deme, önce kelimeyi kısaltıp tekrar ara. Kullanıcı soruyu nasıl sorarsa sorsun (günlük konuşma dili dahil) niyetini anla ve uygun aracı seç.
 7. "En çok iş/ciro yapan müşteri", "X'ten ne kadar kazandık" gibi sorularda musteri_ciro_siralama kullan. veri_sorgula ile satır sayıp sıralama yapma. Cevapta firmaların hangi yazılışlarının birleştirildiğini kısaca belirt.
+8. Kaya "hatırla", "not al", "bundan sonra" gibi açıkça isterse not_kaydet çağır. Kendi kendine not ekleme. Kaydettikten sonra ne kaydettiğini tek cümleyle söyle.
+9. Aşağıda "Kaya'nın kalıcı notları" bölümü varsa o notlara uy. Notlar ile veritabanı verisi çelişirse ikisini de belirtip Kaya'ya sor.
 Bugünün tarihi: ${new Date().toLocaleDateString("tr-TR")}`;
 
 const bekle = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -59,7 +61,7 @@ const geminiAraclar = tools.map((t: any) => ({
   parametersJsonSchema: t.input_schema,
 }));
 
-async function geminiCalistir(mesajlar: any[], kullanilan: string[]): Promise<string> {
+async function geminiCalistir(mesajlar: any[], kullanilan: string[], sistem: string): Promise<string> {
   const contents: any[] = mesajlar.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
@@ -71,7 +73,7 @@ async function geminiCalistir(mesajlar: any[], kullanilan: string[]): Promise<st
         model: GEMINI_MODEL,
         contents,
         config: {
-          systemInstruction: SYSTEM,
+          systemInstruction: sistem,
           tools: [{ functionDeclarations: geminiAraclar }],
           maxOutputTokens: 2000,
         },
@@ -116,8 +118,8 @@ async function groqIstek(messages: any[]) {
   return r.json();
 }
 
-async function groqCalistir(mesajlar: any[], kullanilan: string[]): Promise<string> {
-  const messages: any[] = [{ role: "system", content: SYSTEM }, ...mesajlar];
+async function groqCalistir(mesajlar: any[], kullanilan: string[], sistem: string): Promise<string> {
+  const messages: any[] = [{ role: "system", content: sistem }, ...mesajlar];
 
   for (let tur = 0; tur < 8; tur++) {
     const j = await tekrar(() => groqIstek(messages));
@@ -148,6 +150,19 @@ export async function POST(req: Request) {
 
   const { mesajlar } = await req.json();
 
+  // Kaya'nın kalıcı notlarını her konuşmanın başında oku
+  const { data: notlar } = await db
+    .from("ajan_notlari")
+    .select("konu, not_metni")
+    .eq("aktif", true)
+    .order("created_at");
+  const notMetni = (notlar ?? [])
+    .map((n) => `- ${n.konu ? n.konu + ": " : ""}${n.not_metni}`)
+    .join("\n");
+  const SYSTEM_FULL = notMetni
+    ? `${SYSTEM}\n\nKaya'nın kalıcı notları (bunlara uy):\n${notMetni}`
+    : SYSTEM;
+
   // Sırayla denenecek sağlayıcılar (anahtarı olan varsa listeye girer)
   const zincir: { ad: string; calistir: typeof geminiCalistir }[] = [];
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) zincir.push({ ad: "gemini", calistir: geminiCalistir });
@@ -157,7 +172,7 @@ export async function POST(req: Request) {
   for (const s of zincir) {
     const kullanilan: string[] = [];
     try {
-      const cevap = await s.calistir(mesajlar, kullanilan);
+      const cevap = await s.calistir(mesajlar, kullanilan, SYSTEM_FULL);
       await db.from("ajan_loglari").insert({
         kullanici: u.user.email,
         soru: mesajlar[mesajlar.length - 1]?.content,
