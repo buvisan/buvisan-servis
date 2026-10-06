@@ -9,24 +9,22 @@ export async function POST(request: Request) {
   try {
     const { kelime } = await request.json();
     
-    // DİKKAT: 'malzemeler' yazan yeri Supabase'deki kendi depo/stok tablonun adıyla değiştir!
-    // 'urun_adi' veya 'parca_adi' gibi kendi sütun isimlerini de güncelle.
+    // Gerçek 'materials' tablosundan 'name' sütununa göre arama yapıyoruz
     const { data, error } = await supabase
-      .from('malzemeler') 
-      .select('*')
-      .ilike('urun_adi', `%${kelime}%`)
-      .limit(5); // En fazla 5 sonuç dönsün ki Kayo'nun kafası karışmasın
+      .from('materials') 
+      .select('name, sale_price, unit')
+      .ilike('name', `%${kelime}%`)
+      .limit(5);
 
     if (error) throw error;
 
-    if (data.length === 0) {
+    if (!data || data.length === 0) {
       return NextResponse.json({ sonuc: "Depoda bu isimde bir malzeme bulunamadı." }, { status: 200 });
     }
 
-    // Bulunan malzemeleri Kayo'nun anlayacağı bir metne çeviriyoruz
-    const döküm = data.map(item => `- ${item.marka || ''} ${item.urun_adi} (Stok: ${item.stok_adet}, Fiyat: ${item.birim_fiyat} ₺)`).join('\n');
+    const dokum = data.map(item => `- ${item.name} (Birim Fiyat: ${item.sale_price} ₺, Birim: ${item.unit})`).join('\n');
     
-    return NextResponse.json({ sonuc: `Depoda şunlar bulundu:\n${döküm}` }, { status: 200 });
+    return NextResponse.json({ sonuc: `Depoda bulunan malzemeler:\n${dokum}` }, { status: 200 });
 
   } catch (error: any) {
     return NextResponse.json({ hata: "Veritabanı hatası: " + error.message }, { status: 500 });
