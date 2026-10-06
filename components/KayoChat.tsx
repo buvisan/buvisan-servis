@@ -47,7 +47,7 @@ export default function KayoChat() {
 
     try {
       // DİKKAT: Kendi aktif Ngrok URL'ini buraya yapıştırmayı unutma!
-      const response = await fetch("https://servis.buvisan.com/api/chat", {
+      const response = await fetch("https://rockiness-confusion-canned.ngrok-free.dev/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mesaj: input }),
