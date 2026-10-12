@@ -69,7 +69,7 @@ export default function PersonelEkrani() {
       isyerine_varis: '', isyerinden_ayrilis: '', 
       vinc_modeli: '', vinc_seri_no: '', vinc_kapasite: '',
       arizanin_cinsi: '', islem_turu: 'Servis', yapilan_isler: '',
-      degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0, malzeme_id: '' }],
+      degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0, birim_maliyet: 0, malzeme_id: '' }],
       secilen_personeller: [] as string[] // <-- YENİ EKLENDİ (Çoklu Personel Seçimi)
   });
 
@@ -127,7 +127,7 @@ export default function PersonelEkrani() {
       if (!kelime || kelime.trim().length < 2) { setMalzemeOnerileri([]); return; }
       const { data } = await supabase
           .from('materials')
-          .select('id, name, sale_price, unit')
+          .select('id, name, sale_price, buy_price, unit')
           .ilike('name', `%${kelime.trim()}%`)
           .limit(6);
       setMalzemeOnerileri(data || []);
@@ -135,8 +135,17 @@ export default function PersonelEkrani() {
 
   const malzemeSec = (index: number, m: any) => {
       const yeni = [...raporForm.degisen_parcalar];
-      // malzeme_id saklanıyor → rapor kaydedilince bu parça depodan otomatik düşecek
-      yeni[index] = { ...yeni[index], malzeme_id: m.id, parca_adi: m.name, birim_fiyat: Number(m.sale_price) || 0 };
+      // malzeme_id + birim_maliyet saklanıyor:
+      //  • malzeme_id  → rapor kaydedilince parça depodan otomatik düşer
+      //  • birim_maliyet → KULLANIM ANINDAKİ alış fiyatı (ileride fiyat değişse
+      //    bile geçmiş ayın kârı değişmez)
+      yeni[index] = {
+        ...yeni[index],
+        malzeme_id: m.id,
+        parca_adi: m.name,
+        birim_fiyat: Number(m.sale_price) || 0,
+        birim_maliyet: Number(m.buy_price) || 0,
+      };
       setRaporForm({ ...raporForm, degisen_parcalar: yeni });
       setMalzemeOnerileri([]);
       setAktifParcaIndex(null);
@@ -197,7 +206,7 @@ export default function PersonelEkrani() {
   async function cikisYap() { await supabase.auth.signOut(); router.push('/login'); }
 
   // --- PARÇA LİSTESİ YÖNETİMİ ---
-  const parcaEkle = () => setRaporForm({...raporForm, degisen_parcalar: [...raporForm.degisen_parcalar, { parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0, malzeme_id: '' }]});
+  const parcaEkle = () => setRaporForm({...raporForm, degisen_parcalar: [...raporForm.degisen_parcalar, { parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0, birim_maliyet: 0, malzeme_id: '' }]});
   const parcaSil = (index: number) => {
       const yeniListe = [...raporForm.degisen_parcalar];
       yeniListe.splice(index, 1);
@@ -265,7 +274,7 @@ export default function PersonelEkrani() {
           arizanin_cinsi: isKaydi.description || '',
           islem_turu: isKaydi.ticket_type === 'kesif' ? 'Diğer' : 'Servis',
           yapilan_isler: '',
-          degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0, malzeme_id: '' }],
+          degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0, birim_maliyet: 0, malzeme_id: '' }],
           secilen_personeller: baslangicEkip
       };
   }
