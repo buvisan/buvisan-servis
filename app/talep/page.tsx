@@ -7,10 +7,11 @@
 
 import { useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import RandevuTakvimi, { tarihYaz } from '@/components/RandevuTakvimi';
 import { 
   Building2, User, Phone, MapPin, Settings, AlertTriangle, 
   AlertCircle, Send, Loader2, CheckCircle2, Info, Camera, Video, Trash2, Image as ImageIcon,
-  Mic, StopCircle, ChevronRight, X, Search, FileSignature, Mail, Wrench
+  Mic, StopCircle, ChevronRight, X, Search, FileSignature, Mail, Wrench, CalendarCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -41,6 +42,12 @@ export default function ArizaBildirimEkrani() {
   const [gonderiliyor, setGonderiliyor] = useState(false);
   const [yuklemeMesaji, setYuklemeMesaji] = useState("");
   const [basarili, setBasarili] = useState(false);
+
+  // 🗓️ RANDEVU STATE'LERİ
+  const [secilenTarih, setSecilenTarih] = useState<string>('');
+  const [takvimYenile, setTakvimYenile] = useState(0);
+  const [takvimKullanilabilir, setTakvimKullanilabilir] = useState(true);
+  const [randevuBilgi, setRandevuBilgi] = useState<{ tarih: string; slot: number } | null>(null);
 
   // --- ÇOKLU MEDYA FONKSİYONLARI ---
   const medyaSecildi = (e: any) => {
@@ -150,11 +157,19 @@ export default function ArizaBildirimEkrani() {
     } catch (e) { console.error("Telegram hatası:", e); }
   };
 
+  // --- RANDEVU HATA YARDIMCISI (kullanıcıya temiz mesaj göstermek için) ---
+  const randevuHatasi = (mesaj: string) => {
+      const e: any = new Error(mesaj);
+      e.name = 'RandevuHatasi';
+      return e;
+  };
+
   // --- GÖNDERME İŞLEMİ ---
   const talebiGonder = async () => {
       if (aktifMenu === 'ariza' && !secilenBolge) return alert("Lütfen arızalı bölgeyi seçin.");
       if (aktifMenu === 'bakim' && !form.email) return alert("Lütfen teklif için e-posta adresinizi girin.");
       if (aktifMenu !== 'bakim' && !form.sorun && !sesKaydi) return alert("Lütfen talebinizi açıklayan bir not yazın veya ses kaydı bırakın.");
+      if (takvimKullanilabilir && !secilenTarih) return alert("Lütfen size uygun randevu tarihini takvimden seçin.");
 
       setGonderiliyor(true);
       let yuklenenMedyaUrlleri: string[] = [];
@@ -188,8 +203,6 @@ export default function ArizaBildirimEkrani() {
             }
         }
 
-        setYuklemeMesaji("Talebiniz Sisteme Kaydediliyor...");
-
         let issueType = 'Genel Arıza';
         let desc = form.sorun || "Ses kaydı ile bildirildi.";
         let pipelineStat = 'bekliyor';
@@ -206,29 +219,90 @@ export default function ArizaBildirimEkrani() {
             pipelineStat = 'teklif_hazirlanacak';
         }
 
-        const { error } = await supabase.from('service_tickets').insert([{
-            issue_type: issueType,
-            description: desc,
-            status: 'bekliyor',
-            pipeline_status: pipelineStat,
-            manual_customer_name: form.firma_adi,
-            manual_customer_rep: form.yetkili,
-            manual_phone: form.telefon,
-            manual_location: form.adres,
-            manual_crane_info: form.vinc_bilgisi,
-            priority: aktifMenu === 'ariza' ? 'Kritik (Makine Durdu)' : 'Normal',
-            media_urls: yuklenenMedyaUrlleri,
-            audio_url: yuklenenSesUrl
-        }]);
+        // ------------------------------------------------------------------
+        // 🗓️ RANDEVU YOLU (yeni): Tarih seçildiyse hem günü KİLİTLER hem de
+        // Operasyon Takibi kaydını tek işlemde açar. Kapasite garantilidir.
+        // ------------------------------------------------------------------
+        let randevuAlindi = false;
 
-        if (error) throw error;
+        if (secilenTarih) {
+            setYuklemeMesaji("Randevunuz Ayrılıyor...");
+
+            const { data: rpcData, error: rpcError } = await supabase.rpc('randevu_al', {
+                p_musteri_adi: form.firma_adi,
+                p_telefon: form.telefon,
+                p_is_tipi: aktifMenu === 'bakim' ? 'bakim' : (aktifMenu === 'kesif' ? 'kesif' : 'ariza'),
+                p_tarih: secilenTarih,
+                p_yetkili: form.yetkili || null,
+                p_adres: form.adres || null,
+                p_vinc_bilgisi: form.vinc_bilgisi || null,
+                p_aciklama: desc,
+                p_medya_urls: yuklenenMedyaUrlleri,
+                p_ses_url: yuklenenSesUrl,
+                p_bolge: secilenBolge || null
+            });
+
+            if (!rpcError) {
+                randevuAlindi = true;
+                setRandevuBilgi({ tarih: secilenTarih, slot: Number(rpcData?.slot) || 1 });
+            } else {
+                const mesaj = rpcError.message || '';
+                setTakvimYenile(v => v + 1);
+
+                if (mesaj.includes('RANDEVU_DOLU')) {
+                    setSecilenTarih('');
+                    throw randevuHatasi('Seçtiğiniz gün doldu (günde en fazla 3 randevu alınır). Lütfen takvimden başka bir gün seçin.');
+                }
+                if (mesaj.includes('RANDEVU_KAPALI_GUN')) {
+                    setSecilenTarih('');
+                    throw randevuHatasi('Seçtiğiniz gün hizmete kapalı. Lütfen takvimden başka bir gün seçin.');
+                }
+                if (mesaj.includes('RANDEVU_ILERI_TARIH')) throw randevuHatasi('En fazla 60 gün sonrası için randevu alabilirsiniz.');
+                if (mesaj.includes('RANDEVU_GECMIS_TARIH')) throw randevuHatasi('Geçmiş bir tarih için randevu alınamaz.');
+                if (mesaj.includes('RANDEVU_EKSIK_BILGI')) throw randevuHatasi('Firma adı ve telefon zorunludur.');
+
+                // Randevu altyapısı henüz kurulmadıysa eski yönteme düş: form ASLA kırılmaz.
+                const kurulmamis = rpcError.code === 'PGRST202'
+                    || mesaj.includes('Could not find the function')
+                    || mesaj.toLowerCase().includes('does not exist');
+
+                if (!kurulmamis) throw randevuHatasi('Randevu alınamadı: ' + mesaj);
+
+                console.warn('randevu_al bulunamadı, eski kayıt yöntemi kullanılıyor.');
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // YEDEK / ESKİ YOL: mevcut davranış birebir korunur
+        // ------------------------------------------------------------------
+        if (!randevuAlindi) {
+            setYuklemeMesaji("Talebiniz Sisteme Kaydediliyor...");
+
+            const { error } = await supabase.from('service_tickets').insert([{
+                issue_type: issueType,
+                description: desc,
+                status: 'bekliyor',
+                pipeline_status: pipelineStat,
+                manual_customer_name: form.firma_adi,
+                manual_customer_rep: form.yetkili,
+                manual_phone: form.telefon,
+                manual_location: form.adres,
+                manual_crane_info: form.vinc_bilgisi,
+                priority: aktifMenu === 'ariza' ? 'Kritik (Makine Durdu)' : 'Normal',
+                media_urls: yuklenenMedyaUrlleri,
+                audio_url: yuklenenSesUrl
+            }]);
+
+            if (error) throw error;
+        }
 
         await telegramBildirimiGonder(desc, yuklenenMedyaUrlleri.length, aktifMenu, secilenBolge);
 
         setBasarili(true);
         setAktifMenu('none');
       } catch (err: any) {
-        alert("Gönderim sırasında hata oluştu: " + err.message);
+        if (err?.name === 'RandevuHatasi') alert(err.message);
+        else alert("Gönderim sırasında hata oluştu: " + err.message);
       } finally {
         setGonderiliyor(false);
         setYuklemeMesaji("");
@@ -324,7 +398,20 @@ export default function ArizaBildirimEkrani() {
           <motion.div key="success" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-md bg-white rounded-[32px] p-10 text-center flex flex-col items-center justify-center shadow-2xl relative z-10 border-t-8 border-t-emerald-500 mt-10">
               <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mb-6 shadow-inner"><CheckCircle2 size={50} className="text-emerald-500" /></div>
               <h2 className="text-2xl font-black text-slate-800 mb-2">Talebiniz Alındı!</h2>
-              <p className="text-slate-500 text-sm leading-relaxed mb-8">Bildiriminiz ve ekleriniz teknik servis merkezimize başarıyla iletildi. Ekiplerimiz en kısa sürede sizinle iletişime geçecektir.</p>
+              <p className="text-slate-500 text-sm leading-relaxed mb-6">Bildiriminiz ve ekleriniz teknik servis merkezimize başarıyla iletildi. Ekiplerimiz en kısa sürede sizinle iletişime geçecektir.</p>
+
+              {randevuBilgi && (
+                <div className="w-full bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 mb-6 text-left">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CalendarCheck size={16} className="text-blue-600" />
+                    <span className="text-[10px] font-black uppercase tracking-wider text-blue-600">Randevunuz Oluşturuldu</span>
+                  </div>
+                  <p className="text-base font-extrabold text-slate-800">{tarihYaz(randevuBilgi.tarih)}</p>
+                  <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
+                    O günün <strong>{randevuBilgi.slot}. randevusu</strong> size ayrıldı. Ekibimiz gelmeden önce sizinle iletişime geçecektir.
+                  </p>
+                </div>
+              )}
               <button onClick={() => window.location.reload()} className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl transition text-sm">Yeni Talep Oluştur</button>
           </motion.div>
         )}
@@ -451,6 +538,8 @@ export default function ArizaBildirimEkrani() {
                          </div>
                      </div>
 
+                     <RandevuTakvimi value={secilenTarih} onChange={(t) => setSecilenTarih(t)} vurgu="rose" yenileKey={takvimYenile} onDurum={setTakvimKullanilabilir} />
+
                      <button onClick={talebiGonder} disabled={gonderiliyor} className="w-full py-4 bg-rose-600 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all flex justify-center items-center gap-2">
                        {gonderiliyor ? <Loader2 className="animate-spin"/> : "ŞARTLARI KABUL ET VE ÇAĞIR"}
                      </button>
@@ -499,6 +588,8 @@ export default function ArizaBildirimEkrani() {
                          </div>
                      </div>
 
+                     <RandevuTakvimi value={secilenTarih} onChange={(t) => setSecilenTarih(t)} vurgu="indigo" yenileKey={takvimYenile} onDurum={setTakvimKullanilabilir} />
+
                      <button onClick={talebiGonder} disabled={gonderiliyor} className="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all flex justify-center items-center gap-2">
                        {gonderiliyor ? <Loader2 className="animate-spin"/> : "ŞARTLARI KABUL ET VE KEŞİF İSTE"}
                      </button>
@@ -526,6 +617,8 @@ export default function ArizaBildirimEkrani() {
                            <textarea rows={2} placeholder="Kaç adet vinç var, özel talepleriniz neler?" value={form.sorun} onChange={e => setForm({...form, sorun: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm resize-none outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition leading-relaxed"/>
                         </div>
                      </div>
+
+                     <RandevuTakvimi value={secilenTarih} onChange={(t) => setSecilenTarih(t)} vurgu="blue" yenileKey={takvimYenile} onDurum={setTakvimKullanilabilir} />
 
                      <button onClick={talebiGonder} disabled={gonderiliyor} className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-200 active:scale-95 transition-all">
                        {gonderiliyor ? <Loader2 className="animate-spin"/> : "TEKLİF TALEP ET"}
