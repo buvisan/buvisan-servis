@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useParams } from 'next/navigation';
 import jsPDF from 'jspdf';
@@ -19,6 +19,7 @@ export default function VincDetaySayfasi() {
   // --- VERİ STATELERİ ---
   const [vinc, setVinc] = useState<any>(null);
   const [gecmis, setGecmis] = useState<any[]>([]);
+  const [acikBiletId, setAcikBiletId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
   // --- BOTTOM SHEET (AÇILIR MENÜ) STATELERİ ---
@@ -41,34 +42,54 @@ export default function VincDetaySayfasi() {
 
   const bolgeler = ['Genel', 'Köprü', 'Kedi / Araba', 'Halat / Zincir', 'Kanca', 'Elektrik Panosu', 'Kumanda', 'Yürüyüş Takımı'];
 
-  useEffect(() => {
-    async function verileriGetir() {
-      if (!id) return;
-      
-      const { data: vincData, error: vincError } = await supabase
-        .from('cranes')
-        .select('*, service_tickets(*)')
-        .eq('id', id)
-        .single();
-      
-      if (vincError) {
-        console.error("Vinç hatası:", vincError);
-        setLoading(false);
-        return;
-      }
-      setVinc(vincData);
+  // 🔒 GÜVENLİ VERİ ÇEKME — QR ADRESİ DEĞİŞMEDİ (/vinc/<kimlik>)
+  // Eskiden: cranes?select=*,service_tickets(*)  → TÜM vinç/iş emri verisi iniyordu
+  // Şimdi  : vinc_kimlik() fonksiyonu → sadece BU vincin güvenli alanları
+  const verileriGetir = useCallback(async () => {
+    if (!id) return;
 
-      const { data: gecmisData } = await supabase
-        .from('crane_history')
-        .select('*')
-        .eq('crane_id', id)
-        .order('created_at', { ascending: false });
-      
-      setGecmis(gecmisData || []);
+    const { data, error } = await supabase.rpc('vinc_kimlik', { p_id: id });
+
+    if (!error && data && (data as any).vinc) {
+      setVinc((data as any).vinc);
+      setGecmis((data as any).gecmis || []);
+      setAcikBiletId((data as any).acik_bilet_id || null);
       setLoading(false);
+      return;
     }
-    verileriGetir();
+
+    // 🛡️ EMNİYET VALFİ: güvenli fonksiyon henüz kurulmadıysa eski yönteme düş.
+    // Böylece QR sayfası HİÇBİR DURUMDA kırılmaz.
+    console.warn('vinc_kimlik kullanılamadı, eski yöntem devrede:', error?.message);
+
+    const { data: vincData, error: vincError } = await supabase
+      .from('cranes')
+      .select('*, service_tickets(*)')
+      .eq('id', id)
+      .single();
+
+    if (vincError || !vincData) {
+      console.error('Vinç hatası:', vincError);
+      setLoading(false);
+      return;
+    }
+
+    setVinc(vincData);
+    setAcikBiletId(
+      (vincData as any).service_tickets?.find((t: any) => t.status !== 'tamamlandi')?.id || null
+    );
+
+    const { data: gecmisData } = await supabase
+      .from('crane_history')
+      .select('*')
+      .eq('crane_id', id)
+      .order('created_at', { ascending: false });
+
+    setGecmis(gecmisData || []);
+    setLoading(false);
   }, [id]);
+
+  useEffect(() => { verileriGetir(); }, [verileriGetir]);
 
   const dosyaIsminiTemizle = (isim: string) => isim.replace(/[^a-zA-Z0-9.-]/g, '').toLowerCase();
 
@@ -212,9 +233,8 @@ export default function VincDetaySayfasi() {
 
         setPerDurum("success");
         
-        // Geçmiş listesini güncelle
-        const { data: gecmisData } = await supabase.from('crane_history').select('*').eq('crane_id', id).order('created_at', { ascending: false });
-        setGecmis(gecmisData || []);
+        // Geçmiş listesini güncelle (güvenli fonksiyon üzerinden)
+        await verileriGetir();
 
         setTimeout(() => {
             setPerDurum("");
@@ -407,11 +427,11 @@ export default function VincDetaySayfasi() {
         </div>
 
         {/* CANLI TICKET SOHBETİ */}
-        {vinc && vinc.service_tickets?.some((t: any) => t.status !== 'tamamlandi') && (
+        {vinc && acikBiletId && (
           <div className="mt-8 mb-4">
             <h3 className="text-white font-bold text-xs mb-3 ml-2 flex items-center gap-2 opacity-90"><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Devam Eden Talep / Destek</h3>
             <div className="bg-white rounded-[2rem] p-2 shadow-2xl overflow-hidden">
-              <ChatAlani ticketId={vinc.service_tickets.find((t: any) => t.status !== 'tamamlandi').id} kimimBen="musteri" />
+              <ChatAlani ticketId={acikBiletId} kimimBen="musteri" />
             </div>
           </div>
         )}
