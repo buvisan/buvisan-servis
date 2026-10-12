@@ -1,6 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/lib/supabaseClient";
+
+// Admin oturum jetonu (asistan API'si yönetici yetkisi ister)
+async function token() {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? "";
+}
 
 export default function KayoChat() {
   const [isOpen, setIsOpen] = useState(false);
@@ -46,17 +53,25 @@ export default function KayoChat() {
     setMesajlar([...yeniMesajlar, { role: "Kayo", content: "Düşünüyorum..." }]);
 
     try {
-      // DİKKAT: Kendi aktif Ngrok URL'ini buraya yapıştırmayı unutma!
-      const response = await fetch("https://rockiness-confusion-canned.ngrok-free.dev/api/chat", {
+      // Kendi sunucumuzdaki asistan: Google AI + veritabanı araçları
+      // (mimli firma kontrolü, ciro sorgusu, teklif taslağı vb.)
+      const gecmis = yeniMesajlar
+        .filter((m) => m.content !== "Düşünüyorum...")
+        .map((m) => ({ role: m.role === "Sen" ? "user" : "assistant", content: m.content }));
+
+      const yanit = await fetch("/api/asistan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mesaj: input }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await token()}`,
+        },
+        body: JSON.stringify({ mesajlar: gecmis }),
       });
 
-      const data = await response.json();
-      setMesajlar([...yeniMesajlar, { role: "Kayo", content: data.cevap }]);
+      const veri = await yanit.json();
+      setMesajlar([...yeniMesajlar, { role: "Kayo", content: veri.cevap ?? veri.hata ?? "Cevap alınamadı." }]);
     } catch (error) {
-      setMesajlar([...yeniMesajlar, { role: "Kayo", content: "Kanka arka plana (Python) bağlanamadım. Ngrok açık mı?" }]);
+      setMesajlar([...yeniMesajlar, { role: "Kayo", content: "Asistana ulaşamadım. Bağlantını kontrol edip tekrar dener misin?" }]);
     }
   };
 
