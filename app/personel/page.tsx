@@ -12,11 +12,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import GununPlani from '@/components/GununPlani';
 import Gecmisim from '@/components/Gecmisim';
 import ImzaPad from '@/components/ImzaPad';
+import SesliYazi from '@/components/SesliYazi';
+import KuyrukBandi from '@/components/KuyrukBandi';
 import { PERSONEL_LISTESI, listedenIsimBul } from '@/lib/personel';
+import { kuyrugaEkle, agHatasiMi } from '@/lib/kuyruk';
 import { 
   LogOut, MapPin, CheckCircle2, Clock, Truck, 
   Wrench, ChevronRight, FileSignature, ArrowLeft, Plus, Trash2, Send, Loader2, User, HardHat, FileText, CalendarClock, Mic,
-  Users, CheckSquare, Square, Phone, Navigation, Search, Zap, Camera, Video, ImageIcon, X, Crosshair
+  Users, CheckSquare, Square, Phone, Navigation, Search, Zap, Camera, Video, ImageIcon, X, Crosshair, WifiOff
 } from 'lucide-react';
 
 // ----------------------------------------------------------------------------
@@ -81,6 +84,7 @@ export default function PersonelEkrani() {
   const [malzemeOnerileri, setMalzemeOnerileri] = useState<any[]>([]);
   const [aktifParcaIndex, setAktifParcaIndex] = useState<number | null>(null);
   const [yuklemeMesaji, setYuklemeMesaji] = useState('');
+  const [kuyruklandi, setKuyruklandi] = useState(false);
 
   // --- MEDYA SEÇİMİ (en fazla 5 dosya) ---
   const medyaSecildi = (e: any) => {
@@ -218,6 +222,7 @@ export default function PersonelEkrani() {
   const formuAc = (isKaydi: any) => {
       setSeciliIs(isKaydi);
       setBasarili(false);
+      setKuyruklandi(false);
       setTaslakGeriYuklendi(false);
 
       // 1) ÖNCE TASLAK: sahadayken yarım kalan form varsa onu geri getir
@@ -291,6 +296,9 @@ export default function PersonelEkrani() {
           ? raporForm.secilen_personeller.join(" - ") 
           : aktifPersonel?.full_name || 'Bilinmeyen Personel';
 
+      // Çevrimdışı kalınırsa rapor bu paketle kuyruğa alınır (hiçbir rapor kaybolmaz)
+      let kuyrukPaketi: any = null;
+
       try {
           // --- 1) FOTOĞRAF / VİDEO YÜKLEME ---
           let yuklenenMedya: string[] = [];
@@ -357,6 +365,14 @@ export default function PersonelEkrani() {
               malzeme_tutari: malzemeTutari
           };
 
+          kuyrukPaketi = {
+              id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
+              ticket_id: seciliIs.id,
+              olusturma: new Date().toISOString(),
+              temel: temelPaket,
+              gelismis: gelismisPaket,
+          };
+
           // Önce tam paket denenir; yeni kolonlar henüz yoksa rapor KAYBOLMASIN diye
           // temel paketle tekrar denenir.
           let kayitHatasi: any = null;
@@ -406,7 +422,25 @@ export default function PersonelEkrani() {
           }, 3000);
 
       } catch (err: any) {
-          alert("Kaydedilirken hata oluştu: " + err.message);
+          const mesaj = String(err?.message || '');
+          const cevrimdisi = (typeof navigator !== 'undefined' && !navigator.onLine) || agHatasiMi(mesaj);
+
+          if (cevrimdisi && kuyrukPaketi) {
+              // Medya/imza yüklendi, sadece kayıt düşemedi → kuyruğa al, internet gelince kendi gitsin
+              kuyrugaEkle(kuyrukPaketi);
+              try { window.localStorage.removeItem(TASLAK_ONEK + seciliIs.id); } catch { /* yoksay */ }
+              setTaslakGeriYuklendi(false);
+              setKuyruklandi(true);
+              setBasarili(true);
+              setTimeout(() => {
+                  setFormAcik(false);
+                  verileriGetir();
+              }, 3000);
+          } else if (cevrimdisi) {
+              alert('İnternet bağlantısı yok.\n\nFormun cihazında saklandı. Bağlantı gelince tekrar "Kaydet" demen yeterli — hiçbir bilgi kaybolmadı.');
+          } else {
+              alert("Kaydedilirken hata oluştu: " + mesaj);
+          }
       } finally {
           setGonderiliyor(false);
           setYuklemeMesaji('');
@@ -444,6 +478,9 @@ export default function PersonelEkrani() {
             </div>
         </div>
       </div>
+
+      {/* 📴 BEKLEYEN RAPORLAR (çevrimdışı kuyruk) */}
+      <KuyrukBandi />
 
       {/* 📅 SERVİS PLANI (BUGÜN / YARIN) - Tüm ekip + kendi işlerin vurgulu */}
       <GununPlani aktifPersonel={aktifPersonel} onRaporAc={formuAc} />
@@ -580,9 +617,25 @@ export default function PersonelEkrani() {
                 >
                     {basarili ? (
                         <div className="p-10 text-center flex flex-col items-center justify-center min-h-[400px]">
-                            <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mb-6 shadow-inner"><CheckCircle2 size={50} className="text-emerald-500" /></div>
-                            <h2 className="text-2xl font-black text-slate-800 mb-2">Rapor İletildi!</h2>
-                            <p className="text-slate-500 text-sm leading-relaxed mb-8">Servis formu başarıyla Admin paneline aktarıldı ve iş emri kapatıldı.</p>
+                            <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-inner ${kuyruklandi ? 'bg-amber-100' : 'bg-emerald-100'}`}>
+                                {kuyruklandi
+                                    ? <WifiOff size={50} className="text-amber-500" />
+                                    : <CheckCircle2 size={50} className="text-emerald-500" />}
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-800 mb-2">
+                                {kuyruklandi ? 'Rapor Kuyruğa Alındı' : 'Rapor İletildi!'}
+                            </h2>
+                            <p className="text-slate-500 text-sm leading-relaxed mb-4">
+                                {kuyruklandi
+                                    ? 'İnternet bağlantısı yoktu. Rapor cihazında güvenle bekliyor ve bağlantı gelince kendiliğinden gönderilecek.'
+                                    : 'Servis formu başarıyla Admin paneline aktarıldı ve iş emri kapatıldı.'}
+                            </p>
+                            {kuyruklandi && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-[11px] font-bold text-amber-700 leading-relaxed">
+                                    🛡️ Hiçbir bilgi kaybolmadı — formu kapatabilirsin.<br />
+                                    Fotoğraflar ve imza da kuyrukla birlikte gönderilecek.
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <>
@@ -724,6 +777,10 @@ export default function PersonelEkrani() {
                                     <div className="space-y-1.5 mt-4">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1 block">Arızanın Cinsi (Sorun Ne İdi?)</label>
                                         <textarea rows={2} placeholder="Arıza detayını buraya girin..." value={raporForm.arizanin_cinsi} onChange={e=>setRaporForm({...raporForm, arizanin_cinsi: e.target.value})} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-500 transition resize-none leading-relaxed" />
+                                        <SesliYazi
+                                            etiket="Sesle anlat"
+                                            onMetin={(m) => setRaporForm((o) => ({ ...o, arizanin_cinsi: o.arizanin_cinsi ? o.arizanin_cinsi + ' ' + m : m }))}
+                                        />
                                     </div>
                                 </div>
 
@@ -731,6 +788,10 @@ export default function PersonelEkrani() {
                                 <div className="space-y-1.5">
                                     <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider ml-1 flex items-center gap-2"><Wrench className="w-4 h-4 text-amber-500"/> Yapılan İşlemler (Detaylı)</label>
                                     <textarea rows={4} placeholder="Makine incelendi, şu parçalar söküldü, yerine bu takıldı, test edildi vb..." value={raporForm.yapilan_isler} onChange={e=>setRaporForm({...raporForm, yapilan_isler: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-3xl text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-amber-400 shadow-inner resize-none leading-relaxed" />
+                                    <SesliYazi
+                                        etiket="Sesle yaz · Ellerin boş kalsın"
+                                        onMetin={(m) => setRaporForm((o) => ({ ...o, yapilan_isler: o.yapilan_isler ? o.yapilan_isler + ' ' + m : m }))}
+                                    />
                                 </div>
 
                                 {/* FOTOĞRAF / VİDEO YÜKLEME */}
