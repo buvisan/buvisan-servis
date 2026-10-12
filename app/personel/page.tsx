@@ -69,7 +69,7 @@ export default function PersonelEkrani() {
       isyerine_varis: '', isyerinden_ayrilis: '', 
       vinc_modeli: '', vinc_seri_no: '', vinc_kapasite: '',
       arizanin_cinsi: '', islem_turu: 'Servis', yapilan_isler: '',
-      degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0 }],
+      degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0, malzeme_id: '' }],
       secilen_personeller: [] as string[] // <-- YENİ EKLENDİ (Çoklu Personel Seçimi)
   });
 
@@ -197,7 +197,7 @@ export default function PersonelEkrani() {
   async function cikisYap() { await supabase.auth.signOut(); router.push('/login'); }
 
   // --- PARÇA LİSTESİ YÖNETİMİ ---
-  const parcaEkle = () => setRaporForm({...raporForm, degisen_parcalar: [...raporForm.degisen_parcalar, { parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0 }]});
+  const parcaEkle = () => setRaporForm({...raporForm, degisen_parcalar: [...raporForm.degisen_parcalar, { parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0, malzeme_id: '' }]});
   const parcaSil = (index: number) => {
       const yeniListe = [...raporForm.degisen_parcalar];
       yeniListe.splice(index, 1);
@@ -265,7 +265,7 @@ export default function PersonelEkrani() {
           arizanin_cinsi: isKaydi.description || '',
           islem_turu: isKaydi.ticket_type === 'kesif' ? 'Diğer' : 'Servis',
           yapilan_isler: '',
-          degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0 }],
+          degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0, malzeme_id: '' }],
           secilen_personeller: baslangicEkip
       };
   }
