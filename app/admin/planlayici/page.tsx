@@ -19,7 +19,7 @@ import {
   ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus, X,
   CheckCircle2, XCircle, Clock, Phone, MapPin, Wrench, Search, Settings2,
   User, AlertTriangle, Ban, Truck, CalendarClock, History, LayoutGrid,
-  GripVertical, Save, Trash2, ExternalLink, RefreshCw, Users, TrendingUp, Info
+  GripVertical, Save, Trash2, ExternalLink, RefreshCw, Users, TrendingUp, Info, Check
 } from 'lucide-react';
 
 const AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -82,13 +82,14 @@ export default function PlanlayiciSayfasi() {
   const [tasimaId, setTasimaId] = useState<string | null>(null);
   const [tasimaTarih, setTasimaTarih] = useState('');
   const [personelId, setPersonelId] = useState<string | null>(null);
+  const [personelSecim, setPersonelSecim] = useState<string[]>([]);
   const [notId, setNotId] = useState<string | null>(null);
   const [notMetni, setNotMetni] = useState('');
   const [kaydediliyor, setKaydediliyor] = useState(false);
 
   const [yeni, setYeni] = useState({
     musteri_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '',
-    is_tipi: 'ariza', tarih: '', aciklama: '', personel: '', ticketAc: true
+    is_tipi: 'ariza', tarih: '', aciklama: '', personeller: [] as string[], ticketAc: true
   });
 
   const bugunIso = isoTarih(new Date());
@@ -234,11 +235,25 @@ export default function PlanlayiciSayfasi() {
     setIslemde(null);
   }
 
-  async function personelKaydet(r: any, personel: string) {
+  async function personelKaydet(r: any) {
     setIslemde(r.id);
-    const { error } = await supabase.from('randevular').update({ atanan_personel: personel || null }).eq('id', r.id);
-    if (error) alert('Hata: ' + error.message);
-    else { setPersonelId(null); await verileriGetir(); }
+    const birlesik = personelSecim.join(' - ');
+
+    const { error } = await supabase.from('randevular')
+      .update({ atanan_personel: birlesik || null })
+      .eq('id', r.id);
+
+    if (error) { alert('Hata: ' + error.message); setIslemde(null); return; }
+
+    // Operasyon Takibi'ndeki iş emrinin ekibi de aynı olsun (tek kayıt, iki görünüm)
+    if (r.ticket_id) {
+      await supabase.from('service_tickets')
+        .update({ assigned_team: birlesik || null })
+        .eq('id', r.ticket_id);
+    }
+
+    setPersonelId(null);
+    await verileriGetir();
     setIslemde(null);
   }
 
@@ -283,6 +298,7 @@ export default function PlanlayiciSayfasi() {
           manual_location: yeni.adres,
           manual_crane_info: yeni.vinc_bilgisi,
           priority: yeni.is_tipi === 'ariza' ? 'Kritik (Makine Durdu)' : 'Normal',
+          assigned_team: yeni.personeller.join(' - ') || null,
         }]).select('id').single();
 
         if (tErr) throw tErr;
@@ -300,7 +316,7 @@ export default function PlanlayiciSayfasi() {
         slot: bosSlot,
         durum: 'planlandi',
         kaynak: 'admin',
-        atanan_personel: yeni.personel || null,
+        atanan_personel: yeni.personeller.join(' - ') || null,
         admin_notu: yeni.aciklama || null,
         ticket_id: ticketId,
       }]);
@@ -308,7 +324,7 @@ export default function PlanlayiciSayfasi() {
       if (error) throw error;
 
       setEkleAcik(false);
-      setYeni({ musteri_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', is_tipi: 'ariza', tarih: seciliTarih, aciklama: '', personel: '', ticketAc: true });
+      setYeni({ musteri_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', is_tipi: 'ariza', tarih: seciliTarih, aciklama: '', personeller: [], ticketAc: true });
       setSeciliTarih(yeni.tarih);
       await verileriGetir();
     } catch (e: any) {
@@ -626,7 +642,7 @@ export default function PlanlayiciSayfasi() {
                           onGeriAl={() => durumDegistir(kayit, 'planlandi')}
                           onIptal={() => durumDegistir(kayit, 'iptal')}
                           onTasi={() => { setTasimaId(kayit.id); setTasimaTarih(String(kayit.randevu_tarihi).slice(0, 10)); }}
-                          onPersonel={() => setPersonelId(kayit.id)}
+                          onPersonel={() => { setPersonelId(kayit.id); setPersonelSecim(String(kayit.atanan_personel || '').split(' - ').map((x: string) => x.trim()).filter(Boolean)); }}
                           onNot={() => { setNotId(kayit.id); setNotMetni(kayit.admin_notu || ''); }}
                           onSil={() => randevuSil(kayit)}
                           tasimaAcik={tasimaId === kayit.id}
@@ -635,7 +651,10 @@ export default function PlanlayiciSayfasi() {
                           onTasiOnayla={() => randevuTasi(kayit)}
                           onTasiVazgec={() => { setTasimaId(null); setTasimaTarih(''); }}
                           personelAcik={personelId === kayit.id}
-                          onPersonelSec={(p: string) => personelKaydet(kayit, p)}
+                          personelSecim={personelSecim}
+                          onPersonelToggle={(p: string) => setPersonelSecim((onceki) => onceki.includes(p) ? onceki.filter((x) => x !== p) : [...onceki, p])}
+                          onPersonelKaydet={() => personelKaydet(kayit)}
+                          onPersonelVazgec={() => setPersonelId(null)}
                           notAcik={notId === kayit.id}
                           notMetni={notMetni}
                           setNotMetni={setNotMetni}
@@ -828,12 +847,19 @@ export default function PlanlayiciSayfasi() {
                     </p>
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Personel</label>
-                    <select value={yeni.personel} onChange={(e) => setYeni({ ...yeni, personel: e.target.value })}
-                      className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none cursor-pointer">
-                      <option value="">Atanmadı</option>
-                      {PERSONEL_LISTESI.map((p) => <option key={p} value={p}>{p}</option>)}
-                    </select>
+                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Personel (birden fazla seçilebilir)</label>
+                    <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                      {PERSONEL_LISTESI.map((p) => {
+                        const secili = yeni.personeller.includes(p);
+                        return (
+                          <button key={p} type="button"
+                            onClick={() => setYeni({ ...yeni, personeller: secili ? yeni.personeller.filter((x) => x !== p) : [...yeni.personeller, p] })}
+                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition flex items-center gap-1 ${secili ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
+                            {secili && <Check size={10} />} {p}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -951,7 +977,8 @@ export default function PlanlayiciSayfasi() {
 function RandevuKarti({
   kayit, islemde, onYapildi, onGeriAl, onIptal, onTasi, onPersonel, onNot, onSil,
   tasimaAcik, tasimaTarih, setTasimaTarih, onTasiOnayla, onTasiVazgec,
-  personelAcik, onPersonelSec, notAcik, notMetni, setNotMetni, onNotKaydet, onNotVazgec,
+  personelAcik, personelSecim, onPersonelToggle, onPersonelKaydet, onPersonelVazgec,
+  notAcik, notMetni, setNotMetni, onNotKaydet, onNotVazgec,
 }: any) {
   const tip = IS_TIPI[kayit.is_tipi] || IS_TIPI.ariza;
   const TipIkon = tip.ikon;
@@ -1047,18 +1074,27 @@ function RandevuKarti({
         </div>
       )}
 
-      {/* PERSONEL PANELİ */}
+      {/* PERSONEL PANELİ (çoklu seçim - genelde iki kişi gider) */}
       {personelAcik && (
         <div className="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Personel ata</p>
-          <div className="flex flex-wrap gap-1.5">
-            {PERSONEL_LISTESI.map((p) => (
-              <button key={p} onClick={() => onPersonelSec(p)}
-                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition ${kayit.atanan_personel === p ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
-                {p}
-              </button>
-            ))}
-            <button onClick={() => onPersonelSec('')} className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border border-slate-200 bg-white text-slate-400 hover:bg-slate-100">Temizle</button>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Personel ata</p>
+          <p className="text-[10px] text-slate-400 font-medium mb-2">Birden fazla kişi seçebilirsin (genelde 2 personel gider).</p>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {PERSONEL_LISTESI.map((p) => {
+              const secili = (personelSecim || []).includes(p);
+              return (
+                <button key={p} onClick={() => onPersonelToggle(p)}
+                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition flex items-center gap-1 ${secili ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
+                  {secili && <Check size={10} />} {p}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onPersonelKaydet} className="bg-slate-900 text-white px-3 py-2 rounded-lg text-[10px] font-black hover:bg-slate-800 transition">
+              KAYDET ({(personelSecim || []).length})
+            </button>
+            <button onClick={onPersonelVazgec} className="bg-white border border-slate-200 text-slate-500 px-3 py-2 rounded-lg text-[10px] font-bold">İptal</button>
           </div>
         </div>
       )}

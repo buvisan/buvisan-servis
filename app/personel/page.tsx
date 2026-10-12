@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import GununPlani from '@/components/GununPlani';
 import { 
   LogOut, MapPin, CheckCircle2, Clock, Truck, 
   Wrench, ChevronRight, FileSignature, ArrowLeft, Plus, Trash2, Send, Loader2, User, HardHat, FileText, CalendarClock, Mic,
@@ -144,6 +145,13 @@ export default function PersonelEkrani() {
 
           await supabase.from('service_tickets').update({ pipeline_status: 'tamamlandi', status: 'tamamlandi' }).eq('id', seciliIs.id);
 
+          // Planlayıcıdaki randevuyu da otomatik "Yapıldı" yap (hata olsa bile rapor kaydı bozulmaz)
+          try {
+              await supabase.rpc('randevu_tamamla', { p_ticket_id: seciliIs.id });
+          } catch (senkronHata) {
+              console.warn('Randevu senkronu yapılamadı:', senkronHata);
+          }
+
           setBasarili(true);
           setTimeout(() => {
               setFormAcik(false);
@@ -188,6 +196,9 @@ export default function PersonelEkrani() {
             </div>
         </div>
       </div>
+
+      {/* 📅 SERVİS PLANI (BUGÜN / YARIN) - Tüm ekip + kendi işlerin vurgulu */}
+      <GununPlani aktifPersonel={aktifPersonel} onRaporAc={formuAc} />
 
       {/* BEKLEYEN İŞLER LİSTESİ */}
       <div className="p-4 space-y-4">
