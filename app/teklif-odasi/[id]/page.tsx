@@ -28,16 +28,27 @@ export default function TeklifOdasiMusteriEkrani() {
 
   const teklifiGetir = async () => {
     try {
-      const { data, error } = await supabase
-        .from('offers')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // 🔒 Güvenli yol: SADECE bu teklifi getirir (eskiden tüm 220 teklif iniyordu)
+      const { data, error } = await supabase.rpc('teklif_getir', { p_id: id });
 
-      if (error || !data) {
+      let kayit: any = data;
+
+      // 🛡️ EMNİYET VALFİ: fonksiyon henüz kurulmadıysa eski yönteme düş
+      if (error || !kayit) {
+        const { data: eski } = await supabase.from('offers').select('*').eq('id', id).single();
+        kayit = eski;
+      }
+
+      if (!kayit) {
         setHata(true);
       } else {
-        setTeklif(data);
+        setTeklif(kayit);
+
+        // Seçilmiş opsiyonlar varsa geri yükle
+        // (eskiden kaydediliyordu ama sayfa yenilenince kayboluyordu)
+        if (kayit.selected_options && typeof kayit.selected_options === 'object') {
+          setOpsiyonlar((o) => ({ ...o, ...kayit.selected_options }));
+        }
       }
     } catch (err) {
       setHata(true);
@@ -84,24 +95,40 @@ export default function TeklifOdasiMusteriEkrani() {
     
     setIslemYukleniyor(true);
     try {
-      const { error } = await supabase
-        .from('offers')
-        .update({ 
-            status: yeniDurum,
-            final_price: dinamikToplamHesapla(),
-            selected_options: opsiyonlar
-        })
-        .eq('id', id);
+      const hesaplanan = dinamikToplamHesapla();
 
-      if (error) {
-        console.error("Supabase Hatası:", error); // Hatayı konsolda da görebilmek için
-        throw error;
+      // 🔒 Güvenli yol: yanıt sunucuda kontrol edilir.
+      // Zaten yanıtlanmış bir teklifin fiyatı bir daha değiştirilemez.
+      const { data, error } = await supabase.rpc('teklif_yanitla', {
+        p_id: id,
+        p_durum: yeniDurum,
+        p_final: hesaplanan,
+        p_secenekler: opsiyonlar,
+      });
+
+      if (data && (data as any).ok === false) {
+        alert((data as any).mesaj || 'Bu teklif zaten yanıtlanmış.');
+        setIslemYukleniyor(false);
+        return;
       }
 
-      setTeklif({ ...teklif, status: yeniDurum });
-      
+      let basarili = !error;
+
+      // 🛡️ EMNİYET VALFİ: fonksiyon henüz kurulmadıysa eski yönteme düş
+      if (error) {
+        const { error: eskiHata } = await supabase
+          .from('offers')
+          .update({ status: yeniDurum, final_price: hesaplanan, selected_options: opsiyonlar })
+          .eq('id', id);
+        basarili = !eskiHata;
+      }
+
+      if (!basarili) throw new Error('Kaydedilemedi');
+
+      setTeklif({ ...teklif, status: yeniDurum, final_price: hesaplanan, selected_options: opsiyonlar });
+
     } catch (err) {
-      alert("İşlem sırasında bir hata oluştu, lütfen tekrar deneyin. (Konsolu kontrol et)");
+      alert("İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.");
     } finally {
       setIslemYukleniyor(false);
     }
