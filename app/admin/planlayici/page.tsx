@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { PERSONEL_LISTESI } from '@/lib/personel';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -26,11 +27,8 @@ const AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz',
 const GUNLER = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const GUNLER_UZUN = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
 
-const PERSONEL_LISTESI = [
-  "VOLKAN ACAR", "HAMZA ATTAR", "VEYSEL ÇARKLI", "KERİM AKDOĞAN", "GÖKHAN GÖK",
-  "BASİL HAVATİMİ", "BURHAN KANDEMİR", "OKAN ARAN", "ADEM ACAR"
-];
-
+// Personel listesi TEK KAYNAKTAN gelir (lib/personel.ts).
+// Rapor formu da aynı listeyi kullanır; iki liste bir daha ayrışmaz.
 const isoTarih = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 

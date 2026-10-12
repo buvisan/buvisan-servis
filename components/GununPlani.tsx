@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { isimEslesiyor } from '@/lib/personel';
 import { motion } from 'framer-motion';
 import {
   CalendarDays, MapPin, Phone, Wrench, FileText, CheckCircle2, AlertTriangle,
@@ -30,17 +31,6 @@ const tarihYaz = (t: string) => {
   const d = new Date(y, m - 1, g);
   return `${g} ${AYLAR[m - 1]} ${y}, ${GUNLER[(d.getDay() + 6) % 7]}`;
 };
-
-// Türkçe karakter ve büyük/küçük harf farkını yok sayan normalleştirme
-export const isimNormalize = (s: string) =>
-  (s || '')
-    .toLocaleLowerCase('tr-TR')
-    .replace(/ı/g, 'i').replace(/İ/g, 'i')
-    .replace(/ş/g, 's').replace(/ğ/g, 'g')
-    .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ç/g, 'c')
-    .replace(/[^a-z0-9 ]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
 
 const IS_TIPI: Record<string, { ad: string; sinif: string; ikon: any }> = {
   ariza: { ad: 'Arıza / Servis', sinif: 'bg-rose-100 text-rose-700 border-rose-200', ikon: AlertTriangle },
@@ -110,18 +100,15 @@ export default function GununPlani({
     return () => document.removeEventListener('visibilitychange', elle);
   }, [verileriGetir]);
 
-  const benimNormal = isimNormalize(benimAdim);
-
-  // Isim birebir tutmasa da eslessin: tam eslesme, icinde gecme veya
-  // ad-soyadin anlamli bir parcasi (3+ harf) gectiginde "benim isim" sayilir.
+  // Personel alanı "A - B" şeklinde birden fazla kişi içerebilir; her birini ayrı sınarız
   const benimMi = useCallback((r: any) => {
-    if (!benimNormal) return false;
-    const ekip = isimNormalize(r?.atanan_personel || '');
-    if (!ekip) return false;
-    if (ekip === benimNormal || ekip.includes(benimNormal) || benimNormal.includes(ekip)) return true;
-    const parcalar = benimNormal.split(' ').filter((p) => p.length >= 3);
-    return parcalar.length > 0 && parcalar.every((p) => ekip.includes(p));
-  }, [benimNormal]);
+    if (!benimAdim) return false;
+    const kisiler = String(r?.atanan_personel || '')
+      .split(' - ')
+      .map((x) => x.trim())
+      .filter(Boolean);
+    return kisiler.some((k) => isimEslesiyor(k, benimAdim));
+  }, [benimAdim]);
 
   const bugunListe = useMemo(() => kayitlar.filter((r) => String(r.randevu_tarihi).slice(0, 10) === bugun), [kayitlar, bugun]);
   const yarinListe = useMemo(() => kayitlar.filter((r) => String(r.randevu_tarihi).slice(0, 10) === yarin), [kayitlar, yarin]);
@@ -293,7 +280,7 @@ export default function GununPlani({
                         <p className="text-xs font-medium flex items-center gap-2 flex-wrap">
                           <Users size={12} className="text-slate-400" />
                           {personeller.map((p, i) => (
-                            <span key={p} className={isimNormalize(p) === benimNormal || benimMi({ atanan_personel: p }) ? 'text-blue-700 font-black' : 'text-slate-500'}>
+                            <span key={p} className={isimEslesiyor(p, benimAdim) ? 'text-blue-700 font-black' : 'text-slate-500'}>
                               {p}{i < personeller.length - 1 ? ',' : ''}
                             </span>
                           ))}

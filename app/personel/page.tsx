@@ -5,20 +5,47 @@
 // (Dijital Servis Formu, Sesli Müşteri Kaydı ve Çoklu Personel Takibi)
 // ----------------------------------------------------------------------------
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import GununPlani from '@/components/GununPlani';
+import { PERSONEL_LISTESI, listedenIsimBul } from '@/lib/personel';
 import { 
   LogOut, MapPin, CheckCircle2, Clock, Truck, 
   Wrench, ChevronRight, FileSignature, ArrowLeft, Plus, Trash2, Send, Loader2, User, HardHat, FileText, CalendarClock, Mic,
-  Users, CheckSquare, Square // <-- YENİ İKONLAR
+  Users, CheckSquare, Square, Phone, Navigation, Search, Zap
 } from 'lucide-react';
 
-const SAHA_PERSONELLERI = [
-  "Veysel Çarklı", "Okan Aran", "Gökhan Gök", "Kerim Akdoğan", "Kaya Ali Tosun"
-];
+// ----------------------------------------------------------------------------
+// ZAMAN YARDIMCILARI (varış/ayrılış damgası + otomatik iş süresi)
+// ----------------------------------------------------------------------------
+const simdiDamga = () => {
+  const s = new Date();
+  const saat = `${s.getHours().toString().padStart(2, '0')}:${s.getMinutes().toString().padStart(2, '0')}`;
+  return `${s.toLocaleDateString('tr-TR')} ${saat}`;
+};
+
+const zamanCoz = (t: string): Date | null => {
+  if (!t) return null;
+  const m = String(t).match(/(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})[\s,]+(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const yil = Number(m[3]) < 100 ? 2000 + Number(m[3]) : Number(m[3]);
+  const d = new Date(yil, Number(m[2]) - 1, Number(m[1]), Number(m[4]), Number(m[5]));
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const sureYazi = (bas: string, bit: string) => {
+  const a = zamanCoz(bas); const b = zamanCoz(bit);
+  if (!a || !b) return '';
+  const dk = Math.round((b.getTime() - a.getTime()) / 60000);
+  if (dk <= 0) return '';
+  const sa = Math.floor(dk / 60); const k = dk % 60;
+  return sa > 0 ? `${sa} saat ${k} dk` : `${k} dakika`;
+};
+
+// Taslak koruması: sahadaki form kazara kapanırsa/yenilenirse kaybolmasın
+const TASLAK_ONEK = 'buvisan_rapor_taslak_';
 
 export default function PersonelEkrani() {
   const router = useRouter();
@@ -42,6 +69,27 @@ export default function PersonelEkrani() {
   });
 
   useEffect(() => { verileriGetir(); }, []);
+
+  // --- ARAMA / FİLTRE (sahada 40+ iş arasında kaybolmamak için) ---
+  const [arama, setArama] = useState('');
+  const [filtre, setFiltre] = useState<'hepsi' | 'kritik' | 'normal'>('hepsi');
+
+  // --- TASLAK KORUMASI ---
+  const [taslakGeriYuklendi, setTaslakGeriYuklendi] = useState(false);
+
+  const filtreliIsler = useMemo(() => {
+    const q = arama.trim().toLocaleLowerCase('tr-TR');
+    return isler.filter((is: any) => {
+      const kritik = is.priority === 'Kritik (Makine Durdu)';
+      if (filtre === 'kritik' && !kritik) return false;
+      if (filtre === 'normal' && kritik) return false;
+      if (!q) return true;
+      const metin = `${is.cranes?.customer_name || ''} ${is.manual_customer_name || ''} ${is.manual_location || ''} ${is.cranes?.location_address || ''} ${is.manual_phone || ''} ${is.description || ''}`.toLocaleLowerCase('tr-TR');
+      return metin.includes(q);
+    });
+  }, [isler, arama, filtre]);
+
+  const kritikSayisi = useMemo(() => isler.filter((i: any) => i.priority === 'Kritik (Makine Durdu)').length, [isler]);
 
   async function verileriGetir() {
       try {
@@ -93,25 +141,68 @@ export default function PersonelEkrani() {
 
   const formuAc = (isKaydi: any) => {
       setSeciliIs(isKaydi);
-      
-      const suan = new Date();
-      const varisSaati = `${suan.getHours().toString().padStart(2, '0')}:${suan.getMinutes().toString().padStart(2, '0')}`;
+      setBasarili(false);
+      setTaslakGeriYuklendi(false);
 
-      setRaporForm({
-          isyerine_varis: `${suan.toLocaleDateString('tr-TR')} ${varisSaati}`, 
-          isyerinden_ayrilis: '', 
-          vinc_modeli: isKaydi.cranes?.model_name || isKaydi.manual_crane_info || '', 
-          vinc_seri_no: isKaydi.cranes?.serial_number || '', 
+      // 1) ÖNCE TASLAK: sahadayken yarım kalan form varsa onu geri getir
+      let taslak: any = null;
+      try {
+          const kayit = window.localStorage.getItem(TASLAK_ONEK + isKaydi.id);
+          if (kayit) taslak = JSON.parse(kayit);
+      } catch { /* yoksay */ }
+
+      if (taslak) {
+          setRaporForm(taslak);
+          setTaslakGeriYuklendi(true);
+          setFormAcik(true);
+          return;
+      }
+
+      setRaporForm(bosForm(isKaydi));
+      setFormAcik(true);
+  }
+
+  // Sıfırdan form: varış saati otomatik damgalanır, ekip önceden doldurulur
+  const bosForm = (isKaydi: any) => {
+      // Planlayıcıda atanmış ekip varsa onlar seçili gelsin
+      const ekipten = String(isKaydi.assigned_team || '')
+          .split(' - ').map((x: string) => x.trim()).filter(Boolean)
+          .map((x: string) => listedenIsimBul(x))
+          .filter(Boolean);
+
+      // Ekip boşsa giriş yapan kişi otomatik seçili olsun
+      const benimAdim = listedenIsimBul(aktifPersonel?.full_name || '');
+      const baslangicEkip = ekipten.length > 0 ? ekipten : (benimAdim ? [benimAdim] : []);
+
+      return {
+          isyerine_varis: simdiDamga(),
+          isyerinden_ayrilis: '',
+          vinc_modeli: isKaydi.cranes?.model_name || isKaydi.manual_crane_info || '',
+          vinc_seri_no: isKaydi.cranes?.serial_number || '',
           vinc_kapasite: isKaydi.cranes?.capacity || '',
-          arizanin_cinsi: isKaydi.description || '', 
-          islem_turu: isKaydi.ticket_type === 'kesif' ? 'Diğer' : 'Servis', 
+          arizanin_cinsi: isKaydi.description || '',
+          islem_turu: isKaydi.ticket_type === 'kesif' ? 'Diğer' : 'Servis',
           yapilan_isler: '',
           degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '' }],
-          secilen_personeller: [] // Form her açıldığında sıfırlanır
-      });
-      setFormAcik(true);
-      setBasarili(false);
+          secilen_personeller: baslangicEkip
+      };
   }
+
+  // Taslağı sil ve formu sıfırdan doldur
+  const taslagiTemizle = () => {
+      if (!seciliIs) return;
+      try { window.localStorage.removeItem(TASLAK_ONEK + seciliIs.id); } catch { /* yoksay */ }
+      setTaslakGeriYuklendi(false);
+      setRaporForm(bosForm(seciliIs));
+  }
+
+  // Form her değiştiğinde taslağı cihaza kaydet (sahada form kaybı olmasın)
+  useEffect(() => {
+      if (!formAcik || !seciliIs || basarili) return;
+      try {
+          window.localStorage.setItem(TASLAK_ONEK + seciliIs.id, JSON.stringify(raporForm));
+      } catch { /* yoksay */ }
+  }, [raporForm, formAcik, seciliIs, basarili]);
 
   const raporuKaydet = async () => {
       setGonderiliyor(true);
@@ -151,6 +242,10 @@ export default function PersonelEkrani() {
           } catch (senkronHata) {
               console.warn('Randevu senkronu yapılamadı:', senkronHata);
           }
+
+          // Kayıt başarılı → taslağı temizle
+          try { window.localStorage.removeItem(TASLAK_ONEK + seciliIs.id); } catch { /* yoksay */ }
+          setTaslakGeriYuklendi(false);
 
           setBasarili(true);
           setTimeout(() => {
@@ -202,21 +297,58 @@ export default function PersonelEkrani() {
 
       {/* BEKLEYEN İŞLER LİSTESİ */}
       <div className="p-4 space-y-4">
-          <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 mb-2 ml-1">
-              <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></div> Aktif Operasyonlar ({isler.length})
-          </h2>
+          <div className="flex items-center justify-between mb-1 ml-1">
+              <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></div> Aktif Operasyonlar ({isler.length})
+              </h2>
+              {kritikSayisi > 0 && (
+                  <span className="bg-red-100 text-red-600 border border-red-200 text-[10px] font-black px-2.5 py-1 rounded-full animate-pulse">
+                      🚨 {kritikSayisi} KRİTİK
+                  </span>
+              )}
+          </div>
 
-          {isler.length === 0 ? (
+          {/* ARAMA + FİLTRE */}
+          <div className="flex flex-col sm:flex-row gap-2 pb-1">
+              <div className="relative flex-1">
+                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                      value={arama}
+                      onChange={(e) => setArama(e.target.value)}
+                      placeholder="Firma, adres veya telefon ara..."
+                      className="w-full pl-10 pr-3 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:border-blue-500 shadow-sm"
+                  />
+              </div>
+              <div className="flex bg-white border border-slate-200 rounded-2xl p-1 shadow-sm shrink-0">
+                  {([['hepsi', 'Tümü'], ['kritik', 'Kritik'], ['normal', 'Normal']] as const).map(([k, etiket]) => (
+                      <button
+                          key={k}
+                          onClick={() => setFiltre(k)}
+                          className={`flex-1 px-3.5 py-2 rounded-xl text-[11px] font-bold transition ${filtre === k ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
+                      >
+                          {etiket}
+                      </button>
+                  ))}
+              </div>
+          </div>
+
+          {filtreliIsler.length === 0 ? (
               <div className="bg-white p-10 rounded-3xl text-center border border-dashed border-slate-300 shadow-sm">
                   <div className="bg-emerald-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle2 className="w-8 h-8 text-emerald-500" /></div>
-                  <h3 className="text-lg font-bold text-slate-700">Saha Temiz!</h3>
-                  <p className="text-slate-400 text-xs mt-1">Şu an size atanmış bekleyen bir iş bulunmuyor.</p>
+                  <h3 className="text-lg font-bold text-slate-700">{isler.length === 0 ? 'Saha Temiz!' : 'Sonuç Bulunamadı'}</h3>
+                  <p className="text-slate-400 text-xs mt-1">{isler.length === 0 ? 'Şu an bekleyen bir iş bulunmuyor.' : 'Arama kelimesini veya filtreyi değiştirmeyi dene.'}</p>
               </div>
           ) : (
-              isler.map((is) => {
+              filtreliIsler.map((is) => {
                   const isKritik = is.priority === 'Kritik (Makine Durdu)';
                   const firma = is.cranes?.customer_name || is.manual_customer_name || "Bilinmeyen Firma";
                   const adres = is.cranes?.location_address || is.manual_location || "Adres Yok";
+                  const telefon = is.manual_phone || '';
+
+                  // Konum varsa koordinata, yoksa adrese göre navigasyon
+                  const haritaLinki = (is.lat && is.lng)
+                      ? `https://www.google.com/maps/dir/?api=1&destination=${is.lat},${is.lng}`
+                      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(adres === 'Adres Yok' ? firma : adres)}`;
                   
                   return (
                       <div key={is.id} className={`bg-white rounded-[2rem] p-5 shadow-lg border-l-[6px] relative overflow-hidden ${isKritik ? 'border-l-red-500 shadow-red-100' : 'border-l-blue-500'}`}>
@@ -250,6 +382,22 @@ export default function PersonelEkrani() {
                                   <audio src={is.audio_url} controls className="w-full h-9 rounded-lg" />
                               </div>
                           )}
+
+                          {/* HIZLI AKSİYONLAR: Müşteriyi ara + Yol tarifi al */}
+                          <div className="grid grid-cols-2 gap-2 mb-2">
+                              {telefon ? (
+                                  <a href={`tel:${telefon}`} className="bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold py-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-emerald-100 active:scale-95 transition text-[11px]">
+                                      <Phone size={15}/> MÜŞTERİYİ ARA
+                                  </a>
+                              ) : (
+                                  <div className="bg-slate-50 border border-slate-100 text-slate-300 font-bold py-3 rounded-2xl flex items-center justify-center gap-2 text-[11px]">
+                                      <Phone size={15}/> TELEFON YOK
+                                  </div>
+                              )}
+                              <a href={haritaLinki} target="_blank" rel="noopener noreferrer" className="bg-blue-50 border border-blue-200 text-blue-700 font-bold py-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-blue-100 active:scale-95 transition text-[11px]">
+                                  <Navigation size={15}/> YOL TARİFİ
+                              </a>
+                          </div>
 
                           <button onClick={() => formuAc(is)} className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl flex items-center justify-between px-5 hover:bg-black transition shadow-md active:scale-95">
                               <span className="flex items-center gap-2"><FileSignature size={18}/> DİJİTAL FORMU DOLDUR</span>
@@ -294,6 +442,20 @@ export default function PersonelEkrani() {
 
                             {/* Form Body (Scrollable) */}
                             <div className="overflow-y-auto p-5 space-y-6 pb-32 custom-scrollbar">
+
+                                {/* TASLAK BİLDİRİMİ (sahada yarım kalan form) */}
+                                {taslakGeriYuklendi && (
+                                    <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3.5 flex items-center gap-3">
+                                        <FileText size={16} className="text-amber-600 shrink-0" />
+                                        <div className="flex-1">
+                                            <p className="text-[11px] font-black text-amber-800">Yarım kalan formun geri yüklendi</p>
+                                            <p className="text-[10px] text-amber-600 font-medium">Kaldığın yerden devam edebilirsin, kaydettiğinde temizlenir.</p>
+                                        </div>
+                                        <button onClick={taslagiTemizle} className="text-[10px] font-black text-amber-700 bg-white border border-amber-300 px-2.5 py-1.5 rounded-lg hover:bg-amber-100 transition">
+                                            SIFIRLA
+                                        </button>
+                                    </div>
+                                )}
                                 
                                 {/* Üst Firma Bilgisi (Sadece Okunur) */}
                                 <div className="bg-blue-600 text-white p-5 rounded-3xl shadow-lg shadow-blue-500/30">
@@ -313,7 +475,7 @@ export default function PersonelEkrani() {
                                     </div>
                                     
                                     <div className="grid grid-cols-2 gap-2">
-                                        {SAHA_PERSONELLERI.map(personel => (
+                                        {PERSONEL_LISTESI.map(personel => (
                                             <button 
                                                 key={personel} 
                                                 onClick={() => personelToggle(personel)} 
@@ -337,15 +499,36 @@ export default function PersonelEkrani() {
                                 )}
 
                                 {/* TARİH / SAAT ALANI */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1 block">İşyerine Varış</label>
-                                        <input type="text" placeholder="Giriş Saati" value={raporForm.isyerine_varis} onChange={e=>setRaporForm({...raporForm, isyerine_varis: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 shadow-sm" />
+                                <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
+                                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                                        <Clock className="w-4 h-4 text-blue-500"/> Süre Takibi
+                                    </h3>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1 block">İşyerine Varış</label>
+                                            <input type="text" placeholder="gg.aa.yyyy ss:dd" value={raporForm.isyerine_varis} onChange={e=>setRaporForm({...raporForm, isyerine_varis: e.target.value})} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-500 shadow-sm" />
+                                            <button type="button" onClick={() => setRaporForm({ ...raporForm, isyerine_varis: simdiDamga() })} className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-xl text-[10px] font-black hover:bg-blue-100 active:scale-95 transition flex items-center justify-center gap-1">
+                                                <Zap size={11}/> ŞİMDİ · VARDIM
+                                            </button>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1 block">İşyerinden Ayrılış</label>
+                                            <input type="text" placeholder="gg.aa.yyyy ss:dd" value={raporForm.isyerinden_ayrilis} onChange={e=>setRaporForm({...raporForm, isyerinden_ayrilis: e.target.value})} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-500 shadow-sm" />
+                                            <button type="button" onClick={() => setRaporForm({ ...raporForm, isyerinden_ayrilis: simdiDamga() })} className="w-full py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-[10px] font-black hover:bg-amber-100 active:scale-95 transition flex items-center justify-center gap-1">
+                                                <Zap size={11}/> ŞİMDİ · BİTİRDİM
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1 block">İşyerinden Ayrılış</label>
-                                        <input type="text" placeholder="Çıkış Saati" value={raporForm.isyerinden_ayrilis} onChange={e=>setRaporForm({...raporForm, isyerinden_ayrilis: e.target.value})} className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 shadow-sm" />
-                                    </div>
+
+                                    {sureYazi(raporForm.isyerine_varis, raporForm.isyerinden_ayrilis) && (
+                                        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center justify-center gap-2">
+                                            <Clock size={14} className="text-emerald-600"/>
+                                            <span className="text-xs font-black text-emerald-700">
+                                                Sahada geçen süre: {sureYazi(raporForm.isyerine_varis, raporForm.isyerinden_ayrilis)}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="h-px w-full bg-slate-200"></div>
