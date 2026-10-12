@@ -17,6 +17,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
 import Link from 'next/link';
+import FinansOzetKarti from '@/components/FinansOzetKarti';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function MalzemelerSayfasi() {
@@ -427,6 +428,11 @@ const aylikPerformansHesapla = () => {
       </div>
 
       <div className="h-px w-full bg-slate-200 my-8"></div>
+
+      {/* 💰 FİNANS ÖZETİ — tek doğruluk kaynağı.
+          Bu kartın rakamları finans_ozet() fonksiyonundan gelir; panel, analiz
+          sayfası ve yapay zeka aynı rakamı görsün diye eklendi. */}
+      <FinansOzetKarti />
 
       {/* =========================================================================
           🔥 BÖLÜM 2: DEPO GENEL İSTATİSTİKLERİ (TÜM ZAMANLAR) 🔥
