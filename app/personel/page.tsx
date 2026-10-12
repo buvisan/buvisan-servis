@@ -5,16 +5,18 @@
 // (Dijital Servis Formu, Sesli Müşteri Kaydı ve Çoklu Personel Takibi)
 // ----------------------------------------------------------------------------
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import GununPlani from '@/components/GununPlani';
+import Gecmisim from '@/components/Gecmisim';
+import ImzaPad from '@/components/ImzaPad';
 import { PERSONEL_LISTESI, listedenIsimBul } from '@/lib/personel';
 import { 
   LogOut, MapPin, CheckCircle2, Clock, Truck, 
   Wrench, ChevronRight, FileSignature, ArrowLeft, Plus, Trash2, Send, Loader2, User, HardHat, FileText, CalendarClock, Mic,
-  Users, CheckSquare, Square, Phone, Navigation, Search, Zap
+  Users, CheckSquare, Square, Phone, Navigation, Search, Zap, Camera, Video, ImageIcon, X, Crosshair
 } from 'lucide-react';
 
 // ----------------------------------------------------------------------------
@@ -64,9 +66,83 @@ export default function PersonelEkrani() {
       isyerine_varis: '', isyerinden_ayrilis: '', 
       vinc_modeli: '', vinc_seri_no: '', vinc_kapasite: '',
       arizanin_cinsi: '', islem_turu: 'Servis', yapilan_isler: '',
-      degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '' }],
+      degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0 }],
       secilen_personeller: [] as string[] // <-- YENİ EKLENDİ (Çoklu Personel Seçimi)
   });
+
+  // --- FAZ 2: MEDYA / İMZA / KONUM / DEPO ---
+  const [medyaDosyalar, setMedyaDosyalar] = useState<File[]>([]);
+  const [medyaOnizlemeler, setMedyaOnizlemeler] = useState<{ url: string; type: string }[]>([]);
+  const dosyaInputRef = useRef<HTMLInputElement>(null);
+  const [imzaBlob, setImzaBlob] = useState<Blob | null>(null);
+  const [imzaAnahtar, setImzaAnahtar] = useState(0);
+  const [konum, setKonum] = useState<{ lat: number; lng: number } | null>(null);
+  const [konumDurumu, setKonumDurumu] = useState<'yok' | 'aliniyor' | 'alindi' | 'hata'>('yok');
+  const [malzemeOnerileri, setMalzemeOnerileri] = useState<any[]>([]);
+  const [aktifParcaIndex, setAktifParcaIndex] = useState<number | null>(null);
+  const [yuklemeMesaji, setYuklemeMesaji] = useState('');
+
+  // --- MEDYA SEÇİMİ (en fazla 5 dosya) ---
+  const medyaSecildi = (e: any) => {
+      const dosyalar = Array.from(e.target.files) as File[];
+      if (medyaDosyalar.length + dosyalar.length > 5) {
+          alert("En fazla 5 adet fotoğraf/video yükleyebilirsiniz.");
+          return;
+      }
+      const yeni = [...medyaDosyalar, ...dosyalar].slice(0, 5);
+      setMedyaDosyalar(yeni);
+      setMedyaOnizlemeler(yeni.map((d) => ({
+          url: URL.createObjectURL(d),
+          type: d.type.startsWith('video/') ? 'video' : 'image',
+      })));
+      if (dosyaInputRef.current) dosyaInputRef.current.value = '';
+  };
+
+  const medyaSil = (index: number) => {
+      setMedyaDosyalar((o) => o.filter((_, i) => i !== index));
+      setMedyaOnizlemeler((o) => o.filter((_, i) => i !== index));
+  };
+
+  // --- KONUM AL (canlı harita ile uyumlu) ---
+  const konumAl = () => {
+      if (!navigator.geolocation) { setKonumDurumu('hata'); return; }
+      setKonumDurumu('aliniyor');
+      navigator.geolocation.getCurrentPosition(
+          (p) => {
+              setKonum({ lat: Number(p.coords.latitude.toFixed(6)), lng: Number(p.coords.longitude.toFixed(6)) });
+              setKonumDurumu('alindi');
+          },
+          () => setKonumDurumu('hata'),
+          { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+      );
+  };
+
+  // --- DEPODAN PARÇA ARAMA (materials tablosu) ---
+  const malzemeAra = async (kelime: string, index: number) => {
+      setAktifParcaIndex(index);
+      if (!kelime || kelime.trim().length < 2) { setMalzemeOnerileri([]); return; }
+      const { data } = await supabase
+          .from('materials')
+          .select('name, sale_price, unit')
+          .ilike('name', `%${kelime.trim()}%`)
+          .limit(6);
+      setMalzemeOnerileri(data || []);
+  };
+
+  const malzemeSec = (index: number, m: any) => {
+      const yeni = [...raporForm.degisen_parcalar];
+      yeni[index] = { ...yeni[index], parca_adi: m.name, birim_fiyat: Number(m.sale_price) || 0 };
+      setRaporForm({ ...raporForm, degisen_parcalar: yeni });
+      setMalzemeOnerileri([]);
+      setAktifParcaIndex(null);
+  };
+
+  // Kullanılan parçaların toplam tutarı
+  const malzemeTutari = useMemo(
+      () => raporForm.degisen_parcalar.reduce(
+          (t: number, p: any) => t + (Number(p.adet) || 0) * (Number(p.birim_fiyat) || 0), 0),
+      [raporForm.degisen_parcalar]
+  );
 
   useEffect(() => { verileriGetir(); }, []);
 
@@ -116,7 +192,7 @@ export default function PersonelEkrani() {
   async function cikisYap() { await supabase.auth.signOut(); router.push('/login'); }
 
   // --- PARÇA LİSTESİ YÖNETİMİ ---
-  const parcaEkle = () => setRaporForm({...raporForm, degisen_parcalar: [...raporForm.degisen_parcalar, { parca_no: '', parca_adi: '', adet: '' }]});
+  const parcaEkle = () => setRaporForm({...raporForm, degisen_parcalar: [...raporForm.degisen_parcalar, { parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0 }]});
   const parcaSil = (index: number) => {
       const yeniListe = [...raporForm.degisen_parcalar];
       yeniListe.splice(index, 1);
@@ -183,7 +259,7 @@ export default function PersonelEkrani() {
           arizanin_cinsi: isKaydi.description || '',
           islem_turu: isKaydi.ticket_type === 'kesif' ? 'Diğer' : 'Servis',
           yapilan_isler: '',
-          degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '' }],
+          degisen_parcalar: [{ parca_no: '', parca_adi: '', adet: '', birim_fiyat: 0 }],
           secilen_personeller: baslangicEkip
       };
   }
@@ -216,9 +292,48 @@ export default function PersonelEkrani() {
           : aktifPersonel?.full_name || 'Bilinmeyen Personel';
 
       try {
-          const { error } = await supabase.from('service_reports').insert([{
+          // --- 1) FOTOĞRAF / VİDEO YÜKLEME ---
+          let yuklenenMedya: string[] = [];
+          if (medyaDosyalar.length > 0) {
+              setYuklemeMesaji(`Medyalar yükleniyor... (0/${medyaDosyalar.length})`);
+              yuklenenMedya = await Promise.all(medyaDosyalar.map(async (dosya, i) => {
+                  const uzanti = dosya.name.split('.').pop() || 'jpg';
+                  const ad = `saha_${Date.now()}-${Math.random().toString(36).substring(7)}.${uzanti}`;
+                  const { error: upHata } = await supabase.storage.from('saha_raporlari').upload(ad, dosya);
+                  if (upHata) throw upHata;
+                  const { data } = supabase.storage.from('saha_raporlari').getPublicUrl(ad);
+                  setYuklemeMesaji(`Medyalar yükleniyor... (${i + 1}/${medyaDosyalar.length})`);
+                  return data.publicUrl;
+              }));
+          }
+
+          // --- 2) MÜŞTERİ İMZASI ---
+          let imzaUrl: string | null = null;
+          if (imzaBlob) {
+              setYuklemeMesaji('Müşteri imzası kaydediliyor...');
+              const ad = `imza_${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+              const { error: imzaHata } = await supabase.storage
+                  .from('saha_raporlari')
+                  .upload(ad, imzaBlob, { contentType: 'image/png' });
+              if (!imzaHata) {
+                  imzaUrl = supabase.storage.from('saha_raporlari').getPublicUrl(ad).data.publicUrl;
+              }
+          }
+
+          setYuklemeMesaji('Rapor kaydediliyor...');
+
+          // --- 3) SAHADA GEÇEN SÜRE ---
+          const bas = zamanCoz(raporForm.isyerine_varis);
+          const bit = zamanCoz(raporForm.isyerinden_ayrilis);
+          let sureDk: number | null = null;
+          if (bas && bit) {
+              const dk = Math.round((bit.getTime() - bas.getTime()) / 60000);
+              sureDk = dk > 0 ? dk : null;
+          }
+
+          const temelPaket: any = {
               ticket_id: seciliIs.id,
-              personel_adi: kaydedilecekPersoneller, // <-- YENİ BİRLEŞTİRİLMİŞ İSİMLER BURAYA GİDER
+              personel_adi: kaydedilecekPersoneller, // <-- Çoklu seçilen personeller "A - B" olarak
               firma_adi: firma_adi,
               firma_adresi: firma_adresi,
               isyerine_varis_tarih_saat: raporForm.isyerine_varis,
@@ -230,9 +345,39 @@ export default function PersonelEkrani() {
               islem_turu: raporForm.islem_turu,
               yapilan_isler: raporForm.yapilan_isler,
               degisen_parcalar: raporForm.degisen_parcalar
-          }]);
+          };
 
-          if (error) throw error;
+          const gelismisPaket = {
+              ...temelPaket,
+              medya_urls: yuklenenMedya,
+              imza_url: imzaUrl,
+              lat: konum?.lat ?? null,
+              lng: konum?.lng ?? null,
+              sure_dakika: sureDk,
+              malzeme_tutari: malzemeTutari
+          };
+
+          // Önce tam paket denenir; yeni kolonlar henüz yoksa rapor KAYBOLMASIN diye
+          // temel paketle tekrar denenir.
+          let kayitHatasi: any = null;
+          const ilkDeneme = await supabase.from('service_reports').insert([gelismisPaket]);
+
+          if (ilkDeneme.error) {
+              const mesaj = ilkDeneme.error.message || '';
+              const kolonYok = ilkDeneme.error.code === 'PGRST204'
+                  || mesaj.includes('schema cache')
+                  || mesaj.includes('Could not find');
+
+              if (!kolonYok) {
+                  kayitHatasi = ilkDeneme.error;
+              } else {
+                  console.warn('Yeni kolonlar bulunamadı, temel kayıt yapılıyor:', mesaj);
+                  const ikinciDeneme = await supabase.from('service_reports').insert([temelPaket]);
+                  if (ikinciDeneme.error) kayitHatasi = ikinciDeneme.error;
+              }
+          }
+
+          if (kayitHatasi) throw kayitHatasi;
 
           await supabase.from('service_tickets').update({ pipeline_status: 'tamamlandi', status: 'tamamlandi' }).eq('id', seciliIs.id);
 
@@ -243,9 +388,16 @@ export default function PersonelEkrani() {
               console.warn('Randevu senkronu yapılamadı:', senkronHata);
           }
 
-          // Kayıt başarılı → taslağı temizle
+          // Kayıt başarılı → taslağı ve ekleri temizle
           try { window.localStorage.removeItem(TASLAK_ONEK + seciliIs.id); } catch { /* yoksay */ }
           setTaslakGeriYuklendi(false);
+          setMedyaDosyalar([]);
+          setMedyaOnizlemeler([]);
+          setImzaBlob(null);
+          setImzaAnahtar((o) => o + 1);
+          setKonum(null);
+          setKonumDurumu('yok');
+          setMalzemeOnerileri([]);
 
           setBasarili(true);
           setTimeout(() => {
@@ -257,6 +409,7 @@ export default function PersonelEkrani() {
           alert("Kaydedilirken hata oluştu: " + err.message);
       } finally {
           setGonderiliyor(false);
+          setYuklemeMesaji('');
       }
   }
 
@@ -294,6 +447,9 @@ export default function PersonelEkrani() {
 
       {/* 📅 SERVİS PLANI (BUGÜN / YARIN) - Tüm ekip + kendi işlerin vurgulu */}
       <GununPlani aktifPersonel={aktifPersonel} onRaporAc={formuAc} />
+
+      {/* 🕘 GEÇMİŞİM - tamamladığım işler, süreler, performans */}
+      <Gecmisim aktifPersonel={aktifPersonel} />
 
       {/* BEKLEYEN İŞLER LİSTESİ */}
       <div className="p-4 space-y-4">
@@ -577,6 +733,54 @@ export default function PersonelEkrani() {
                                     <textarea rows={4} placeholder="Makine incelendi, şu parçalar söküldü, yerine bu takıldı, test edildi vb..." value={raporForm.yapilan_isler} onChange={e=>setRaporForm({...raporForm, yapilan_isler: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-3xl text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-amber-400 shadow-inner resize-none leading-relaxed" />
                                 </div>
 
+                                {/* FOTOĞRAF / VİDEO YÜKLEME */}
+                                <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                                            <Camera className="w-4 h-4 text-blue-500"/> Fotoğraf / Video
+                                        </h3>
+                                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
+                                            {medyaOnizlemeler.length}/5
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 font-medium mb-3 ml-1">
+                                        İş öncesi / sonrası görüntü ekleyin. Admin panelinde raporla birlikte görünür.
+                                    </p>
+
+                                    <input
+                                        type="file"
+                                        accept="image/*,video/*"
+                                        multiple
+                                        ref={dosyaInputRef}
+                                        onChange={medyaSecildi}
+                                        className="hidden"
+                                    />
+
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {medyaOnizlemeler.map((m, i) => (
+                                            <div key={i} className="relative rounded-xl overflow-hidden border border-slate-300 aspect-square bg-black">
+                                                {m.type === 'image'
+                                                    ? <img src={m.url} className="w-full h-full object-cover" />
+                                                    : <video src={m.url} className="w-full h-full object-cover" />}
+                                                <button type="button" onClick={() => medyaSil(i)} className="absolute top-1 right-1 bg-red-500 text-white p-1.5 rounded-lg shadow-lg active:scale-90 transition">
+                                                    <Trash2 size={11}/>
+                                                </button>
+                                                {m.type === 'video' && (
+                                                    <div className="absolute bottom-1 left-1 bg-black/60 p-1 rounded-md">
+                                                        <Video size={11} className="text-white"/>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                        {medyaOnizlemeler.length < 5 && (
+                                            <button type="button" onClick={() => dosyaInputRef.current?.click()} className="aspect-square border-2 border-dashed border-slate-300 bg-slate-50 rounded-xl text-slate-400 hover:border-blue-500 hover:text-blue-500 transition flex flex-col items-center justify-center gap-1">
+                                                <div className="flex gap-1"><ImageIcon size={16}/><Video size={16}/></div>
+                                                <span className="text-[9px] font-bold">Ekle</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
                                 {/* DEĞİŞEN PARÇALAR TABLOSU (DİNAMİK) */}
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center mb-2">
@@ -593,9 +797,39 @@ export default function PersonelEkrani() {
                                                         <label className="text-[9px] font-bold text-slate-400 uppercase px-1">Kod / No</label>
                                                         <input type="text" placeholder="No" value={parca.parca_no} onChange={(e) => parcaGuncelle(index, 'parca_no', e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-900 placeholder:text-slate-400 text-center outline-none focus:bg-white" />
                                                     </div>
-                                                    <div className="col-span-6">
-                                                        <label className="text-[9px] font-bold text-slate-400 uppercase px-1">Parça Adı</label>
-                                                        <input type="text" placeholder="Örn: Diyot" value={parca.parca_adi} onChange={(e) => parcaGuncelle(index, 'parca_adi', e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white" />
+                                                    <div className="col-span-6 relative">
+                                                        <label className="text-[9px] font-bold text-slate-400 uppercase px-1 flex items-center justify-between">
+                                                            <span>Parça Adı</span>
+                                                            {Number(parca.birim_fiyat) > 0 && (
+                                                                <span className="text-emerald-600">{Number(parca.birim_fiyat).toLocaleString('tr-TR')} ₺</span>
+                                                            )}
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Depodan ara veya yaz..."
+                                                            value={parca.parca_adi}
+                                                            onChange={(e) => { parcaGuncelle(index, 'parca_adi', e.target.value); malzemeAra(e.target.value, index); }}
+                                                            onBlur={() => setTimeout(() => { if (aktifParcaIndex === index) { setMalzemeOnerileri([]); setAktifParcaIndex(null); } }, 250)}
+                                                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-emerald-400"
+                                                        />
+
+                                                        {/* DEPO ÖNERİLERİ */}
+                                                        {aktifParcaIndex === index && malzemeOnerileri.length > 0 && (
+                                                            <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
+                                                                <div className="bg-emerald-50 px-3 py-1.5 border-b border-emerald-100">
+                                                                    <p className="text-[9px] font-black text-emerald-700 uppercase tracking-wider">Depodan seç</p>
+                                                                </div>
+                                                                {malzemeOnerileri.map((m) => (
+                                                                    <button key={m.name} type="button" onClick={() => malzemeSec(index, m)}
+                                                                        className="w-full px-3 py-2.5 text-left hover:bg-emerald-50 transition border-b border-slate-50 last:border-0">
+                                                                        <p className="text-[11px] font-bold text-slate-700">{m.name}</p>
+                                                                        <p className="text-[9px] text-slate-400 font-medium">
+                                                                            {Number(m.sale_price || 0).toLocaleString('tr-TR')} ₺ · {m.unit || 'adet'}
+                                                                        </p>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className="col-span-3 relative">
                                                         <label className="text-[9px] font-bold text-slate-400 uppercase px-1">Adet</label>
@@ -613,11 +847,53 @@ export default function PersonelEkrani() {
                                     <button onClick={parcaEkle} className="w-full py-3.5 border-2 border-dashed border-emerald-300 bg-emerald-50 text-emerald-600 rounded-2xl text-xs font-bold hover:bg-emerald-100 transition flex items-center justify-center gap-2 mt-2">
                                         <Plus size={16}/> YENİ PARÇA SATIRI EKLE
                                     </button>
+
+                                    {malzemeTutari > 0 && (
+                                        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between mt-2">
+                                            <span className="text-[11px] font-black text-emerald-700 uppercase tracking-wider">Parça Toplamı</span>
+                                            <span className="text-lg font-black text-emerald-700">{malzemeTutari.toLocaleString('tr-TR')} ₺</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* MÜŞTERİ İMZASI */}
+                                <ImzaPad key={imzaAnahtar} onChange={setImzaBlob} />
+
+                                {/* İŞ YERİ KONUMU */}
+                                <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm">
+                                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2 mb-2">
+                                        <Crosshair className="w-4 h-4 text-emerald-500"/> İş Yeri Konumu
+                                    </h3>
+                                    <p className="text-[10px] text-slate-500 font-medium mb-3 ml-1">
+                                        İşi yaptığınız konumu kaydedin; admin panelindeki canlı haritada görünür.
+                                    </p>
+
+                                    {konum ? (
+                                        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[11px] font-black text-emerald-700">Konum kaydedildi ✅</p>
+                                                <p className="text-[10px] text-emerald-600 font-mono mt-1">{konum.lat}, {konum.lng}</p>
+                                            </div>
+                                            <a href={`https://www.google.com/maps?q=${konum.lat},${konum.lng}`} target="_blank" rel="noopener noreferrer"
+                                                className="text-[10px] font-black text-emerald-700 bg-white border border-emerald-200 px-2.5 py-1.5 rounded-lg hover:bg-emerald-100 transition">
+                                                HARİTADA GÖR
+                                            </a>
+                                        </div>
+                                    ) : (
+                                        <button type="button" onClick={konumAl} disabled={konumDurumu === 'aliniyor'}
+                                            className="w-full py-3.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-black hover:bg-emerald-100 active:scale-95 transition flex items-center justify-center gap-2 disabled:opacity-60">
+                                            {konumDurumu === 'aliniyor' ? <Loader2 size={15} className="animate-spin"/> : <Crosshair size={15}/>}
+                                            {konumDurumu === 'aliniyor' ? 'KONUM ALINIYOR...' : konumDurumu === 'hata' ? 'KONUM ALINAMADI · TEKRAR DENE' : 'KONUMUMU KAYDET'}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
                             {/* Sabit Alt Buton */}
                             <div className="bg-white border-t border-slate-200 p-5 absolute bottom-0 left-0 w-full z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] pb-8">
+                                {gonderiliyor && yuklemeMesaji && (
+                                    <p className="text-[10px] font-black text-blue-600 text-center mb-2 animate-pulse">{yuklemeMesaji}</p>
+                                )}
                                 <button onClick={raporuKaydet} disabled={gonderiliyor} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-500/30 flex justify-center items-center gap-2 active:scale-95 transition-all text-base">
                                     {gonderiliyor ? <Loader2 className="animate-spin w-5 h-5"/> : <Send className="w-5 h-5"/>}
                                     {gonderiliyor ? "SİSTEME KAYDEDİLİYOR..." : "FORMU KAYDET VE İŞİ BİTİR"}
