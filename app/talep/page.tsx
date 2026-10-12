@@ -115,7 +115,7 @@ export default function ArizaBildirimEkrani() {
   };
 
   // --- TELEGRAM BİLDİRİMİ ---
-  const telegramBildirimiGonder = async (not: string, medyaSayisi: number, tip: string, bolge: string) => {
+  const telegramBildirimiGonder = async (not: string, medyaSayisi: number, tip: string, bolge: string, randevuTarihi?: string) => {
     const botToken = "8567697885:AAGCSyckJKLG11HwTQaMGGUwMyXIm0UqAK0"; 
     const grupId = "-5079408473"; 
 
@@ -145,6 +145,7 @@ export default function ArizaBildirimEkrani() {
                   `${form.email && tip === 'bakim' ? `📧 *E-Posta:* ${form.email}\n` : ''}` +
                   `📍 *Adres:* ${form.adres || 'Belirtilmedi'}\n` +
                   `${bolge ? `🎯 *Arıza Bölgesi:* ${bolge}\n` : ''}` +
+                  `${randevuTarihi ? `📅 *RANDEVU TARİHİ:* ${tarihYaz(randevuTarihi)}\n` : ''}` +
                   `------------------\n` +
                   `💬 *Müşteri Notu:* ${not || 'Not girilmedi.'}\n\n` +
                   `${onayMetni}`;
@@ -300,7 +301,7 @@ export default function ArizaBildirimEkrani() {
             if (error) throw error;
         }
 
-        await telegramBildirimiGonder(desc, yuklenenMedyaUrlleri.length, aktifMenu, secilenBolge);
+        await telegramBildirimiGonder(desc, yuklenenMedyaUrlleri.length, aktifMenu, secilenBolge, randevuAlindi ? secilenTarih : '');
 
         setBasarili(true);
         setAktifMenu('none');
