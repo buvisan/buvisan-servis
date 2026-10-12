@@ -278,7 +278,7 @@ begin
     p_adres,
     p_vinc_bilgisi,
     v_priority,
-    coalesce(p_medya_urls, '{}'::text[]),
+    coalesce(to_jsonb(p_medya_urls), '[]'::jsonb),  -- media_urls kolonu jsonb tipinde
     p_ses_url
   ) returning id into v_ticket_id;
 

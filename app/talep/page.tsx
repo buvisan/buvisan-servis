@@ -261,14 +261,18 @@ export default function ArizaBildirimEkrani() {
                 if (mesaj.includes('RANDEVU_GECMIS_TARIH')) throw randevuHatasi('Geçmiş bir tarih için randevu alınamaz.');
                 if (mesaj.includes('RANDEVU_EKSIK_BILGI')) throw randevuHatasi('Firma adı ve telefon zorunludur.');
 
-                // Randevu altyapısı henüz kurulmadıysa eski yönteme düş: form ASLA kırılmaz.
+                // Randevu altyapısı hazır değilse (fonksiyon yok / kolon tipi uyuşmuyor)
+                // eski yönteme düş: müşterinin talebi ASLA kaybolmaz.
+                // Not: bu durumlarda fonksiyon hiçbir kayıt oluşturmadan geri alınır,
+                // bu yüzden çift kayıt riski yoktur.
                 const kurulmamis = rpcError.code === 'PGRST202'
                     || mesaj.includes('Could not find the function')
-                    || mesaj.toLowerCase().includes('does not exist');
+                    || mesaj.toLowerCase().includes('does not exist')
+                    || mesaj.toLowerCase().includes('is of type');
 
                 if (!kurulmamis) throw randevuHatasi('Randevu alınamadı: ' + mesaj);
 
-                console.warn('randevu_al bulunamadı, eski kayıt yöntemi kullanılıyor.');
+                console.warn('randevu_al kullanılamadı, eski kayıt yöntemi devrede:', mesaj);
             }
         }
 
