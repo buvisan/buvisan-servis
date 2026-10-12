@@ -318,6 +318,10 @@ export default function AdminPanel() {
                     <div className="bg-white/15 text-white w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-white/25 transition-colors relative z-10"><CalendarDays size={20}/></div>
                     <div className="relative z-10"><h3 className="font-bold text-white text-sm">Planlayıcı</h3><p className="text-[10px] text-indigo-200">Randevu çizelgesi</p></div>
                 </motion.button>
+                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/stok')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-amber-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
+                    <div className="bg-amber-50 text-amber-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors"><Package size={20}/></div>
+                    <div><h3 className="font-bold text-slate-700 text-sm">Stok Takibi</h3><p className="text-[10px] text-slate-400">Adet & kritik seviye</p></div>
+                </motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/araclar')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-cyan-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
                     <div className="bg-cyan-50 text-cyan-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-cyan-600 group-hover:text-white transition-colors"><Car size={20}/></div>
                     <div><h3 className="font-bold text-slate-700 text-sm">Araçlar</h3><p className="text-[10px] text-slate-400">Filo yönetimi</p></div>

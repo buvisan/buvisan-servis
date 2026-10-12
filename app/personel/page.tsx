@@ -15,7 +15,7 @@ import ImzaPad from '@/components/ImzaPad';
 import SesliYazi from '@/components/SesliYazi';
 import KuyrukBandi from '@/components/KuyrukBandi';
 import { PERSONEL_LISTESI, listedenIsimBul } from '@/lib/personel';
-import { kuyrugaEkle, agHatasiMi } from '@/lib/kuyruk';
+import { kuyrugaEkle, agHatasiMi, parcalariStoktanDus } from '@/lib/kuyruk';
 import { 
   LogOut, MapPin, CheckCircle2, Clock, Truck, 
   Wrench, ChevronRight, FileSignature, ArrowLeft, Plus, Trash2, Send, Loader2, User, HardHat, FileText, CalendarClock, Mic,
@@ -127,7 +127,7 @@ export default function PersonelEkrani() {
       if (!kelime || kelime.trim().length < 2) { setMalzemeOnerileri([]); return; }
       const { data } = await supabase
           .from('materials')
-          .select('name, sale_price, unit')
+          .select('id, name, sale_price, unit')
           .ilike('name', `%${kelime.trim()}%`)
           .limit(6);
       setMalzemeOnerileri(data || []);
@@ -135,7 +135,8 @@ export default function PersonelEkrani() {
 
   const malzemeSec = (index: number, m: any) => {
       const yeni = [...raporForm.degisen_parcalar];
-      yeni[index] = { ...yeni[index], parca_adi: m.name, birim_fiyat: Number(m.sale_price) || 0 };
+      // malzeme_id saklanıyor → rapor kaydedilince bu parça depodan otomatik düşecek
+      yeni[index] = { ...yeni[index], malzeme_id: m.id, parca_adi: m.name, birim_fiyat: Number(m.sale_price) || 0 };
       setRaporForm({ ...raporForm, degisen_parcalar: yeni });
       setMalzemeOnerileri([]);
       setAktifParcaIndex(null);
@@ -406,6 +407,15 @@ export default function PersonelEkrani() {
 
           // Kayıt başarılı → taslağı ve ekleri temizle
           try { window.localStorage.removeItem(TASLAK_ONEK + seciliIs.id); } catch { /* yoksay */ }
+
+          // 📦 Kullanılan parçaları depodan düş (hata olsa bile rapor kaydı bozulmaz)
+          await parcalariStoktanDus(
+              raporForm.degisen_parcalar,
+              seciliIs.id,
+              kaydedilecekPersoneller,
+              `Servis raporu — ${firma_adi}`
+          );
+
           setTaslakGeriYuklendi(false);
           setMedyaDosyalar([]);
           setMedyaOnizlemeler([]);

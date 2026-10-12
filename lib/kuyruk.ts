@@ -21,6 +21,38 @@ export type KuyrukKaydi = {
 export const agHatasiMi = (mesaj: string) =>
   /failed to fetch|network|timeout|load failed|internet/i.test(String(mesaj || ''));
 
+/**
+ * Raporda kullanılan parçaları depodan düşer.
+ * Stok yetersizse veya altyapı yoksa rapor kaydını BOZMAZ, sadece uyarır.
+ */
+export async function parcalariStoktanDus(
+  parcalar: any[],
+  ticketId: string,
+  kullanici?: string,
+  aciklama?: string
+) {
+  for (const p of parcalar || []) {
+    const malzemeId = p?.malzeme_id;
+    const adet = Number(p?.adet) || 0;
+    if (!malzemeId || adet <= 0) continue;
+
+    try {
+      const { data, error } = await supabase.rpc('stok_hareket', {
+        p_malzeme_id: malzemeId,
+        p_tip: 'cikis',
+        p_miktar: adet,
+        p_aciklama: aciklama || 'Servis raporu',
+        p_ticket_id: ticketId || null,
+        p_kullanici: kullanici || null,
+      });
+      if (error) console.warn('Stok düşülemedi:', error.message);
+      else if ((data as any)?.ok === false) console.warn('Stok yetersiz:', (data as any)?.mesaj);
+    } catch (e) {
+      console.warn('Stok düşme hatası:', e);
+    }
+  }
+}
+
 export function kuyrukOku(): KuyrukKaydi[] {
   try {
     const v = window.localStorage.getItem(ANAHTAR);
@@ -90,6 +122,14 @@ export async function kuyruguGonder(): Promise<{ gonderilen: number; kalan: numb
       await supabase.from('service_tickets')
         .update({ pipeline_status: 'tamamlandi', status: 'tamamlandi' })
         .eq('id', kayit.ticket_id);
+
+      // Kullanılan parçaları depodan düş
+      await parcalariStoktanDus(
+        kayit.gelismis?.degisen_parcalar,
+        kayit.ticket_id,
+        kayit.gelismis?.personel_adi,
+        'Servis raporu (kuyruktan)'
+      );
 
       try {
         await supabase.rpc('randevu_tamamla', { p_ticket_id: kayit.ticket_id });
