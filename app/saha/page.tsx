@@ -6,14 +6,25 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
+import { PERSONEL_LISTESI } from '@/lib/personel';
 import { Mic, StopCircle, Send, CheckCircle2, User, Loader2, RefreshCw, Building2, FileText, Clock, Camera, Trash2, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const PERSONEL_LISTESI = [
-  "VOLKAN ACAR", "HAMZA ATTAR", "VEYSEL ÇARKLI", "KERİM AKDOĞAN" , "GÖKHAN GÖK" , "BASİL HAVATİMİ", "BURHAN KANDEMİR" , "OKAN ARAN" , "ADEM ACAR"
-];
-
 export default function SahaAsistani() {
+  const router = useRouter();
+  const [yetkiKontrolEdildi, setYetkiKontrolEdildi] = useState(false);
+
+  // 🔒 GÜVENLİK: Bu sayfa eskiden kimlik kontrolü OLMADAN açıktı ve herkes
+  //    sahte saha raporu yazabiliyordu (raporlar admin onayıyla ciroya dönüşüyor).
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.replace('/login'); return; }
+      setYetkiKontrolEdildi(true);
+    })();
+  }, [router]);
+
   const [seciliUsta, setSeciliUsta] = useState("");
   const [kayitDurumu, setKayitDurumu] = useState<'bekliyor' | 'kaydediyor' | 'tamamlandi'>('bekliyor');
   const [konusulanMetin, setKonusulanMetin] = useState("");
@@ -153,6 +164,16 @@ export default function SahaAsistani() {
       }, 3000);
     }
   };
+
+  // 🔒 Oturum yoksa hiçbir şey gösterilmez (yönlendirme yukarıdaki kontrolde yapılır)
+  if (!yetkiKontrolEdildi) {
+    return (
+      <div className="min-h-[100dvh] bg-slate-900 flex flex-col items-center justify-center text-white">
+        <Loader2 className="animate-spin w-10 h-10 text-blue-500 mb-3" />
+        <p className="text-sm font-bold text-slate-400">Yetki kontrol ediliyor...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans text-slate-100 pb-10">

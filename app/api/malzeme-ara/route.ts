@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { adminMi, yetkiYok } from '@/lib/api-yetki';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export async function POST(request: Request) {
+  // 🔒 Eskiden kimlik kontrolü YOKTU: internetten herkes alış/satış fiyatlarını çekebiliyordu.
+  if (!(await adminMi(request)).ok) return yetkiYok();
+
   try {
     const { kelime } = await request.json();
     

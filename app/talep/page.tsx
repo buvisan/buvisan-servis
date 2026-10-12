@@ -116,8 +116,7 @@ export default function ArizaBildirimEkrani() {
 
   // --- TELEGRAM BİLDİRİMİ ---
   const telegramBildirimiGonder = async (not: string, medyaSayisi: number, tip: string, bolge: string, randevuTarihi?: string) => {
-    const botToken = "8567697885:AAGCSyckJKLG11HwTQaMGGUwMyXIm0UqAK0"; 
-    const grupId = "-5079408473"; 
+    // 🔒 Bot anahtarı artık sunucuda tutulur (istemci paketinde görünmez)
 
     let onayMetni = "";
     let baslikEmoji = "🚨";
@@ -150,10 +149,10 @@ export default function ArizaBildirimEkrani() {
                   `💬 *Müşteri Notu:* ${not || 'Not girilmedi.'}\n\n` +
                   `${onayMetni}`;
     try {
-      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      await fetch('/api/telegram-bildirim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: grupId, text: mesaj, parse_mode: 'Markdown' })
+        body: JSON.stringify({ mesaj })
       });
     } catch (e) { console.error("Telegram hatası:", e); }
   };
