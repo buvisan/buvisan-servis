@@ -19,7 +19,10 @@ export const maxDuration = 60;
 const MODEL = 'gemini-2.0-flash';
 
 export async function POST(req: NextRequest) {
-  if (!(await adminMi(req))) return yetkiYok();
+  // ⚠️ DİKKAT: adminMi() bir NESNE döndürür ({ ok: true/false }).
+  //    Doğru kullanım: (await adminMi(req)).ok
+  const yetki = await adminMi(req);
+  if (!yetki.ok) return yetkiYok();
 
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
