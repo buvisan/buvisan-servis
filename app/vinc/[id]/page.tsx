@@ -42,6 +42,30 @@ export default function VincDetaySayfasi() {
 
   const bolgeler = ['Genel', 'Köprü', 'Kedi / Araba', 'Halat / Zincir', 'Kanca', 'Elektrik Panosu', 'Kumanda', 'Yürüyüş Takımı'];
 
+  // 🏗️ VİNÇ PASAPORTU — vincin gerçek servis geçmişi özeti
+  // ⚠️ Bağımsız yüklenir: fonksiyon kurulmamışsa veya hata verirse
+  //    sayfanın geri kalanı AYNEN çalışır. QR adresi değişmez.
+  const [pasaport, setPasaport] = useState<any>(null);
+  const [pasaportGecmis, setPasaportGecmis] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!id) return;
+    let iptal = false;
+    (async () => {
+      try {
+        const { data: p, error: pe } = await supabase.rpc('vinc_pasaportu', { p_crane_id: id });
+        if (iptal || pe || !p) return;
+        setPasaport(p);
+
+        const { data: g } = await supabase.rpc('vinc_servis_gecmisi', { p_crane_id: id });
+        if (!iptal) setPasaportGecmis(Array.isArray(g) ? g : []);
+      } catch {
+        /* pasaport motoru kurulmamışsa sessizce geç — sayfa normal çalışır */
+      }
+    })();
+    return () => { iptal = true; };
+  }, [id]);
+
   // 🔒 GÜVENLİ VERİ ÇEKME — QR ADRESİ DEĞİŞMEDİ (/vinc/<kimlik>)
   // Eskiden: cranes?select=*,service_tickets(*)  → TÜM vinç/iş emri verisi iniyordu
   // Şimdi  : vinc_kimlik() fonksiyonu → sadece BU vincin güvenli alanları
@@ -389,6 +413,99 @@ export default function VincDetaySayfasi() {
                 </div>
             </button>
         </div>
+
+        {/* --- 🏗️ VİNÇ PASAPORTU (gerçek servis geçmişi) --- */}
+        {pasaport && Number(pasaport.servis_sayisi) > 0 && (
+          <div className="mb-10">
+            <h3 className="text-white/90 font-bold text-sm uppercase tracking-wider ml-2 flex items-center gap-2 mb-4">
+              <span className="text-blue-400">🏗️</span> Servis Pasaportu
+            </h3>
+
+            <div className="bg-white/5 backdrop-blur-md rounded-[2rem] p-6 border border-white/10">
+              {/* ÖZET RAKAMLAR */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Servis Sayısı</p>
+                  <p className="text-xl font-black text-white leading-none">{pasaport.servis_sayisi}</p>
+                </div>
+                <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Toplam Servis</p>
+                  <p className="text-xl font-black text-emerald-400 leading-none">
+                    {Number(pasaport.toplam_servis_tutari || 0).toLocaleString('tr-TR')} ₺
+                  </p>
+                </div>
+                <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Son Servis</p>
+                  <p className="text-xs font-black text-white leading-tight">
+                    {pasaport.son_servis
+                      ? new Date(pasaport.son_servis).toLocaleDateString('tr-TR')
+                      : '-'}
+                  </p>
+                  {pasaport.son_servis_gun_once !== null && pasaport.son_servis_gun_once !== undefined && (
+                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                      {pasaport.son_servis_gun_once} gün önce
+                    </p>
+                  )}
+                </div>
+                <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Bakım Durumu</p>
+                  <p className={`text-xs font-black leading-tight ${
+                    pasaport.bakim_durumu === 'GÜNCEL' ? 'text-emerald-400'
+                    : pasaport.bakim_durumu === 'BAKIM YAKLAŞIYOR' ? 'text-amber-400'
+                    : 'text-rose-400'
+                  }`}>
+                    {pasaport.bakim_durumu === 'GÜNCEL' ? '✅ ' : pasaport.bakim_durumu === 'BAKIM YAKLAŞIYOR' ? '⚠️ ' : '🔴 '}
+                    {pasaport.bakim_durumu}
+                  </p>
+                </div>
+              </div>
+
+              {/* GEÇMİŞ LİSTESİ */}
+              {pasaportGecmis.length > 0 && (
+                <div className="space-y-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                    Servis Kayıtları ({pasaportGecmis.length})
+                  </p>
+                  {pasaportGecmis.slice(0, 8).map((s, i) => (
+                    <div key={i} className="bg-white/5 rounded-2xl p-3.5 border border-white/10">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className="text-xs font-black text-white">
+                          {s.servis_tarihi ? new Date(s.servis_tarihi).toLocaleDateString('tr-TR') : '-'}
+                        </span>
+                        {Number(s.tutar) > 0 && (
+                          <span className="text-xs font-black text-emerald-400">
+                            {Number(s.tutar).toLocaleString('tr-TR')} ₺
+                          </span>
+                        )}
+                      </div>
+                      {s.aciklama && (
+                        <p className="text-[11px] text-slate-300 leading-relaxed mb-1">{s.aciklama}</p>
+                      )}
+                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        {s.teknisyen && (
+                          <span className="text-[10px] text-slate-400 font-bold">👤 {s.teknisyen}</span>
+                        )}
+                        {s.servis_turu && (
+                          <span className="text-[10px] text-slate-400 font-bold">🔧 {s.servis_turu}</span>
+                        )}
+                        {s.kullanilan_parca && s.kullanilan_parca !== 'null' && s.kullanilan_parca !== '[]' && (
+                          <span className="text-[10px] text-slate-400 font-bold">
+                            📦 {String(s.kullanilan_parca).replace(/[\[\]{}"]/g, '').slice(0, 90)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {pasaportGecmis.length > 8 && (
+                    <p className="text-[10px] text-slate-400 text-center font-bold pt-1">
+                      İlk 8 kayıt gösteriliyor (toplam {pasaportGecmis.length})
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* --- TIMELINE (SERVİS GEÇMİŞİ) --- */}
         <div className="mb-10">
