@@ -187,9 +187,14 @@ grant execute on function public.abonelik_firsatlari() to authenticated;
 
 -- ============================================================================
 -- 4) KÂR MOTORU v2 — GARANTİ ve YARIM KALAN işleri ayır
+-- ----------------------------------------------------------------------------
+-- ⚠️ ÖNEMLİ DÜZELTME (v2):
+--    Burada eskiden "drop function is_karliligi(...)" vardı. ANCAK
+--    musteri_karliligi() ve kar_ozeti() bu fonksiyona BAĞIMLI olduğu için
+--    PostgreSQL silmeye izin vermiyor → TÜM SCRIPT HATA VERİP DURUYORDU
+--    ve "İş Bazlı Kâr" kartı bu yüzden görünmüyordu.
+--    Dönüş sütunları birebir aynı olduğu için "create or replace" yeterlidir.
 -- ============================================================================
-drop function if exists public.is_karliligi(integer, boolean);
-
 create or replace function public.is_karliligi(p_limit integer default 200, p_sadece_zararli boolean default false)
 returns table (
   is_id             uuid,
