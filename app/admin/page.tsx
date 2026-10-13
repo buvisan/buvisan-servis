@@ -6,6 +6,7 @@
 import KayoChat from '@/components/KayoChat';
 import BakimFirsatKarti from '@/components/BakimFirsatKarti';
 import ArizaTahminKarti from '@/components/ArizaTahminKarti';
+import KarMotoruKarti from '@/components/KarMotoruKarti';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -335,6 +336,9 @@ export default function AdminPanel() {
                 </motion.button>
             </div>
         </div>
+
+        {/* 💵 İŞ BAZLI KÂR — hangi iş/müşteri kâr bırakıyor */}
+        <KarMotoruKarti />
 
         {/* 🔮 ARIZA TAHMİNİ — geçmiş arıza aralıklarından tahmin */}
         <ArizaTahminKarti />
