@@ -80,6 +80,41 @@ export default function PersonelEkrani() {
   const [imzaBlob, setImzaBlob] = useState<Blob | null>(null);
   const [imzaAtan, setImzaAtan] = useState('');
 
+  // 📋 HIZLI ŞABLONLAR — sık yazılan iş açıklamaları (tek tuşla eklenir)
+  const IS_SABLONLARI: { kisa: string; metin: string }[] = [
+    { kisa: 'Halat değişimi', metin: 'Aşınmış halat yenisi ile değiştirildi, uç bağlantıları kontrol edildi ve test edildi.' },
+    { kisa: 'Switch ayarı', metin: 'Switch kontakları kontrol edildi, ayarı yapıldı ve test edildi.' },
+    { kisa: 'Kumanda/pil', metin: 'Uzaktan kumanda pilleri değiştirildi, tüm fonksiyonlar test edildi.' },
+    { kisa: 'Fren ayarı', metin: 'Fren sistemi kontrol edildi, balata aşınması ölçüldü ve fren ayarı yapıldı.' },
+    { kisa: 'Kablo/röle', metin: 'Arızalı kablo/röle tespit edilip değiştirildi, devreye alma testi yapıldı.' },
+    { kisa: 'Siren/ikaz', metin: 'İkaz sistemi kontrol edildi, arızalı siren değiştirildi ve test edildi.' },
+    { kisa: 'Periyodik bakım', metin: 'Periyodik bakım yapıldı: yağlama, cıvata kontrolü, fren ayarı, elektrik panosu kontrolü.' },
+    { kisa: 'Test edildi', metin: 'Gerekli kontroller yapıldı, makine test edilerek firmaya teslim edildi.' },
+  ];
+
+  // 📚 ARIZA KÜTÜPHANESİ — yazılan arızaya benzer geçmiş çözümler
+  const [kutuphane, setKutuphane] = useState<any[]>([]);
+  const [kutuphaneAraniyor, setKutuphaneAraniyor] = useState(false);
+  const [kutuphaneAcik, setKutuphaneAcik] = useState(false);
+
+  useEffect(() => {
+    const metin = (raporForm.arizanin_cinsi || '').trim();
+    if (metin.length < 6) { setKutuphane([]); setKutuphaneAcik(false); return; }
+
+    const zaman = setTimeout(async () => {
+      setKutuphaneAraniyor(true);
+      try {
+        const { data } = await supabase.rpc('ariza_cozum_ara', { p_sikayet: metin, p_limit: 4 });
+        const liste = (data || []).filter((x: any) => Number(x.benzorluk || x.benzerlik || 0) > 0);
+        setKutuphane(liste);
+        setKutuphaneAcik(liste.length > 0);
+      } catch { /* kütüphane kurulmamışsa sessiz geç */ }
+      finally { setKutuphaneAraniyor(false); }
+    }, 900);
+
+    return () => clearTimeout(zaman);
+  }, [raporForm.arizanin_cinsi]);
+
   // 🧤 SAHA MODLARI (tercihler hatırlanır)
   const [eldivenModu, setEldivenModu] = useState(false);
   const [gunesModu, setGunesModu] = useState(false);
@@ -855,6 +890,40 @@ export default function PersonelEkrani() {
                                     <div className="space-y-1.5 mt-4">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1 block">Arızanın Cinsi (Sorun Ne İdi?)</label>
                                         <textarea rows={2} placeholder="Arıza detayını buraya girin..." value={raporForm.arizanin_cinsi} onChange={e=>setRaporForm({...raporForm, arizanin_cinsi: e.target.value})} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-500 transition resize-none leading-relaxed" />
+
+                                        {/* 📚 ARIZA KÜTÜPHANESİ — benzer geçmiş çözümler */}
+                                        {kutuphaneAraniyor && (
+                                            <p className="text-[10px] text-violet-600 font-bold mt-1.5">📚 Geçmiş çözümler taranıyor...</p>
+                                        )}
+                                        {kutuphaneAcik && kutuphane.length > 0 && (
+                                            <div className="mt-2 bg-violet-50 border border-violet-200 rounded-2xl p-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <p className="text-[10px] font-black text-violet-700 uppercase tracking-wider">
+                                                        📚 BU ARIZA {kutuphane.length} KEZ YAŞANMIŞ
+                                                    </p>
+                                                    <button onClick={() => setKutuphaneAcik(false)}
+                                                        className="text-[10px] font-black text-violet-400 hover:text-violet-700">KAPAT</button>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {kutuphane.map((k: any, i: number) => (
+                                                        <div key={i} className="bg-white rounded-xl p-2.5 border border-violet-100">
+                                                            <p className="text-[10px] font-bold text-slate-400 mb-1">
+                                                                {k.musteri} · {k.tarih ? new Date(k.tarih).toLocaleDateString('tr-TR') : '-'} · {Number(k.tutar || 0).toLocaleString('tr-TR')} ₺
+                                                            </p>
+                                                            <p className="text-[11px] text-slate-700 leading-snug">{k.aciklama}</p>
+                                                            {k.parcalar && (
+                                                                <p className="text-[10px] text-blue-600 font-bold mt-1">🔧 {k.parcalar}</p>
+                                                            )}
+                                                            <button
+                                                                onClick={() => setRaporForm((o) => ({ ...o, yapilan_isler: o.yapilan_isler ? o.yapilan_isler + ' ' + k.aciklama : k.aciklama }))}
+                                                                className="mt-1.5 text-[10px] font-black text-violet-700 bg-violet-100 hover:bg-violet-200 px-2.5 py-1.5 rounded-lg transition">
+                                                                ↗ ÇÖZÜMÜ YAPILAN İŞLERE EKLE
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                         <SesliYazi
                                             etiket="Sesle anlat"
                                             onMetin={(m) => setRaporForm((o) => ({ ...o, arizanin_cinsi: o.arizanin_cinsi ? o.arizanin_cinsi + ' ' + m : m }))}
@@ -865,6 +934,19 @@ export default function PersonelEkrani() {
                                 {/* YAPILAN İŞLER (BÜYÜK ALAN) */}
                                 <div className="space-y-1.5">
                                     <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider ml-1 flex items-center gap-2"><Wrench className="w-4 h-4 text-amber-500"/> Yapılan İşlemler (Detaylı)</label>
+                                    {/* 📋 HIZLI ŞABLONLAR — tek tuşla açıklama */}
+                                    <div className="flex flex-wrap gap-1.5 mb-2">
+                                        {IS_SABLONLARI.map((s) => (
+                                            <button key={s.kisa}
+                                                onClick={() => setRaporForm((o) => ({
+                                                    ...o,
+                                                    yapilan_isler: o.yapilan_isler ? o.yapilan_isler + '\n' + s.metin : s.metin,
+                                                }))}
+                                                className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1.5 rounded-lg text-[10px] font-black transition active:scale-95">
+                                                + {s.kisa}
+                                            </button>
+                                        ))}
+                                    </div>
                                     <textarea rows={4} placeholder="Makine incelendi, şu parçalar söküldü, yerine bu takıldı, test edildi vb..." value={raporForm.yapilan_isler} onChange={e=>setRaporForm({...raporForm, yapilan_isler: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-3xl text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-amber-400 shadow-inner resize-none leading-relaxed" />
                                     <SesliYazi
                                         etiket="Sesle yaz · Ellerin boş kalsın"
