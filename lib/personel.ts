@@ -13,9 +13,10 @@ export const PERSONEL_LISTESI = [
   'Gökhan GÖK',
   'Kerim AKDOĞAN',
   'Okan ARAN',
-  'Hamza ATTAR',
   'Adem ACAR',
 ];
+// NOT: Hamza ATTAR ayrıldı (listeden çıkarıldı). Yerine Okan ARAN zaten listede.
+// Aylık maaşlar artık programdan güncellenir (personel_maas tablosu).
 
 // Türkçe karakter + büyük/küçük harf farkını yok sayan normalleştirme
 // ("VEYSEL ÇARKLI" === "Veysel Carkli" === "veysel çarklı")
