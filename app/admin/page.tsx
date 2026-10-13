@@ -7,6 +7,7 @@ import KayoChat from '@/components/KayoChat';
 import BakimFirsatKarti from '@/components/BakimFirsatKarti';
 import ArizaTahminKarti from '@/components/ArizaTahminKarti';
 import KarMotoruKarti from '@/components/KarMotoruKarti';
+import AsansorKarti from '@/components/AsansorKarti';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -340,6 +341,9 @@ export default function AdminPanel() {
                 </motion.button>
             </div>
         </div>
+
+        {/* 🏢 ASANSÖR İŞLERİ — kapasite alanından otomatik tespit */}
+        <AsansorKarti />
 
         {/* 💵 İŞ BAZLI KÂR — hangi iş/müşteri kâr bırakıyor */}
         <KarMotoruKarti />
