@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CalendarDays, Loader2, ArrowLeft, Save, Plus, X, Wallet,
-  Check, AlertTriangle, RefreshCw, Users, ChevronLeft, ChevronRight
+  Check, AlertTriangle, RefreshCw, Users, ChevronLeft, ChevronRight, Printer
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PERSONEL_LISTESI } from '@/lib/personel';
@@ -146,7 +146,9 @@ export default function PuantajSayfasi() {
   const netToplamGoster = satirlar.reduce((t, s) => t + s.net, 0);
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-sans text-slate-800 pb-28 lg:pb-8">
+    <>
+    {/* ================= EKRAN GÖRÜNÜMÜ (yazdırmada gizlenir) ================= */}
+    <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-sans text-slate-800 pb-28 lg:pb-8 print:hidden">
       <div className="max-w-[1200px] mx-auto space-y-6">
 
         {/* BAŞLIK */}
@@ -179,6 +181,10 @@ export default function PuantajSayfasi() {
             <button onClick={() => setGunForm(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg transition active:scale-95">
               <Plus size={16} /> GÜN EKLE
+            </button>
+            <button onClick={() => window.print()}
+              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-3 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg transition active:scale-95">
+              <Printer size={16} /> PDF İNDİR
             </button>
           </div>
         </div>
@@ -391,5 +397,76 @@ export default function PuantajSayfasi() {
         )}
       </AnimatePresence>
     </div>
+
+    {/* ================= PDF / YAZDIRMA GÖRÜNÜMÜ ================= */}
+    <div className="hidden print:block p-8 text-black bg-white">
+      <div className="text-center mb-6 border-b-2 border-black pb-4">
+        <h1 className="text-2xl font-black tracking-tight">BUVİSAN VİNÇ SERVİS</h1>
+        <p className="text-sm font-bold mt-1">PUANTAJ LİSTESİ</p>
+        <p className="text-lg font-black mt-1">{AYLAR[ayNo - 1].toUpperCase()} {yil}</p>
+      </div>
+
+      <table className="w-full text-[11px] border-collapse">
+        <thead>
+          <tr className="bg-slate-200">
+            <th className="border border-black p-2 text-left">PERSONEL</th>
+            <th className="border border-black p-2 text-right">MAAŞ</th>
+            <th className="border border-black p-2 text-right">CMT %50</th>
+            <th className="border border-black p-2 text-right">PAZ %100</th>
+            <th className="border border-black p-2 text-right">MESAİ</th>
+            <th className="border border-black p-2 text-right">AVANS</th>
+            <th className="border border-black p-2 text-right">KESİNTİ</th>
+            <th className="border border-black p-2 text-right">NET</th>
+          </tr>
+        </thead>
+        <tbody>
+          {satirlar.map((s) => (
+            <tr key={s.p}>
+              <td className="border border-black p-2 font-bold">{s.p}</td>
+              <td className="border border-black p-2 text-right">{para(s.maas)}</td>
+              <td className="border border-black p-2 text-right">{s.cmt50 > 0 ? `${s.cmt50} sa` : '-'}</td>
+              <td className="border border-black p-2 text-right">{s.paz100 > 0 ? `${s.paz100} sa` : '-'}</td>
+              <td className="border border-black p-2 text-right">{para(s.mesaiTutar)}</td>
+              <td className="border border-black p-2 text-right">{para(s.o.avans)}</td>
+              <td className="border border-black p-2 text-right">{para(s.o.kesinti)}</td>
+              <td className="border border-black p-2 text-right font-black">{para(s.net)}</td>
+            </tr>
+          ))}
+          <tr className="bg-slate-100 font-black">
+            <td className="border border-black p-2">TOPLAM</td>
+            <td className="border border-black p-2 text-right">{para(toplamMaas)}</td>
+            <td className="border border-black p-2"></td>
+            <td className="border border-black p-2"></td>
+            <td className="border border-black p-2 text-right">{para(toplamMesai)}</td>
+            <td className="border border-black p-2"></td>
+            <td className="border border-black p-2"></td>
+            <td className="border border-black p-2 text-right">{para(netToplamGoster)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p className="text-[10px] mt-3 font-medium">
+        Not: Hafta içi çalışma 08:00-18:00&apos;dir. Hafta sonu çalışmalarında cumartesi %50,
+        pazar %100 zamlı ücret uygulanır.
+      </p>
+
+      <div className="flex justify-between mt-16 text-xs font-bold">
+        <div className="text-center">
+          <p>Düzenleyen</p>
+          <p className="mt-12 border-t border-black pt-1 px-8">İmza</p>
+        </div>
+        <div className="text-center">
+          <p>Onaylayan</p>
+          <p className="mt-12 border-t border-black pt-1 px-8">İmza</p>
+        </div>
+        <div className="text-center">
+          <p>Tarih</p>
+          <p className="mt-12 border-t border-black pt-1 px-8">
+            {new Date().toLocaleDateString('tr-TR')}
+          </p>
+        </div>
+      </div>
+    </div>
+    </>
   );
 }
