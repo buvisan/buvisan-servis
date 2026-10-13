@@ -16,7 +16,7 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, CalendarDays, Play, ClipboardList, Wallet
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, CalendarDays, Play, ClipboardList, Wallet, BookOpen
 } from 'lucide-react';
 
 const PERSONEL_LISTESI = [
@@ -324,6 +324,10 @@ export default function AdminPanel() {
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/stok')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-amber-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
                     <div className="bg-amber-50 text-amber-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors"><Package size={20}/></div>
                     <div><h3 className="font-bold text-slate-700 text-sm">Stok Takibi</h3><p className="text-[10px] text-slate-400">Adet & kritik seviye</p></div>
+                </motion.button>
+                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/ariza-kutuphanesi')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-violet-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
+                    <div className="bg-violet-50 text-violet-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors"><BookOpen size={20}/></div>
+                    <div><h3 className="font-bold text-slate-700 text-sm">Arıza Kütüphanesi</h3><p className="text-[10px] text-slate-400">Geçmiş çözümler</p></div>
                 </motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/cari')} className="bg-gradient-to-br from-emerald-600 to-teal-700 p-5 rounded-2xl shadow-md border border-emerald-500 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
                     <div className="absolute -right-4 -bottom-4 opacity-10"><Wallet size={80}/></div>
