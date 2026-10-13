@@ -245,6 +245,18 @@ export default function PuantajSayfasi() {
                     </div>
                   </div>
 
+                  {/* ⛱️ İZİN GÜNLERİ (onaylı izinler puantaja işlenir) */}
+                  {Number(o.izin_gun) > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3 flex items-center justify-between">
+                      <span className="text-[10px] font-black text-amber-700">
+                        ⛱️ {o.izin_gun} gün onaylı izin
+                      </span>
+                      <span className="text-[9px] font-bold text-amber-600">
+                        {Number(o.gun_sayisi) || 0} gün çalıştı
+                      </span>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
                     <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
                       <p className="text-[9px] font-black text-slate-400 uppercase">Maaş</p>
@@ -267,8 +279,7 @@ export default function PuantajSayfasi() {
                           )}
                         </div>
                       )}
-                    </div>
-                    <div className="bg-blue-50 rounded-xl p-2.5 border border-blue-100">
+                    </div>                    <div className="bg-blue-50 rounded-xl p-2.5 border border-blue-100">
                       <p className="text-[9px] font-black text-blue-500 uppercase">Cmt %50</p>
                       <p className="text-sm font-black text-blue-700">{o.mesai50_saat || 0} sa</p>
                     </div>
