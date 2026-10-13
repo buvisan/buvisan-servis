@@ -293,6 +293,51 @@ export default function RaporlarListesi() {
                                 </tbody>
                             </table>
 
+                            {/* MALZEME TUTARI · SÜRE · KONUM */}
+                            {((seciliRapor.malzeme_tutari > 0) || (seciliRapor.sure_dakika > 0) || seciliRapor.lat) && (
+                                <div className="flex flex-wrap justify-end gap-6 mt-3 mb-2 px-1">
+                                    {seciliRapor.sure_dakika > 0 && (
+                                        <span className="text-xs font-bold">SÜRE: {seciliRapor.sure_dakika} dk</span>
+                                    )}
+                                    {seciliRapor.malzeme_tutari > 0 && (
+                                        <span className="text-xs font-black">
+                                            MALZEME TUTARI: {Number(seciliRapor.malzeme_tutari).toLocaleString('tr-TR')} ₺
+                                        </span>
+                                    )}
+                                    {seciliRapor.lat && (
+                                        <a href={`https://maps.google.com/?q=${seciliRapor.lat},${seciliRapor.lng}`}
+                                           target="_blank" rel="noopener noreferrer"
+                                           className="text-xs font-bold text-blue-600 underline">
+                                            📍 KONUMU GÖR
+                                        </a>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* SAHA FOTOĞRAFLARI */}
+                            {Array.isArray(seciliRapor.medya_urls) && seciliRapor.medya_urls.length > 0 && (
+                                <div className="mt-3">
+                                    <p className="text-[10px] font-black mb-1.5">
+                                        SAHA FOTOĞRAFLARI / VİDEOLARI ({seciliRapor.medya_urls.length})
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {seciliRapor.medya_urls.map((u: any, i: number) => {
+                                            const url = typeof u === 'string' ? u : (u?.url || u?.path || '');
+                                            if (!url) return null;
+                                            const videoMu = /\.(mp4|mov|webm)$/i.test(url);
+                                            return videoMu ? (
+                                                <video key={i} src={url} controls className="w-28 h-28 object-cover border border-black" />
+                                            ) : (
+                                                <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                                                    <img src={url} alt={`Saha fotoğrafı ${i + 1}`}
+                                                         className="w-28 h-28 object-cover border border-black" />
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* İmzalar */}
                             <div className="w-full border-2 border-black grid grid-cols-3 absolute bottom-[15mm] left-[15mm] w-[calc(100%-30mm)]">
                                 <div className="border-r border-black p-2 h-24 relative">
@@ -301,8 +346,23 @@ export default function RaporlarListesi() {
                                         {seciliRapor.personel_adi}
                                     </div>
                                 </div>
-                                <div className="border-r border-black p-2 h-24 relative">
+                                <div className="border-r border-black p-2 h-24 relative overflow-hidden">
                                     <span className="text-[10px] font-bold text-slate-500 block absolute top-1 left-2">MÜŞTERİ YETKİLİSİ</span>
+                                    {/* ✍️ MÜŞTERİ İMZASI — saha ekranında alınan imza burada görünür */}
+                                    {seciliRapor.imza_url ? (
+                                        <img
+                                            src={seciliRapor.imza_url}
+                                            alt="Müşteri imzası"
+                                            className="absolute left-2 right-2 top-5 h-12 object-contain"
+                                        />
+                                    ) : (
+                                        <span className="absolute inset-x-0 top-9 text-center text-[9px] text-slate-300 font-bold">
+                                            İMZA ALINMAMIŞ
+                                        </span>
+                                    )}
+                                    <div className="absolute bottom-1 left-0 w-full text-center font-bold uppercase text-xs truncate px-1">
+                                        {seciliRapor.imza_atan || ''}
+                                    </div>
                                 </div>
                                 <div className="p-2 h-24 relative bg-slate-50">
                                     <span className="text-[10px] font-bold text-slate-500 block absolute top-1 left-2">RAPOR TARİHİ</span>
