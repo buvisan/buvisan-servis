@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, ChevronDown, Loader2, RefreshCw, AlertTriangle, TrendingUp, ArrowUpDown } from 'lucide-react';
+import { Building2, ChevronDown, Loader2, RefreshCw, AlertTriangle, TrendingUp, ArrowUpDown, X } from 'lucide-react';
 
 const para = (n: any) => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
 
@@ -22,6 +22,34 @@ export default function AsansorKarti() {
   const [envAcik, setEnvAcik] = useState(false);
   const [sirala, setSirala] = useState<'ciro' | 'gecikme'>('ciro');
   const [hata, setHata] = useState('');
+  const [teklif, setTeklif] = useState<{ musteri: string; metin: string } | null>(null);
+  const [teklifYukleniyor, setTeklifYukleniyor] = useState('');
+  const [kopyalandi, setKopyalandi] = useState(false);
+
+  const teklifOlustur = async (musteri: string) => {
+    setTeklifYukleniyor(musteri);
+    try {
+      const { data, error } = await supabase.rpc('abonelik_teklif_metni', {
+        p_musteri: musteri, p_periyot_ay: 6, p_makine_sayisi: null, p_iskonto_yuzde: 0,
+      });
+      if (error) { alert('Teklif üretilemedi: ' + error.message); return; }
+      setTeklif({ musteri, metin: String(data || '') });
+      setKopyalandi(false);
+    } finally {
+      setTeklifYukleniyor('');
+    }
+  };
+
+  const kopyala = async () => {
+    if (!teklif) return;
+    try {
+      await navigator.clipboard.writeText(teklif.metin);
+      setKopyalandi(true);
+      setTimeout(() => setKopyalandi(false), 2500);
+    } catch {
+      alert('Kopyalanamadı — metni elle seçip kopyalayın.');
+    }
+  };
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -175,6 +203,13 @@ export default function AsansorKarti() {
                             <p className="text-[10px] font-bold text-emerald-700">
                               📅 6 aylık abonelik teklifi: <strong>{para(m.abonelik_6ay)} ₺</strong> (yıllık)
                             </p>
+                            <button onClick={() => teklifOlustur(m.musteri)}
+                              disabled={teklifYukleniyor === m.musteri}
+                              className="mt-2 w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white py-2.5 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 transition active:scale-[0.98]">
+                              {teklifYukleniyor === m.musteri
+                                ? <><Loader2 size={11} className="animate-spin" /> HAZIRLANIYOR...</>
+                                : <>📋 TEKLİF METNİ OLUŞTUR</>}
+                            </button>
                           </div>
                         );
                       })}
@@ -227,6 +262,46 @@ export default function AsansorKarti() {
           (&quot;2 TON ASANSÖR&quot;, &quot;14 NOLU ASANSÖR&quot; gibi). Yeni işler de otomatik sınıflanır.
         </p>
       </div>
+
+      {/* TEKLİF METNİ PENCERESİ */}
+      <AnimatePresence>
+        {teklif && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setTeklif(null)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[900]" />
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+              className="fixed inset-x-0 bottom-0 md:inset-0 md:m-auto md:h-fit md:max-w-2xl z-[901] bg-white rounded-t-[2rem] md:rounded-3xl shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+                <div>
+                  <h3 className="font-black text-slate-800 text-sm">📋 ABONELİK TEKLİFİ</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{teklif.musteri}</p>
+                </div>
+                <button onClick={() => setTeklif(null)} className="bg-slate-100 hover:bg-red-500 hover:text-white text-slate-500 p-2.5 rounded-full transition">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto p-5">
+                <pre className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-[11px] text-slate-700 font-sans whitespace-pre-wrap leading-relaxed">
+{teklif.metin}
+                </pre>
+              </div>
+
+              <div className="p-4 border-t border-slate-100 shrink-0">
+                <button onClick={kopyala}
+                  className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition active:scale-[0.98] ${kopyalandi ? 'bg-emerald-600 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>
+                  {kopyalandi ? <>✅ KOPYALANDI — WHATSAPP&apos;A YAPIŞTIR</> : <>📋 METNİ KOPYALA</>}
+                </button>
+                <p className="text-[10px] text-slate-400 text-center font-medium mt-2">
+                  Metni kopyalayıp WhatsApp&apos;tan müşteriye gönder.
+                </p>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
