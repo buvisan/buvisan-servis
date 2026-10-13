@@ -72,6 +72,15 @@ export default function KazancimKarti({ personel }: { personel?: string }) {
 
       {yukleniyor ? (
         <div className="p-8 text-center"><Loader2 className="w-6 h-6 animate-spin text-emerald-600 mx-auto" /></div>
+      ) : veri?.yetki_yok ? (
+        <div className="p-5">
+          <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex gap-2">
+            <Info size={15} className="text-rose-600 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-rose-800 font-bold leading-relaxed">
+              {veri.mesaj || 'Sadece kendi kazanç bilginizi görebilirsiniz.'}
+            </p>
+          </div>
+        </div>
       ) : !veri?.kayit_var ? (
         <div className="p-5">
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-2">
