@@ -134,6 +134,29 @@ export default function BakimFirsatKarti() {
             arıza beklemeden düzenli servis alır; sen de <strong>öngörülebilir aylık gelir</strong> kazanırsın.
           </p>
         </div>
+
+        {/* ABONELİK PAKETLERİ */}
+        <div className="bg-white border border-teal-100 rounded-2xl p-4">
+          <p className="text-[10px] font-black uppercase tracking-wider text-teal-600 mb-3">
+            📅 ABONELİK PAKETLERİ (makine başı · vinç & asansör)
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="bg-teal-50/70 rounded-2xl p-3.5 border border-teal-100">
+              <p className="text-xs font-black text-teal-800">6 Aylık Bakım Anlaşması</p>
+              <p className="text-lg font-black text-teal-700 leading-tight mt-1">8.500 ₺ <span className="text-[10px] font-bold text-teal-500">+ KDV</span></p>
+              <p className="text-[10px] text-teal-600 font-bold mt-1">makine başı · yılda 2 periyodik bakım</p>
+            </div>
+            <div className="bg-emerald-50/70 rounded-2xl p-3.5 border border-emerald-100">
+              <p className="text-xs font-black text-emerald-800">3 Aylık Bakım Anlaşması</p>
+              <p className="text-lg font-black text-emerald-700 leading-tight mt-1">8.500 ₺ <span className="text-[10px] font-bold text-emerald-500">+ KDV</span></p>
+              <p className="text-[10px] text-emerald-600 font-bold mt-1">makine başı · yılda 4 periyodik bakım</p>
+            </div>
+          </div>
+          <p className="text-[9px] text-slate-400 font-medium mt-2.5">
+            Her iki pakette de: acil servis önceliği · bakım raporu · KDV hariç (müşteri talebine göre indirim uygulanabilir).
+            Detaylı fiyat hesabı: <code>abonelik_teklifi(makine_sayisi, periyot_ay, iskonto)</code>
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -108,14 +108,27 @@ export default function KarMotoruKarti() {
           </div>
         </div>
 
-        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-wrap items-center justify-between gap-2">
+        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">En Kârlı Müşteri</p>
-            <p className="text-xs font-black text-emerald-700">{ozet.en_karli_musteri || '-'}</p>
+            <p className="text-xs font-black text-emerald-700 truncate">{ozet.en_karli_musteri || '-'}</p>
           </div>
-          <div className="text-right">
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Saatlik İşçilik Maliyeti</p>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Saatlik İşçilik</p>
             <p className="text-xs font-black text-slate-700">{para(ozet.saatlik_maliyet)} ₺/saat</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Garanti İşler</p>
+            <p className="text-xs font-black text-blue-700">
+              {ozet.garanti_is} iş · {para(ozet.garanti_maliyet)} ₺
+            </p>
+            <p className="text-[9px] text-slate-400 font-bold">şirket karşılar (kasıtlı)</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Yarım Kalan / Bedelsiz</p>
+            <p className="text-xs font-black text-slate-600">
+              {ozet.yarim_kalan_is} / {ozet.bedelsiz_is} iş
+            </p>
           </div>
         </div>
 
