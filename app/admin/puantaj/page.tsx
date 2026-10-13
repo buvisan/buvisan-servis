@@ -18,6 +18,15 @@ import { useRouter } from 'next/navigation';
 import { PERSONEL_LISTESI } from '@/lib/personel';
 
 const para = (n: any) => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+
+// Maaş gösterimi: maaş tablosundaki değer ÖNCELİKLİ (puantaj özeti 0 dönse bile doğru gösterir)
+const maasGoster = (maasTablosu: any, ozetDegeri: any) => {
+  const m = Number(maasTablosu || 0);
+  const o = Number(ozetDegeri || 0);
+  return para(m > 0 ? m : o);
+};
+// Kısa yardımcı (yukarıdaki fonksiyonun okunabilir takma adı)
+const parendeksiYok = maasGoster;
 const AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
 export default function PuantajSayfasi() {
@@ -119,8 +128,12 @@ export default function PuantajSayfasi() {
 
   const [yil, ayNo] = ay.split('-').map(Number);
   const toplamNet = Object.values(ozetler).reduce((t: number, o: any) => t + Number(o?.net_ele_gecen || 0), 0);
-  const toplamMaas = Object.values(ozetler).reduce((t: number, o: any) => t + Number(o?.maas || 0), 0);
+  // Maaş toplamı: puantaj özeti boş dönse bile maaş tablosundan doğru toplamı al
+  const toplamMaasOzet = Object.values(ozetler).reduce((t: number, o: any) => t + Number(o?.maas || 0), 0);
+  const toplamMaasTablo = maaslar.filter((m) => m.aktif).reduce((t, m) => t + Number(m.maas || 0), 0);
+  const toplamMaas = Math.max(toplamMaasOzet, toplamMaasTablo);
   const toplamMesai = Object.values(ozetler).reduce((t: number, o: any) => t + Number(o?.toplam_mesai || 0), 0);
+  const netToplamGoster = toplamNet > 0 ? toplamNet : toplamMaas + toplamMesai;
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-sans text-slate-800 pb-28 lg:pb-8">
@@ -182,7 +195,7 @@ export default function PuantajSayfasi() {
           </div>
           <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
             <p className="text-[10px] font-black uppercase tracking-wider text-emerald-500 mb-1">Net Toplam</p>
-            <p className="text-xl font-black text-emerald-700 leading-none">{para(toplamNet)} ₺</p>
+            <p className="text-xl font-black text-emerald-700 leading-none">{para(netToplamGoster)} ₺</p>
           </div>
         </div>
 
@@ -209,7 +222,9 @@ export default function PuantajSayfasi() {
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-lg font-black text-emerald-700 leading-none">{para(o.net_ele_gecen)} ₺</p>
+                      <p className="text-lg font-black text-emerald-700 leading-none">
+                        {para(Number(o.net_ele_gecen) > 0 ? o.net_ele_gecen : (Number(mKayit?.maas) || Number(o.maas) || 0))} ₺
+                      </p>
                       <p className="text-[9px] text-slate-400 font-bold mt-0.5">net ele geçen</p>
                     </div>
                   </div>
@@ -227,7 +242,9 @@ export default function PuantajSayfasi() {
                           </p>
                         </div>
                       ) : (
-                        <p className="text-sm font-black text-slate-700">{para(o.maas)} ₺</p>
+                        <p className="text-sm font-black text-slate-700">
+                          {parendeksiYok(mKayit?.maas, o.maas)} ₺
+                        </p>
                       )}
                     </div>
                     <div className="bg-blue-50 rounded-xl p-2.5 border border-blue-100">
@@ -268,7 +285,7 @@ export default function PuantajSayfasi() {
                     </button>
                   </div>
 
-                  {!o.maas && (
+                  {!(Number(mKayit?.maas) > 0) && !(Number(o.maas) > 0) && (
                     <p className="text-[10px] text-amber-600 font-bold mt-2">
                       ⚠️ Maaş girilmemiş — &quot;MAAŞI GÜNCELLE&quot; ile ekleyin.
                     </p>
