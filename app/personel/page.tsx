@@ -13,14 +13,13 @@ import GununPlani from '@/components/GununPlani';
 import Gecmisim from '@/components/Gecmisim';
 import ImzaPad from '@/components/ImzaPad';
 import SesliYazi from '@/components/SesliYazi';
-import SesliRapor from '@/components/SesliRapor';
 import KuyrukBandi from '@/components/KuyrukBandi';
 import { PERSONEL_LISTESI, listedenIsimBul } from '@/lib/personel';
 import { kuyrugaEkle, agHatasiMi, parcalariStoktanDus } from '@/lib/kuyruk';
 import { 
   LogOut, MapPin, CheckCircle2, Clock, Truck, 
   Wrench, ChevronRight, FileSignature, ArrowLeft, Plus, Trash2, Send, Loader2, User, HardHat, FileText, CalendarClock, Mic,
-  Users, CheckSquare, Square, Phone, Navigation, Search, Zap, Camera, Video, ImageIcon, X, Crosshair, WifiOff
+  Users, CheckSquare, Square, Phone, Navigation, Search, Zap, Camera, Video, ImageIcon, X, Crosshair, WifiOff, ShieldCheck, Check, Star
 } from 'lucide-react';
 
 // ----------------------------------------------------------------------------
@@ -98,6 +97,21 @@ export default function PersonelEkrani() {
   const [kutuphaneAraniyor, setKutuphaneAraniyor] = useState(false);
   const [kutuphaneAcik, setKutuphaneAcik] = useState(false);
   const [eklendiIdx, setEklendiIdx] = useState<number | null>(null);
+
+  // 🦺 İSG KONTROL LİSTESİ
+  const ISG_MADDELERI = [
+    'Emniyet kemeri / paraşüt tipi kemer takıldı',
+    'Çalışma alanı bariyer veya şeritle ayrıldı',
+    'Makinenin enerjisi kesildi ve kilitlendi',
+    'Yüksekte çalışma platformu / iskele kontrol edildi',
+    'Kişisel koruyucu donanım tam (baret, eldiven, gözlük)',
+    'Çevredeki diğer personel uyarıldı',
+  ];
+  const [isgTamam, setIsgTamam] = useState<boolean[]>(() => ISG_MADDELERI.map(() => false));
+
+  // ⭐ MÜŞTERİ MEMNUNİYET PUANI
+  const [musteriPuani, setMusteriPuani] = useState(0);
+  const [musteriYorumu, setMusteriYorumu] = useState('');
 
   useEffect(() => {
     const metin = (raporForm.arizanin_cinsi || '').trim();
@@ -441,6 +455,10 @@ export default function PersonelEkrani() {
               medya_urls: yuklenenMedya,
               imza_url: imzaUrl,
               imza_atan: imzaAtan.trim() || null,
+              // 🦺 İSG kontrol listesi + ⭐ memnuniyet puanı
+              isg_kontrol: ISG_MADDELERI.map((madde, i) => ({ madde, tamam: isgTamam[i] })),
+              musteri_puani: musteriPuani > 0 ? musteriPuani : null,
+              musteri_yorumu: musteriYorumu.trim() || null,
               lat: konum?.lat ?? null,
               lng: konum?.lng ?? null,
               sure_dakika: sureDk,
@@ -893,40 +911,54 @@ export default function PersonelEkrani() {
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1 block">Arızanın Cinsi (Sorun Ne İdi?)</label>
                                         <textarea rows={2} placeholder="Arıza detayını buraya girin..." value={raporForm.arizanin_cinsi} onChange={e=>setRaporForm({...raporForm, arizanin_cinsi: e.target.value})} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-500 transition resize-none leading-relaxed" />
 
-                                        {/* 🎤 SESLİ RAPOR — konuş, alanlar dolsun */}
-                                        <div className="mt-3">
-                                            <SesliRapor
-                                                baglam={`Makine: ${raporForm.vinc_modeli || '-'} ${raporForm.vinc_kapasite || ''} ${raporForm.vinc_seri_no || ''}`}
-                                                onSonuc={(s) => {
-                                                    setRaporForm((o) => ({
-                                                        ...o,
-                                                        arizanin_cinsi: s.arizanin_cinsi || o.arizanin_cinsi,
-                                                        yapilan_isler: s.yapilan_isler || o.yapilan_isler,
-                                                    }));
-                                                    if (s.sure_dakika && Number(s.sure_dakika) > 0) {
-                                                        const dk = Number(s.sure_dakika);
-                                                        setRaporForm((o) => ({
-                                                            ...o,
-                                                            isyerinden_ayrilis: o.isyerinden_ayrilis,
-                                                        }));
-                                                        console.info('Sesli raporda söylenen süre (dk):', dk);
-                                                    }
-                                                    // Söylenen parçaları parça listesine ekle
-                                                    if (Array.isArray(s.parcalar) && s.parcalar.length > 0) {
-                                                        setRaporForm((o) => {
-                                                            const mevcut = o.degisen_parcalar.filter((p: any) => (p.parca_adi || '').trim() !== '');
-                                                            const yeniler = (s.parcalar || [])
-                                                                .filter((ad) => !mevcut.some((m: any) => (m.parca_adi || '').toLowerCase() === ad.toLowerCase()))
-                                                                .map((ad) => ({ parca_no: '', parca_adi: ad, adet: '1', birim_fiyat: 0, birim_maliyet: 0, malzeme_id: '' }));
-                                                            return { ...o, degisen_parcalar: [...mevcut, ...yeniler] };
-                                                        });
-                                                    }
-                                                    setTimeout(() => {
-                                                        document.getElementById('yapilan-isler-alani')
-                                                            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                    }, 200);
-                                                }}
-                                            />
+                                        {/* 🦺 İSG KONTROL LİSTESİ — güvenlik + yasal koruma */}
+                                        <div className="mt-3 bg-orange-50 border border-orange-200 rounded-2xl p-4">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="bg-orange-500 p-2 rounded-xl">
+                                                        <ShieldCheck className="w-4 h-4 text-white" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-black text-orange-900 leading-none">İSG KONTROL LİSTESİ</p>
+                                                        <p className="text-[10px] text-orange-500 font-bold mt-0.5">
+                                                            {isgTamam.filter(Boolean).length}/{ISG_MADDELERI.length} tamamlandı
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => setIsgTamam(ISG_MADDELERI.map(() => true))}
+                                                    className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-xl text-[10px] font-black transition">
+                                                    TÜMÜNÜ İŞARETLE
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                {ISG_MADDELERI.map((madde, i) => (
+                                                    <button key={i}
+                                                        onClick={() => setIsgTamam((o) => o.map((v, j) => (j === i ? !v : v)))}
+                                                        className={`w-full flex items-start gap-2.5 p-2.5 rounded-xl text-left transition ${
+                                                            isgTamam[i] ? 'bg-emerald-50 border border-emerald-300' : 'bg-white border border-slate-200'
+                                                        }`}>
+                                                        <span className={`mt-0.5 w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
+                                                            isgTamam[i] ? 'bg-emerald-600' : 'bg-slate-200'
+                                                        }`}>
+                                                            {isgTamam[i] && <Check className="w-3.5 h-3.5 text-white" />}
+                                                        </span>
+                                                        <span className={`text-[11px] font-bold leading-snug ${isgTamam[i] ? 'text-emerald-900' : 'text-slate-600'}`}>
+                                                            {madde}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            {isgTamam.filter(Boolean).length < ISG_MADDELERI.length && (
+                                                <p className="text-[10px] text-orange-600 font-bold mt-2">
+                                                    ⚠️ İşaretlenmeyen maddeler var — güvenlik için hepsini kontrol edin.
+                                                </p>
+                                            )}
+                                            <p className="text-[9px] text-orange-400 font-medium mt-2">
+                                                Bu liste rapora kaydedilir ve yazdırılan formda görünür (yasal koruma).
+                                            </p>
                                         </div>
 
                                         {/* 📚 ARIZA KÜTÜPHANESİ — benzer geçmiş çözümler */}
@@ -1150,6 +1182,46 @@ export default function PersonelEkrani() {
                                     />
                                     <p className="text-[10px] text-slate-400 font-medium mt-2">
                                         Müşteri tarafında imzayı atan kişinin adı — rapora yazdırılır.
+                                    </p>
+                                </div>
+
+                                {/* ⭐ MÜŞTERİ MEMNUNİYET PUANI */}
+                                <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm">
+                                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2 mb-1">
+                                        <Star className="w-4 h-4 text-amber-500" /> Müşteri Memnuniyeti
+                                    </h3>
+                                    <p className="text-[10px] text-slate-400 font-bold mb-3">
+                                        Müşteriye sorun: hizmetimizi kaç yıldız verirsiniz?
+                                    </p>
+
+                                    <div className="flex items-center gap-2 mb-3">
+                                        {[1, 2, 3, 4, 5].map((y) => (
+                                            <button key={y} onClick={() => setMusteriPuani(y)}
+                                                className="transition active:scale-90">
+                                                <Star
+                                                    className={`w-9 h-9 ${y <= musteriPuani ? 'text-amber-400 fill-amber-400' : 'text-slate-300'}`}
+                                                />
+                                            </button>
+                                        ))}
+                                        {musteriPuani > 0 && (
+                                            <span className="text-xs font-black text-amber-600 ml-1">
+                                                {musteriPuani}/5
+                                                {musteriPuani === 5 ? ' 🤩' : musteriPuani >= 4 ? ' 😊' : musteriPuani >= 3 ? ' 😐' : ' 😞'}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {musteriPuani > 0 && musteriPuani <= 3 && (
+                                        <input
+                                            type="text"
+                                            value={musteriYorumu}
+                                            onChange={(e) => setMusteriYorumu(e.target.value)}
+                                            placeholder="Müşterinin yorumu (neden düşük puan?)"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold outline-none focus:border-amber-500"
+                                        />
+                                    )}
+                                    <p className="text-[9px] text-slate-400 font-medium mt-2">
+                                        Puan isteğe bağlıdır. Düşük puanlarda yorum yazarsanız yönetim görür.
                                     </p>
                                 </div>
 
