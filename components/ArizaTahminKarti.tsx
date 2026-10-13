@@ -27,6 +27,8 @@ export default function ArizaTahminKarti() {
   const [yukleniyor, setYukleniyor] = useState(true);
   const [acik, setAcik] = useState(false);
   const [kelimeAcik, setKelimeAcik] = useState(false);
+  // Hangi vincin iş geçmişi açık (Finans → Son İşlemler formlarından gelen detay)
+  const [acikIs, setAcikIs] = useState<string | null>(null);
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -127,14 +129,17 @@ export default function ArizaTahminKarti() {
                             {v.risk}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-0.5">
                           <span className="text-[10px] text-slate-500 font-bold">
                             Son servis {v.son_servis ? new Date(v.son_servis).toLocaleDateString('tr-TR') : '-'}
                             {' · '}{v.gecen_gun} gün önce
                           </span>
-                          <span className="text-[11px] font-black text-indigo-700">{para(v.ort_servis_tutari)} ₺</span>
+                          <span className="text-[11px] font-black text-indigo-700">
+                            Toplam {para(v.toplam_odeme)} ₺
+                          </span>
                         </div>
-                        <p className="text-[10px] text-slate-400 font-bold mt-1">
+
+                        <p className="text-[10px] text-slate-400 font-bold">
                           Ortalama {v.ort_aralik_gun} günde bir arızalanıyor
                           {v.durum_gun !== null && (
                             <span className={Number(v.durum_gun) < 0 ? 'text-rose-500' : 'text-amber-500'}>
@@ -142,6 +147,49 @@ export default function ArizaTahminKarti() {
                             </span>
                           )}
                         </p>
+
+                        {/* NE İŞ YAPILDI — Finans → Son İşlemler formlarından */}
+                        {v.son_ariza && (
+                          <p className="text-[10px] text-slate-600 italic leading-relaxed mt-1.5 bg-white rounded-xl px-2.5 py-2 border border-slate-100">
+                            “{String(v.son_ariza).slice(0, 160)}{String(v.son_ariza).length > 160 ? '…' : ''}”
+                          </p>
+                        )}
+
+                        {Array.isArray(v.son_isler) && v.son_isler.length > 0 && (
+                          <>
+                            <button onClick={() => setAcikIs(acikIs === v.crane_id ? null : v.crane_id)}
+                              className="text-[9px] font-black text-indigo-600 mt-1.5 flex items-center gap-1 hover:text-indigo-800 transition">
+                              <ChevronDown size={11} className={`transition-transform ${acikIs === v.crane_id ? 'rotate-180' : ''}`} />
+                              {v.son_isler.length} İŞ GEÇMİŞİNİ GÖR
+                            </button>
+
+                            <AnimatePresence>
+                              {acikIs === v.crane_id && (
+                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                  <div className="mt-2 space-y-2 border-l-2 border-indigo-200 pl-3">
+                                    {v.son_isler.map((is: any, i: number) => (
+                                      <div key={i}>
+                                        <div className="flex items-center justify-between gap-2">
+                                          <span className="text-[9px] font-black text-slate-500">
+                                            {is.tarih ? new Date(is.tarih).toLocaleDateString('tr-TR') : '-'}
+                                            {is.tur ? ` · ${is.tur}` : ''}
+                                          </span>
+                                          <span className="text-[9px] font-black text-emerald-600 shrink-0">
+                                            {para(is.tutar)} ₺
+                                          </span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 leading-snug">{is.aciklama || '-'}</p>
+                                        {is.teknisyen && (
+                                          <p className="text-[9px] text-slate-400 font-bold">👤 {is.teknisyen}</p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>
