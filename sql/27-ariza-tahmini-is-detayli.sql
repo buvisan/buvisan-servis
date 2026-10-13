@@ -127,7 +127,7 @@ as $$
     end,
     round(o.ort_tutar, 0),
     round(o.toplam, 0),
-    (select si.aciklama from vinc_servisleri si
+    (select si.description from vinc_servisleri si
       where si.crane_id = o.crane_id and si.sira = 1),
     coalesce((select s.veri from son_isler s where s.crane_id = o.crane_id), '[]'::jsonb)
   from ozet o
