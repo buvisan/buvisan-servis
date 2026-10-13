@@ -12,17 +12,58 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ============================================================================
+   ⚠️ KARANLIK MOD KALDIRILDI
+   ----------------------------------------------------------------------------
+   Sebep: Telefon karanlık moddayken yazı rengi BEYAZA dönüyordu ama form
+   alanlarının zemini beyaz kaldığı için yazılan yazı GÖRÜNMÜYORDU.
+   Uygulama açık tema ile tasarlandığı için bu kural kaldırıldı.
+   ============================================================================ */
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ============================================================================
+   ✍️ FORM ALANLARI: YAZI HER ZAMAN KOYU (telefonda görünür olsun)
+   ============================================================================ */
+input,
+select,
+textarea {
+  color: #0f172a !important;              /* koyu lacivert-siyah */
+  background-color: #ffffff;
+  caret-color: #0f172a;                   /* imleç de görünsün */
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8 !important;              /* soluk gri ipucu yazısı */
+  opacity: 1 !important;
+}
+
+/* Otomatik doldurmada (autofill) tarayıcı yazıyı siyaha çevirmesin */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: #0f172a !important;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Koyu zeminli alanlarda (örn. sohbet, arama kutuları) beyaz yazı gerekebilir */
+.koyu-alan input,
+.koyu-alan textarea,
+.koyu-alan select {
+  color: #ffffff !important;
+  background-color: transparent;
+}
+.koyu-alan input::placeholder,
+.koyu-alan textarea::placeholder {
+  color: #cbd5e1 !important;
 }
 
 /* ============================================================================
