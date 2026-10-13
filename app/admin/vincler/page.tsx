@@ -22,6 +22,8 @@ export default function VinclerListesi() {
 
   // Toplu İndirme State'i
   const [qrIndiriliyor, setQrIndiriliyor] = useState(false);
+  // 🔋 MOBİL PERFORMANS: QR canvas'ları yalnızca indirme anında üretilir
+  const [qrUret, setQrUret] = useState(false);
 
   // --- MODAL İÇİN STATE'LER ---
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -97,6 +99,12 @@ export default function VinclerListesi() {
     setQrIndiriliyor(true);
 
     try {
+      // 🔋 MOBİL PERFORMANS: canvas'lar yalnızca indirme anında üretilir.
+      // (Eskiden her sayfa açılışında 288 adet 1024×1024 canvas çiziliyordu →
+      //  telefonda donma ve hafıza sorunu)
+      setQrUret(true);
+      await new Promise((r) => setTimeout(r, 500));
+
       const zip = new JSZip();
       
       // Ekranda gizli render edilecek Canvas'ları yakalamak için Promise zinciri
@@ -109,8 +117,9 @@ export default function VinclerListesi() {
               // Base64 başlığını temizle
               const base64Data = dataUrl.replace(/^data:image\/(png|jpg);base64,/, "");
               
-              // İsimlendirme formatı: Firma-Müşteri Tonaj-Kapasite Model-Model
-              const rawName = `Firma-${vinc.customer_name || 'Yok'} Tonaj-${vinc.capacity || 'Yok'} Model-${vinc.model_name || 'Yok'}`;
+              // İsimlendirme: Seri no eklendi → aynı firma/tonaj/modeldeki iki vinç
+              // aynı dosya adını almaz (eskiden biri diğerinin üzerine yazılıyordu)
+              const rawName = `Firma-${vinc.customer_name || 'Yok'} Tonaj-${vinc.capacity || 'Yok'} Model-${vinc.model_name || 'Yok'} Seri-${vinc.serial_number || String(vinc.id).slice(0, 6)}`;
               const safeFileName = rawName.replace(/[/\\?%*:|"<>]/g, '-') + '.png';
               
               zip.file(safeFileName, base64Data, { base64: true });
@@ -130,6 +139,7 @@ export default function VinclerListesi() {
       alert("QR Kodlar indirilirken bir hata oluştu.");
     } finally {
       setQrIndiriliyor(false);
+      setQrUret(false); // canvas'ları bellekten bırak (telefon rahatlasın)
     }
   };
 
@@ -144,21 +154,25 @@ export default function VinclerListesi() {
     <div className="min-h-screen bg-slate-50/50 p-6 relative font-sans text-slate-800">
       
       {/* 
-        GİZLİ QR KOD RENDER ALANI: 
-        Kullanıcı görmez ama tarayıcı arkaplanda bu yüksek çözünürlüklü canvasları oluşturur ki Zip'e ekleyebilelim.
+        GİZLİ QR KOD RENDER ALANI
+        🔋 ÖNEMLİ: Bu alan artık SADECE "QR Kodları İndir" butonuna basıldığında
+        üretilir. Eskiden her sayfa açılışında 288 adet 1024×1024 canvas
+        çiziliyordu ve telefonlarda sayfa donuyordu.
       */}
-      <div style={{ display: 'none' }}>
-        {filtrelenmisVincler.map(vinc => (
-          <QRCodeCanvas 
-            key={`qr-${vinc.id}`}
-            id={`qr-canvas-${vinc.id}`}
-            value={`https://servis.buvisan.com/vinc/${vinc.id}`} 
-            size={1024} // Yüksek Kalite
-            level={"H"} 
-            includeMargin={true} 
-          />
-        ))}
-      </div>
+      {qrUret && (
+        <div style={{ display: 'none' }}>
+          {filtrelenmisVincler.map(vinc => (
+            <QRCodeCanvas 
+              key={`qr-${vinc.id}`}
+              id={`qr-canvas-${vinc.id}`}
+              value={`https://servis.buvisan.com/vinc/${vinc.id}`} 
+              size={1024}
+              level={"H"} 
+              includeMargin={true} 
+            />
+          ))}
+        </div>
+      )}
 
       <div className="max-w-[1400px] mx-auto">
         
