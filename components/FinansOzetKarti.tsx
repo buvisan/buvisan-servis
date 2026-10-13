@@ -133,8 +133,9 @@ export default function FinansOzetKarti({ baslangicAy }: { baslangicAy?: string 
             <p className="text-[10px] font-black uppercase tracking-wider text-orange-400 mb-1">Malzeme</p>
             <p className="text-2xl font-black text-orange-700 leading-none">{para(ozet.malzeme_gideri)} ₺</p>
             <p className="text-[10px] text-orange-400 font-bold mt-1">
-              raporlardan otomatik
-              {Number(ozet.malzeme_elle || 0) > 0 && Number(ozet.malzeme_gideri) !== Number(ozet.malzeme_elle) && (
+              {ozet.malzeme_kaynagi || 'raporlardan otomatik'}
+              {Number(ozet.malzeme_rapor || 0) > 0 && Number(ozet.malzeme_elle || 0) > 0
+                && Number(ozet.malzeme_rapor) !== Number(ozet.malzeme_elle) && (
                 <span className="text-orange-500"> · elle: {para(ozet.malzeme_elle)} ₺</span>
               )}
             </p>
