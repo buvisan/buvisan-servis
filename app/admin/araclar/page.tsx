@@ -365,7 +365,7 @@ export default function FiloYonetimEkrani() {
               </div>
           </div>
 
-          <table className="w-full text-left border-collapse border border-slate-300">
+          <table className="w-full text-left border-collapse border border-slate-300 mobil-kart">
               <thead>
                   <tr className="bg-slate-100 text-slate-800">
                       <th className="p-3 border border-slate-300 font-black text-sm uppercase">Plaka</th>

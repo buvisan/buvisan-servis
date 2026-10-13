@@ -553,7 +553,7 @@ export default function AnalizSayfasi() {
                     <div className="relative w-full md:w-64 group"><Search className="absolute left-3 top-3 text-slate-400 w-4 h-4"/><input type="text" placeholder="Ara: Müşteri, Form No..." value={aramaMetni} onChange={(e) => setAramaMetni(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-100 transition"/>{aramaMetni && <button onClick={() => setAramaMetni("")} className="absolute right-3 top-3 text-slate-400 hover:text-red-500"><X size={14}/></button>}</div>
                 </div>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left whitespace-nowrap md:whitespace-normal">
+                    <table className="w-full text-sm text-left whitespace-nowrap md:whitespace-normal mobil-kart">
                         <thead className="bg-slate-50/50 text-slate-500 font-bold uppercase text-[10px] md:text-xs tracking-wider"><tr><th className="p-4 pl-6">Tarih</th><th className="p-4">Müşteri</th><th className="p-4 hidden md:table-cell">İşlem</th><th className="p-4">Tutar</th><th className="p-4 text-right pr-6">İşlem</th></tr></thead>
                         <tbody className="divide-y divide-slate-100">
                             {filtrelenmisKayitlar.map((item) => (

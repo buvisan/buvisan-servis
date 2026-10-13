@@ -429,7 +429,7 @@ export default function TekliflerSayfasi() {
               </div>
           </div>
           <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
+              <table className="w-full text-sm text-left mobil-kart">
                   <thead className="bg-slate-50/50 text-slate-500 font-bold uppercase text-[10px]">
                       <tr><th className="p-4 pl-6">Tarih</th><th className="p-4">Müşteri</th><th className="p-4">Şablon</th><th className="p-4">Tutar (Son Durum)</th><th className="p-4">Durum</th><th className="p-4 text-right pr-6">İşlem</th></tr>
                   </thead>

@@ -217,7 +217,7 @@ export default function VinclerListesi() {
         {/* TABLO KARTI */}
         <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/40 border border-slate-100 overflow-hidden pb-10">
           <div className="overflow-x-auto">
-             <table className="w-full text-left border-collapse">
+             <table className="w-full text-left border-collapse mobil-kart">
               <thead>
                 <tr className="bg-slate-50/80 text-slate-500 text-[11px] uppercase font-extrabold tracking-wider border-b border-slate-100">
                   <th className="p-6 rounded-tl-[2rem]">Cihaz Detayları (Seri / Model)</th>
