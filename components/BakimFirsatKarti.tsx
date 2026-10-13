@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarClock, AlertTriangle, ChevronDown, Loader2, RefreshCw, Building2, TrendingUp, Phone } from 'lucide-react';
+import { CalendarClock, AlertTriangle, ChevronDown, Loader2, RefreshCw, Building2, TrendingUp, Phone, X } from 'lucide-react';
 
 const para = (n: any) => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
 
@@ -18,6 +18,34 @@ export default function BakimFirsatKarti() {
   const [adaylar, setAdaylar] = useState<any[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [acik, setAcik] = useState(false);
+  const [teklif, setTeklif] = useState<{ musteri: string; metin: string } | null>(null);
+  const [hazirlaniyor, setHazirlaniyor] = useState('');
+  const [kopyalandi, setKopyalandi] = useState(false);
+
+  const mesajOlustur = async (musteri: string) => {
+    setHazirlaniyor(musteri);
+    try {
+      const { data, error } = await supabase.rpc('bakim_hatirlatma_metni', {
+        p_musteri: musteri, p_periyot_ay: 6,
+      });
+      if (error) { alert('Mesaj üretilemedi: ' + error.message); return; }
+      setTeklif({ musteri, metin: String(data || '') });
+      setKopyalandi(false);
+    } finally {
+      setHazirlaniyor('');
+    }
+  };
+
+  const kopyala = async () => {
+    if (!teklif) return;
+    try {
+      await navigator.clipboard.writeText(teklif.metin);
+      setKopyalandi(true);
+      setTimeout(() => setKopyalandi(false), 2500);
+    } catch {
+      alert('Kopyalanamadı — metni elle seçip kopyalayın.');
+    }
+  };
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -118,6 +146,13 @@ export default function BakimFirsatKarti() {
                         <p className="text-[11px] font-black text-emerald-700 mt-1">
                           Potansiyel: {para(a.potansiyel)} ₺
                         </p>
+                        <button onClick={() => mesajOlustur(a.musteri)}
+                          disabled={hazirlaniyor === a.musteri}
+                          className="mt-2 w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white py-2.5 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 transition active:scale-[0.98]">
+                          {hazirlaniyor === a.musteri
+                            ? <><Loader2 size={11} className="animate-spin" /> HAZIRLANIYOR...</>
+                            : <>📋 BAKIM TEKLİF MESAJI OLUŞTUR</>}
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -158,6 +193,43 @@ export default function BakimFirsatKarti() {
           </p>
         </div>
       </div>
+
+      {/* BAKIM TEKLİF MESAJI PENCERESİ */}
+      <AnimatePresence>
+        {teklif && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setTeklif(null)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[900]" />
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+              className="fixed inset-x-0 bottom-0 md:inset-0 md:m-auto md:h-fit md:max-w-2xl z-[901] bg-white rounded-t-[2rem] md:rounded-3xl shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+                <div>
+                  <h3 className="font-black text-slate-800 text-sm">📋 BAKIM HATIRLATMA MESAJI</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{teklif.musteri}</p>
+                </div>
+                <button onClick={() => setTeklif(null)} className="bg-slate-100 hover:bg-red-500 hover:text-white text-slate-500 p-2.5 rounded-full transition">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto p-5">
+                <pre className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-[11px] text-slate-700 font-sans whitespace-pre-wrap leading-relaxed">
+{teklif.metin}
+                </pre>
+              </div>
+
+              <div className="p-4 border-t border-slate-100 shrink-0">
+                <button onClick={kopyala}
+                  className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition active:scale-[0.98] ${kopyalandi ? 'bg-emerald-600 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>
+                  {kopyalandi ? <>✅ KOPYALANDI — WHATSAPP&apos;A YAPIŞTIR</> : <>📋 METNİ KOPYALA</>}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
