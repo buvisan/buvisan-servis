@@ -4,6 +4,7 @@
 // (Saha Personel Raporları Sekmesi Eklendi 📋)
 // --------------------------------------------------------
 import KayoChat from '@/components/KayoChat';
+import BakimFirsatKarti from '@/components/BakimFirsatKarti';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -328,6 +329,9 @@ export default function AdminPanel() {
                 </motion.button>
             </div>
         </div>
+
+        {/* 📅 BAKIM FIRSATLARI — 281 sözleşmesiz vinç */}
+        <BakimFirsatKarti />
 
         {/* 3. BİLDİRİM LİSTESİ */}
         <div>
