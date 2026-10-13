@@ -15,6 +15,7 @@ import ImzaPad from '@/components/ImzaPad';
 import SesliYazi from '@/components/SesliYazi';
 import KazancimKarti from '@/components/KazancimKarti';
 import TaleplerimKarti from '@/components/TaleplerimKarti';
+import MesaiGirisimKarti from '@/components/MesaiGirisimKarti';
 import KuyrukBandi from '@/components/KuyrukBandi';
 import { PERSONEL_LISTESI, listedenIsimBul } from '@/lib/personel';
 import { kuyrugaEkle, agHatasiMi, parcalariStoktanDus } from '@/lib/kuyruk';
@@ -619,6 +620,9 @@ export default function PersonelEkrani() {
 
       {/* 📅 SERVİS PLANI (BUGÜN / YARIN) - Tüm ekip + kendi işlerin vurgulu */}
       <GununPlani aktifPersonel={aktifPersonel} onRaporAc={formuAc} />
+
+      {/* ⏱️ MESAİ GİRİŞİM — personel kendi saatlerini girer, puantaja yansır */}
+      <MesaiGirisimKarti />
 
       {/* 💰 KAZANCIM — maaş + cumartesi (%50) / pazar (%100) mesai dökümü */}
       <KazancimKarti personel={aktifPersonel?.full_name || ''} />

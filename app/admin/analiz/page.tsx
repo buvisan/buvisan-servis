@@ -442,10 +442,7 @@ export default function AnalizSayfasi() {
         <div><h1 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2">📊 Servis Yönetim Paneli</h1><p className="text-slate-500 text-xs md:text-sm">Finansal analiz ve servis takibi.</p></div>
         <div className="flex gap-2 w-full md:w-auto flex-wrap">
             
-            <button onClick={() => setRaporModalAcik(true)} className="relative text-center bg-cyan-600 text-white border border-cyan-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-cyan-700 transition flex items-center justify-center gap-2 shadow-lg shadow-cyan-200">
-                <Mic size={18}/> Saha Raporları
-                {sesliRaporlar.length > 0 && (<span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-6 h-6 flex items-center justify-center rounded-full animate-bounce shadow-lg shadow-red-500/50 border-2 border-white">{sesliRaporlar.length}</span>)}
-            </button>
+            {/* 🗑️ KALDIRILDI: "Saha Raporları" butonu (fazlalık — raporlar /admin/raporlar sayfasında) */}
 
             <button onClick={() => setPerformansAcik(true)} className="flex-1 md:flex-none text-center bg-purple-600 text-white border border-purple-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-purple-700 transition flex items-center justify-center gap-2 shadow-lg shadow-purple-200"><Users size={18}/> Ekip Performansı</button>
             <button onClick={yeniKayitAc} className="flex-1 md:flex-none text-center bg-blue-600 text-white border border-blue-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-200"><Plus size={18}/> Yeni İşlem Ekle</button>

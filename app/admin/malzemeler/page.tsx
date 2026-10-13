@@ -351,12 +351,8 @@ const aylikPerformansHesapla = () => {
             <p className="text-slate-500 text-sm">Tüm gelir, gider ve kârlılık tek bir ekranda otomatik birleşti.</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            <button onClick={() => setShowPersonelModal(true)} className="flex-1 md:flex-none bg-orange-100 border border-orange-200 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-orange-200 transition">
-                <Users size={18}/> Personel Gider Detayı
-            </button>
-            <button onClick={() => setShowMesaiModal(true)} className="flex-1 md:flex-none bg-white border-2 border-indigo-100 text-indigo-600 px-4 py-2 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-50 transition">
-                <Calculator size={18}/> Mesai Hesapla
-            </button>
+            {/* 🗑️ KALDIRILDI: "Personel Gider Detayı" ve "Mesai Hesapla" butonları
+                (fazlalık — puantaj artık /admin/puantaj sayfasında yönetiliyor) */}
             <button onClick={() => { formuSifirla(); setFormAcik(true); }} className="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-blue-700 transition">
                 <Plus size={18}/> Yeni Malzeme
             </button>
