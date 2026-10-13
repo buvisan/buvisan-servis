@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import TeklifTakipKarti from '@/components/TeklifTakipKarti';
 
 // 🌍 Endüstriyel Bölgelerin Gerçek Coğrafi Koordinat Haritası
 const ENDUSTRIYEL_BOLGELER: { [key: string]: { lat: number, lon: number } } = {
@@ -393,6 +394,11 @@ export default function TekliflerSayfasi() {
             )}
           </AnimatePresence>
         </div>
+      </div>
+
+      {/* 💰 TEKLİF TAKİP & KAZANMA ZEKASI — masadaki para ve fiyat analizi */}
+      <div className="mb-6">
+        <TeklifTakipKarti />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
