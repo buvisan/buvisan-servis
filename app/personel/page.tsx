@@ -78,6 +78,7 @@ export default function PersonelEkrani() {
   const [medyaOnizlemeler, setMedyaOnizlemeler] = useState<{ url: string; type: string }[]>([]);
   const dosyaInputRef = useRef<HTMLInputElement>(null);
   const [imzaBlob, setImzaBlob] = useState<Blob | null>(null);
+  const [imzaAtan, setImzaAtan] = useState('');
   const [imzaAnahtar, setImzaAnahtar] = useState(0);
   const [konum, setKonum] = useState<{ lat: number; lng: number } | null>(null);
   const [konumDurumu, setKonumDurumu] = useState<'yok' | 'aliniyor' | 'alindi' | 'hata'>('yok');
@@ -369,6 +370,7 @@ export default function PersonelEkrani() {
               ...temelPaket,
               medya_urls: yuklenenMedya,
               imza_url: imzaUrl,
+              imza_atan: imzaAtan.trim() || null,
               lat: konum?.lat ?? null,
               lng: konum?.lng ?? null,
               sure_dakika: sureDk,
@@ -938,6 +940,23 @@ export default function PersonelEkrani() {
 
                                 {/* MÜŞTERİ İMZASI */}
                                 <ImzaPad key={imzaAnahtar} onChange={setImzaBlob} />
+
+                                {/* ✍️ İMZAYI ATAN KİŞİ (admin raporunda görünür) */}
+                                <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm">
+                                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2 mb-2">
+                                        <User className="w-4 h-4 text-emerald-500"/> İmzayı Atan Kişi
+                                    </h3>
+                                    <input
+                                        type="text"
+                                        value={imzaAtan}
+                                        onChange={(e) => setImzaAtan(e.target.value)}
+                                        placeholder="Ad Soyad (örn: Ahmet Yılmaz)"
+                                        className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-emerald-500"
+                                    />
+                                    <p className="text-[10px] text-slate-400 font-medium mt-2">
+                                        Müşteri tarafında imzayı atan kişinin adı — rapora yazdırılır.
+                                    </p>
+                                </div>
 
                                 {/* İŞ YERİ KONUMU */}
                                 <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm">
