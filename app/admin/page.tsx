@@ -17,7 +17,7 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, CalendarDays, Play, ClipboardList, Wallet, BookOpen
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, CalendarDays, Play, ClipboardList, Wallet, BookOpen, Inbox
 } from 'lucide-react';
 
 const PERSONEL_LISTESI = [
@@ -325,6 +325,10 @@ export default function AdminPanel() {
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/stok')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-amber-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
                     <div className="bg-amber-50 text-amber-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors"><Package size={20}/></div>
                     <div><h3 className="font-bold text-slate-700 text-sm">Stok Takibi</h3><p className="text-[10px] text-slate-400">Adet & kritik seviye</p></div>
+                </motion.button>
+                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/talepler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
+                    <div className="bg-indigo-50 text-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors"><Inbox size={20}/></div>
+                    <div><h3 className="font-bold text-slate-700 text-sm">Personel Talepleri</h3><p className="text-[10px] text-slate-400">İzin, avans, malzeme</p></div>
                 </motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/puantaj')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
                     <div className="bg-blue-50 text-blue-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors"><CalendarDays size={20}/></div>
