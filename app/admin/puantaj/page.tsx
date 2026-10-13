@@ -19,13 +19,14 @@ import { PERSONEL_LISTESI } from '@/lib/personel';
 
 const para = (n: any) => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
 
-// Maaş gösterimi: maaş tablosundaki değer ÖNCELİKLİ (puantaj özeti 0 dönse bile doğru gösterir)
-const maasGoster = (maasTablosu: any, ozetDegeri: any) => {
-  const m = Number(maasTablosu || 0);
-  const o = Number(ozetDegeri || 0);
-  return para(m > 0 ? m : o);
+// Maaş gösterimi: PUANTAJ MOTORU ÖNCELİKLİ
+//   (geçmiş aylarda kilitli değeri döndürür → maaş güncellense bile değişmez)
+//   Motor 0 dönerse maaş tablosuna düşülür.
+const maasGoster = (motorDegeri: any, maasTablosu: any) => {
+  const m = Number(motorDegeri || 0);
+  const t = Number(maasTablosu || 0);
+  return para(m > 0 ? m : t);
 };
-// Kısa yardımcı (yukarıdaki fonksiyonun okunabilir takma adı)
 const parendeksiYok = maasGoster;
 const AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
@@ -133,7 +134,8 @@ export default function PuantajSayfasi() {
   const satirlar = PERSONEL_LISTESI.map((p) => {
     const o = ozetler[p] || {};
     const mk = maaslar.find((m) => m.personel?.toLocaleUpperCase('tr-TR') === p.toLocaleUpperCase('tr-TR'));
-    const maas = Number(mk?.maas) > 0 ? Number(mk.maas) : Number(o.maas || 0);
+    // ⭐ MOTOR ÖNCELİKLİ: geçmiş ayda kilitli değeri döndürür (maaş değişse bile sabit kalır)
+    const maas = Number(o.maas) > 0 ? Number(o.maas) : Number(mk?.maas || 0);
     const mesaiTutar = Number(o.toplam_mesai || 0);
     const net = Number(o.net_ele_gecen) > 0 ? Number(o.net_ele_gecen) : (maas + mesaiTutar);
     return { p, o, mk, maas, mesaiTutar, net, cmt50: Number(o.mesai50_saat || 0), paz100: Number(o.mesai100_saat || 0) };
@@ -250,9 +252,14 @@ export default function PuantajSayfasi() {
                           </p>
                         </div>
                       ) : (
-                        <p className="text-sm font-black text-slate-700">
-                          {parendeksiYok(mKayit?.maas, o.maas)} ₺
-                        </p>
+                        <div>
+                          <p className="text-sm font-black text-slate-700">
+                            {parendeksiYok(o.maas, mKayit?.maas)} ₺
+                          </p>
+                          {o.maas_kaynagi && String(o.maas_kaynagi).includes('kilitli') && (
+                            <p className="text-[8px] font-black text-blue-600 mt-0.5">🔒 geçmiş ay — kilitli</p>
+                          )}
+                        </div>
                       )}
                     </div>
                     <div className="bg-blue-50 rounded-xl p-2.5 border border-blue-100">
