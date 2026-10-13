@@ -79,6 +79,39 @@ export default function PersonelEkrani() {
   const dosyaInputRef = useRef<HTMLInputElement>(null);
   const [imzaBlob, setImzaBlob] = useState<Blob | null>(null);
   const [imzaAtan, setImzaAtan] = useState('');
+
+  // 🧤 SAHA MODLARI (tercihler hatırlanır)
+  const [eldivenModu, setEldivenModu] = useState(false);
+  const [gunesModu, setGunesModu] = useState(false);
+  const [ekranAcik, setEkranAcik] = useState(false);
+
+  // Tercihleri yükle
+  useEffect(() => {
+    try {
+      setEldivenModu(localStorage.getItem('buvisan_eldiven') === '1');
+      setGunesModu(localStorage.getItem('buvisan_gunes') === '1');
+    } catch { /* yoksay */ }
+  }, []);
+
+  // 🔆 EKRANI AÇIK TUT (iş yaparken ekran kapanmasın)
+  const ekranUyanikTut = async () => {
+    const wl = (navigator as any).wakelock;
+    if (!wl?.request) throw new Error('desteklenmiyor');
+    const sentinel = await wl.request('screen');
+    (window as any).__uyandirmaBirak = async () => { try { await sentinel.release(); } catch {} };
+    setEkranAcik(true);
+  };
+
+  // Sekme tekrar görünür olunca kilidi tazele (tarayıcı düşürebiliyor)
+  useEffect(() => {
+    const geri = async () => {
+      if (document.visibilityState === 'visible' && localStorage.getItem('buvisan_ekran') === '1' && !ekranAcik) {
+        try { await ekranUyanikTut(); } catch {}
+      }
+    };
+    document.addEventListener('visibilitychange', geri);
+    return () => document.removeEventListener('visibilitychange', geri);
+  }, [ekranAcik]);
   const [imzaAnahtar, setImzaAnahtar] = useState(0);
   const [konum, setKonum] = useState<{ lat: number; lng: number } | null>(null);
   const [konumDurumu, setKonumDurumu] = useState<'yok' | 'aliniyor' | 'alindi' | 'hata'>('yok');
@@ -476,8 +509,32 @@ export default function PersonelEkrani() {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-slate-100 font-sans pb-24">
-      
+    <div className={`min-h-[100dvh] bg-slate-100 font-sans pb-24 ${eldivenModu ? 'eldiven-modu' : ''} ${gunesModu ? 'gunes-modu' : ''}`}>
+
+      {/* 🧤 SAHA ARAÇ ÇUBUĞU — eldiven / güneş / ekran modları */}
+      <div className="sticky top-0 z-50 bg-slate-800 px-3 py-2 flex items-center gap-2 overflow-x-auto">
+        <button
+          onClick={() => { const y = !eldivenModu; setEldivenModu(y); localStorage.setItem('buvisan_eldiven', y ? '1' : '0'); }}
+          className={`px-3 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition ${eldivenModu ? 'bg-amber-500 text-white' : 'bg-white/10 text-slate-300'}`}>
+          🧤 ELDİVEN {eldivenModu ? 'AÇIK' : 'KAPALI'}
+        </button>
+        <button
+          onClick={() => { const y = !gunesModu; setGunesModu(y); localStorage.setItem('buvisan_gunes', y ? '1' : '0'); }}
+          className={`px-3 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition ${gunesModu ? 'bg-yellow-400 text-slate-900' : 'bg-white/10 text-slate-300'}`}>
+          ☀️ GÜNEŞ {gunesModu ? 'AÇIK' : 'KAPALI'}
+        </button>
+        <button
+          onClick={async () => {
+            try {
+              if (ekranAcik) { await (window as any).__uyandirmaBirak?.(); setEkranAcik(false); localStorage.setItem('buvisan_ekran', '0'); }
+              else { await ekranUyanikTut(); localStorage.setItem('buvisan_ekran', '1'); }
+            } catch { alert('Bu cihaz ekranı açık tutmayı desteklemiyor.'); }
+          }}
+          className={`px-3 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition ${ekranAcik ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-300'}`}>
+          🔆 EKRAN {ekranAcik ? 'AÇIK TUTULUYOR' : 'KAPALI'}
+        </button>
+      </div>
+
       {/* ÜST HEADER */}
       <div className="bg-slate-900 text-white p-4 shadow-xl sticky top-0 z-40 rounded-b-3xl">
         <div className="flex justify-between items-center mb-4">

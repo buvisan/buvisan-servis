@@ -280,6 +280,84 @@ html, body {
   body { background: white !important; }
 }
 
+/* ============================================================================
+   🧤 SAHA MODLARI — Personel ekranı için kullanım kolaylıkları
+   Bu sınıflar sadece elle açıldığında devreye girer (HTML'e class eklenir).
+   ============================================================================ */
+
+/* 🧤 ELDİVEN MODU — sahada eldivenle kullanım için büyük hedefler */
+.eldiven-modu button,
+.eldiven-modu a[role="button"],
+.eldiven-modu a.btn-benzeri {
+  min-height: 64px !important;
+  font-size: 1.05rem !important;
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+  border-radius: 1.25rem !important;
+}
+.eldiven-modu input,
+.eldiven-modu select,
+.eldiven-modu textarea {
+  min-height: 60px !important;
+  font-size: 1.05rem !important;
+  padding: 1rem !important;
+}
+.eldiven-modu label,
+.eldiven-modu .etiket {
+  font-size: 0.85rem !important;
+  font-weight: 800 !important;
+}
+/* Küçük ikon butonları da büyüsün */
+.eldiven-modu button svg {
+  width: 24px !important;
+  height: 24px !important;
+}
+/* Dokunma alanları arası boşluk artsın (yanlış basma olmasın) */
+.eldiven-modu .gap-2 { gap: 0.75rem !important; }
+.eldiven-modu .gap-3 { gap: 1rem !important; }
+
+/* ☀️ GÜNEŞ MODU — açık havada okunabilirlik */
+.gunes-modu {
+  background: #ffffff !important;
+}
+.gunes-modu .text-slate-300,
+.gunes-modu .text-slate-400,
+.gunes-modu .text-slate-500 {
+  color: #1e293b !important;          /* soluk griler koyulaşır */
+}
+.gunes-modu .text-\[9px\],
+.gunes-modu .text-\[10px\],
+.gunes-modu .text-\[11px\] {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+}
+.gunes-modu .text-xs { font-size: 0.9rem !important; font-weight: 700 !important; }
+.gunes-modu .text-sm { font-size: 1rem !important; }
+.gunes-modu .border-slate-100,
+.gunes-modu .border-slate-200 {
+  border-color: #64748b !important;   /* kenarlıklar belirginleşsin */
+}
+.gunes-modu .shadow-sm,
+.gunes-modu .shadow-md {
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18) !important;
+}
+
+/* 📟 TABLET — orta boy ekranlarda daha rahat kullanım */
+@media (min-width: 768px) and (max-width: 1280px) {
+  button, a[role="button"] { min-height: 48px; }
+  input, select, textarea { min-height: 48px; }
+}
+
+/* Ekranı açık tutma düğmesi (küçük, köşede) */
+.saha-arac-cubugu {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 400;
+  display: flex;
+  gap: 6px;
+}
+
 /* --- MODERN HARİTA PİNLERİ (CSS ONLY) --- */
 
 /* Ortak Pin Yapısı */
