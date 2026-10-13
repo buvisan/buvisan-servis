@@ -38,6 +38,7 @@ export default function TaleplerimKarti() {
   const [baslangic, setBaslangic] = useState('');
   const [bitis, setBitis] = useState('');
   const [oncelik, setOncelik] = useState('NORMAL');
+  const [ucretli, setUcretli] = useState(true);
   const [gonderiliyor, setGonderiliyor] = useState(false);
   const [mesaj, setMesaj] = useState('');
 
@@ -64,6 +65,7 @@ export default function TaleplerimKarti() {
         p_baslangic: tip === 'IZIN' && baslangic ? baslangic : null,
         p_bitis: tip === 'IZIN' && bitis ? bitis : null,
         p_oncelik: oncelik,
+        p_ucretli: tip === 'IZIN' ? ucretli : true,
       });
       if (error || !(data as any)?.ok) {
         setMesaj(error?.message || (data as any)?.mesaj || 'Gönderilemedi.');
@@ -135,6 +137,13 @@ export default function TaleplerimKarti() {
                               {t.durum === 'BEKLEMEDE' ? '⏳ BEKLİYOR' : t.durum === 'ONAYLANDI' ? '✅ ONAYLANDI' : '❌ REDDEDİLDİ'}
                             </span>
                           </div>
+                          {t.talep_tipi === 'IZIN' && (
+                            <span className={`inline-block text-[9px] font-black px-2 py-1 rounded-lg mb-1 ${
+                              t.ucretli === false ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                            }`}>
+                              {t.ucretli === false ? '💸 ÜCRETSİZ İZİN (maaştan kesilir)' : '✅ ÜCRETLİ İZİN'}
+                            </span>
+                          )}
                           {t.aciklama && <p className="text-[10px] text-slate-500 leading-snug mb-1">{t.aciklama}</p>}
                           <p className="text-[9px] text-slate-400 font-bold">
                             {t.created_at ? new Date(t.created_at).toLocaleDateString('tr-TR') : ''}
@@ -196,18 +205,47 @@ export default function TaleplerimKarti() {
                 </div>
 
                 {tip === 'IZIN' && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Başlangıç</label>
-                      <input type="date" value={baslangic} onChange={(e) => setBaslangic(e.target.value)}
-                        className="w-full mt-1 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-slate-500" />
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Başlangıç</label>
+                        <input type="date" value={baslangic} onChange={(e) => setBaslangic(e.target.value)}
+                          className="w-full mt-1 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-slate-500" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Bitiş</label>
+                        <input type="date" value={bitis} onChange={(e) => setBitis(e.target.value)}
+                          className="w-full mt-1 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-slate-500" />
+                      </div>
                     </div>
+
+                    {/* 💰 ÜCRETLİ / ÜCRETSİZ */}
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Bitiş</label>
-                      <input type="date" value={bitis} onChange={(e) => setBitis(e.target.value)}
-                        className="w-full mt-1 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-slate-500" />
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">İzin Türü</label>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <button onClick={() => setUcretli(true)}
+                          className={`py-3 rounded-2xl text-[11px] font-black border transition ${
+                            ucretli ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200'
+                          }`}>
+                          ✅ ÜCRETLİ
+                          <span className="block text-[8px] font-bold opacity-80 mt-0.5">maaştan kesilmez</span>
+                        </button>
+                        <button onClick={() => setUcretli(false)}
+                          className={`py-3 rounded-2xl text-[11px] font-black border transition ${
+                            !ucretli ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-slate-600 border-slate-200'
+                          }`}>
+                          💸 ÜCRETSİZ
+                          <span className="block text-[8px] font-bold opacity-80 mt-0.5">maaştan kesilir</span>
+                        </button>
+                      </div>
+                      {!ucretli && (
+                        <p className="text-[10px] text-amber-700 font-bold bg-amber-50 border border-amber-200 rounded-xl p-2.5 mt-2">
+                          ⚠️ Ücretsiz izin onaylanırsa maaşınızdan <strong>günlük ücret × gün sayısı</strong> kadar
+                          kesinti yapılır.
+                        </p>
+                      )}
                     </div>
-                  </div>
+                  </>
                 )}
 
                 {tip === 'AVANS' && (
