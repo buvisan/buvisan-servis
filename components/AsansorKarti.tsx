@@ -257,6 +257,31 @@ export default function AsansorKarti() {
           </div>
         )}
 
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4">
+          <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600 mb-2">
+            💰 FİLO İNDİRİMİ (makine sayısı arttıkça fiyat düşer)
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ['1 makine', '8.500 ₺'],
+              ['2-3', '7.500 ₺'],
+              ['4-6', '6.500 ₺'],
+              ['7-9', '5.500 ₺'],
+              ['10-14', '4.500 ₺'],
+              ['15-24', '4.000 ₺'],
+              ['25+', '3.500 ₺'],
+            ].map(([a, f]) => (
+              <span key={a} className="bg-white border border-emerald-200 rounded-xl px-2.5 py-1.5 text-[9px] font-bold text-slate-600">
+                <strong className="text-emerald-700">{a}</strong> → {f}
+              </span>
+            ))}
+          </div>
+          <p className="text-[9px] text-emerald-600 font-medium mt-2">
+            Makine başı fiyat (KDV hariç) · vinç ve asansör için aynı kademe uygulanır ·
+            teklif metninde indirim ayrıca gösterilir
+          </p>
+        </div>
+
         <p className="text-[10px] text-slate-400 font-medium text-center">
           Asansörler, iş formlarındaki <strong>kapasite alanından</strong> otomatik tespit edilir
           (&quot;2 TON ASANSÖR&quot;, &quot;14 NOLU ASANSÖR&quot; gibi). Yeni işler de otomatik sınıflanır.
