@@ -127,13 +127,21 @@ export default function PuantajSayfasi() {
   };
 
   const [yil, ayNo] = ay.split('-').map(Number);
-  const toplamNet = Object.values(ozetler).reduce((t: number, o: any) => t + Number(o?.net_ele_gecen || 0), 0);
-  // Maaş toplamı: puantaj özeti boş dönse bile maaş tablosundan doğru toplamı al
-  const toplamMaasOzet = Object.values(ozetler).reduce((t: number, o: any) => t + Number(o?.maas || 0), 0);
-  const toplamMaasTablo = maaslar.filter((m) => m.aktif).reduce((t, m) => t + Number(m.maas || 0), 0);
-  const toplamMaas = Math.max(toplamMaasOzet, toplamMaasTablo);
-  const toplamMesai = Object.values(ozetler).reduce((t: number, o: any) => t + Number(o?.toplam_mesai || 0), 0);
-  const netToplamGoster = toplamNet > 0 ? toplamNet : toplamMaas + toplamMesai;
+
+  // Her personel için gösterilecek değerleri TEK yerden hesapla
+  // (üstteki toplamlar ile alttaki satırlar BİRBİRİNİ TUTSUN)
+  const satirlar = PERSONEL_LISTESI.map((p) => {
+    const o = ozetler[p] || {};
+    const mk = maaslar.find((m) => m.personel?.toLocaleUpperCase('tr-TR') === p.toLocaleUpperCase('tr-TR'));
+    const maas = Number(mk?.maas) > 0 ? Number(mk.maas) : Number(o.maas || 0);
+    const mesaiTutar = Number(o.toplam_mesai || 0);
+    const net = Number(o.net_ele_gecen) > 0 ? Number(o.net_ele_gecen) : (maas + mesaiTutar);
+    return { p, o, mk, maas, mesaiTutar, net, cmt50: Number(o.mesai50_saat || 0), paz100: Number(o.mesai100_saat || 0) };
+  });
+
+  const toplamMaas = satirlar.reduce((t, s) => t + s.maas, 0);
+  const toplamMesai = satirlar.reduce((t, s) => t + s.mesaiTutar, 0);
+  const netToplamGoster = satirlar.reduce((t, s) => t + s.net, 0);
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-sans text-slate-800 pb-28 lg:pb-8">
