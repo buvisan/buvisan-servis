@@ -25,6 +25,113 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* ============================================================================
+   📱 MOBİL & TABLET UYUM KATMANI
+   ----------------------------------------------------------------------------
+   Tüm sayfalara aynı anda uygulanır. Masaüstü tasarımı DEĞİŞMEZ —
+   kuralların tamamı ekran genişliği koşuluna bağlıdır.
+   ============================================================================ */
+
+/* 1) Yatay kaydırma kazasını tamamen engelle */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 2) Dokunmatik cihazlarda rahat basılabilir hedef (min 42px) */
+@media (pointer: coarse) {
+  button:not(.kucuk), a:not(.kucuk), [role="button"]:not(.kucuk) {
+    min-height: 42px;
+  }
+  /* Çok küçük ikon butonları bile parmakla basılabilir olsun */
+  button.kucuk { min-height: 34px; min-width: 34px; }
+}
+
+/* 3) iPhone çentiği / alt bar güvenli alanı */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .guvenli-alt { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+  .guvenli-ust { padding-top: calc(1rem + env(safe-area-inset-top)); }
+}
+
+/* ============================================================================
+   TELEFON (640px ve altı)
+   ============================================================================ */
+@media (max-width: 640px) {
+
+  /* 4) iOS otomatik yakınlaştırmasını engelle (16px altı input = zoom) */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* 5) Tablolar sayfayı bozmasın: kendi içinde kaydırılabilir olsun */
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  table thead { display: table-header-group; }
+  table tbody { display: table-row-group; }
+
+  /* Tablo hücreleri mobilde daha az yer kaplasın */
+  table th, table td {
+    padding-left: 0.6rem !important;
+    padding-right: 0.6rem !important;
+    font-size: 0.75rem;
+  }
+
+  /* 6) Sabit yükseklikli kutular mobilde taşmasın */
+  .h-\[300px\] { height: 220px !important; }
+  .h-\[400px\], .h-\[420px\] { height: 260px !important; }
+
+  /* 7) Çok kolonlu ızgaralar telefonda tek/iki kolona insin */
+  .grid-cols-7 { grid-template-columns: repeat(7, minmax(0, 1fr)) !important; }
+
+  /* 8) Uzun başlıklar taşmasın */
+  h1, h2, h3 { overflow-wrap: anywhere; }
+
+  /* 9) Sabit genişlikli paneller ekranı aşmasın */
+  [class*="w-\["] { max-width: 100%; }
+
+  /* 10) Modal / bottom sheet yüksekliği */
+  [class*="max-h-\["] { max-height: 92dvh !important; }
+}
+
+/* ============================================================================
+   TABLET (641px - 1024px)
+   ============================================================================ */
+@media (min-width: 641px) and (max-width: 1024px) {
+
+  /* Tablolar tablette de taşmasın */
+  table {
+    width: 100%;
+  }
+  table th, table td {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  /* Tablet için dokunma hedefi */
+  button, a[role="button"] { min-height: 40px; }
+}
+
+/* ============================================================================
+   YATAY TELEFON (kısa ekran) — yükseklik sorunları
+   ============================================================================ */
+@media (max-height: 480px) and (orientation: landscape) {
+  .sticky { position: relative !important; }
+}
+
+/* ============================================================================
+   YAZDIRMA — rapor/form çıktıları temiz çıksın
+   ============================================================================ */
+@media print {
+  .yazdirmada-gizle, button, nav { display: none !important; }
+  body { background: white !important; }
+}
+
 /* --- MODERN HARİTA PİNLERİ (CSS ONLY) --- */
 
 /* Ortak Pin Yapısı */
