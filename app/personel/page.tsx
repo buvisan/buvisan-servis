@@ -96,6 +96,7 @@ export default function PersonelEkrani() {
   const [kutuphane, setKutuphane] = useState<any[]>([]);
   const [kutuphaneAraniyor, setKutuphaneAraniyor] = useState(false);
   const [kutuphaneAcik, setKutuphaneAcik] = useState(false);
+  const [eklendiIdx, setEklendiIdx] = useState<number | null>(null);
 
   useEffect(() => {
     const metin = (raporForm.arizanin_cinsi || '').trim();
@@ -915,9 +916,27 @@ export default function PersonelEkrani() {
                                                                 <p className="text-[10px] text-blue-600 font-bold mt-1">🔧 {k.parcalar}</p>
                                                             )}
                                                             <button
-                                                                onClick={() => setRaporForm((o) => ({ ...o, yapilan_isler: o.yapilan_isler ? o.yapilan_isler + ' ' + k.aciklama : k.aciklama }))}
-                                                                className="mt-1.5 text-[10px] font-black text-violet-700 bg-violet-100 hover:bg-violet-200 px-2.5 py-1.5 rounded-lg transition">
-                                                                ↗ ÇÖZÜMÜ YAPILAN İŞLERE EKLE
+                                                                onClick={() => {
+                                                                    // 1) Metni "Yapılan İşler" alanına ekle
+                                                                    setRaporForm((o) => ({
+                                                                        ...o,
+                                                                        yapilan_isler: o.yapilan_isler ? o.yapilan_isler + '\n' + k.aciklama : k.aciklama,
+                                                                    }));
+                                                                    // 2) Butonda "EKLENDİ" geri bildirimi göster
+                                                                    setEklendiIdx(i);
+                                                                    setTimeout(() => setEklendiIdx((v) => (v === i ? null : v)), 2200);
+                                                                    // 3) Kullanıcıyı "Yapılan İşler" alanına kaydır — nereye eklendiğini görsün
+                                                                    setTimeout(() => {
+                                                                        document.getElementById('yapilan-isler-alani')
+                                                                            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                                    }, 200);
+                                                                }}
+                                                                className={`mt-1.5 text-[10px] font-black px-2.5 py-1.5 rounded-lg transition active:scale-95 ${
+                                                                    eklendiIdx === i
+                                                                        ? 'bg-emerald-600 text-white'
+                                                                        : 'text-violet-700 bg-violet-100 hover:bg-violet-200'
+                                                                }`}>
+                                                                {eklendiIdx === i ? '✅ EKLENDİ — AŞAĞIDA' : '↗ ÇÖZÜMÜ YAPILAN İŞLERE EKLE'}
                                                             </button>
                                                         </div>
                                                     ))}
@@ -947,7 +966,7 @@ export default function PersonelEkrani() {
                                             </button>
                                         ))}
                                     </div>
-                                    <textarea rows={4} placeholder="Makine incelendi, şu parçalar söküldü, yerine bu takıldı, test edildi vb..." value={raporForm.yapilan_isler} onChange={e=>setRaporForm({...raporForm, yapilan_isler: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-3xl text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-amber-400 shadow-inner resize-none leading-relaxed" />
+                                    <textarea id="yapilan-isler-alani" rows={4} placeholder="Makine incelendi, şu parçalar söküldü, yerine bu takıldı, test edildi vb..." value={raporForm.yapilan_isler} onChange={e=>setRaporForm({...raporForm, yapilan_isler: e.target.value})} className="w-full p-4 bg-white border border-slate-200 rounded-3xl text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-amber-400 shadow-inner resize-none leading-relaxed" />
                                     <SesliYazi
                                         etiket="Sesle yaz · Ellerin boş kalsın"
                                         onMetin={(m) => setRaporForm((o) => ({ ...o, yapilan_isler: o.yapilan_isler ? o.yapilan_isler + ' ' + m : m }))}
