@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, CalendarDays, Construction, FileText, Menu, X,
-  Package, TrendingUp, Car, Map, ClipboardList, CalendarClock, Ban, Bot, Plus, ChevronRight
+  Package, TrendingUp, Car, Map, ClipboardList, CalendarClock, Ban, Bot, Plus, ChevronRight, Wallet
 } from 'lucide-react';
 
 const ANA_MENU = [
@@ -25,6 +25,7 @@ const ANA_MENU = [
 ];
 
 const DIGER_MENU = [
+  { yol: '/admin/cari', ad: 'Cari Hesap & Tahsilat', aciklama: 'Borç/alacak, tahsilat, bakiye', ikon: Wallet, renk: 'bg-emerald-50 text-emerald-600' },
   { yol: '/admin/stok', ad: 'Stok Takibi', aciklama: 'Adet, kritik seviye, hareketler', ikon: Package, renk: 'bg-amber-50 text-amber-600' },
   { yol: '/admin/malzemeler', ad: 'Depo & Finans', aciklama: 'Fiyatlar, aylık kâr özeti', ikon: Package, renk: 'bg-yellow-50 text-yellow-600' },
   { yol: '/admin/analiz', ad: 'Finans & Analiz', aciklama: 'Ciro, gider, müşteri analizi', ikon: TrendingUp, renk: 'bg-green-50 text-green-600' },
