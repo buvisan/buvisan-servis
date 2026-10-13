@@ -21,6 +21,18 @@
 
 
 -- ============================================================================
+-- 0) ÖNCE GEREKLİ SÜTUNU EKLE
+--    (SQL 52 hata verince tüm değişiklikleri geri aldı → bu sütun oluşmamıştı)
+-- ============================================================================
+alter table public.personel_maas
+  add column if not exists gecerli_ay text;
+
+update public.personel_maas
+   set gecerli_ay = to_char(current_date, 'YYYY-MM')
+ where coalesce(gecerli_ay, '') = '';
+
+
+-- ============================================================================
 -- 1) ÖNCE: çift kayıtları GÖSTER (ne silinecek, gözünle gör)
 -- ============================================================================
 select
