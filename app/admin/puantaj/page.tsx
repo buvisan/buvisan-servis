@@ -61,8 +61,19 @@ export default function PuantajSayfasi() {
   useEffect(() => { getir(); }, [getir]);
 
   const maasKaydet = async (personel: string) => {
-    const tutar = Number(yeniMaas);
-    if (!tutar || tutar < 0) { setMesaj('Geçerli bir tutar girin.'); return; }
+    // "38.000" veya "38,000" gibi yazımları da doğru anla (38 değil 38000)
+    const temiz = String(yeniMaas).trim().replace(/\./g, '').replace(',', '.');
+    const tutar = Number(temiz);
+
+    if (!temiz || isNaN(tutar) || tutar <= 0) {
+      setMesaj('Lütfen geçerli bir maaş tutarı girin (örn: 38000 veya 38.000).');
+      return;
+    }
+    if (tutar < 1000) {
+      setMesaj(`Girdiğiniz tutar çok düşük görünüyor: ${tutar} ₺. Maaş için 38.000 gibi tam tutarı yazın.`);
+      return;
+    }
+
     const { data, error } = await supabase.rpc('maas_guncelle', {
       p_personel: personel, p_maas: tutar, p_kullanici: null,
     });
@@ -74,7 +85,7 @@ export default function PuantajSayfasi() {
     setDuzenlenen('');
     setYeniMaas('');
     await getir();
-    setTimeout(() => setMesaj(''), 2500);
+    setTimeout(() => setMesaj(''), 3000);
   };
 
   const gunKaydet = async () => {
@@ -207,9 +218,14 @@ export default function PuantajSayfasi() {
                     <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
                       <p className="text-[9px] font-black text-slate-400 uppercase">Maaş</p>
                       {duzenliyor ? (
-                        <input type="number" value={yeniMaas} onChange={(e) => setYeniMaas(e.target.value)}
-                          placeholder={String(mKayit?.maas || o.maas || 0)}
-                          className="w-full mt-1 p-2 bg-white border border-blue-300 rounded-lg text-xs font-black outline-none" />
+                        <div>
+                          <input type="number" value={yeniMaas} onChange={(e) => setYeniMaas(e.target.value)}
+                            placeholder={String(mKayit?.maas || o.maas || '38000')}
+                            className="w-full mt-1 p-2 bg-white border border-blue-300 rounded-lg text-xs font-black outline-none" />
+                          <p className="text-[8px] text-blue-500 font-bold mt-0.5">
+                            Şu anki: {para(mKayit?.maas || o.maas)} ₺
+                          </p>
+                        </div>
                       ) : (
                         <p className="text-sm font-black text-slate-700">{para(o.maas)} ₺</p>
                       )}
