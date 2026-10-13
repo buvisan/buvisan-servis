@@ -24,6 +24,15 @@
 -- ============================================================================
 -- 1) İŞÇİLİK/HİZMET KALEMİ Mİ? (malzeme giderine sayılmasın)
 -- ============================================================================
+-- ============================================================================
+-- 0) ÖNCEKİ SÜRÜMÜ TEMİZLE
+--    SQL 20'de oluşturulan fonksiyonun sütun yapısı farklı olduğu için
+--    "create or replace" hata veriyordu — önce silinmesi gerekiyor.
+-- ============================================================================
+drop function if exists public.analiz_malzeme_detay(text);
+drop function if exists public.analiz_malzeme_maliyeti(text);
+
+
 create or replace function public.iscilik_kalemi_mi(p_ad text)
 returns boolean
 language sql
