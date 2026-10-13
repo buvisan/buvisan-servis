@@ -21,18 +21,25 @@ export default function KarMotoruKarti() {
   const [acik, setAcik] = useState(false);
   const [musteriAcik, setMusteriAcik] = useState(false);
   const [sekme, setSekme] = useState<'karli' | 'zararli'>('karli');
+  const [hata, setHata] = useState('');
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
+    setHata('');
     try {
-      const { data: o } = await supabase.rpc('kar_ozeti');
+      const { data: o, error: e1 } = await supabase.rpc('kar_ozeti');
+      if (e1) { setHata(e1.message); return; }
       setOzet(o);
 
-      const { data: z } = await supabase.rpc('is_karliligi', { p_limit: 25, p_sadece_zararli: true });
+      const { data: z, error: e2 } = await supabase.rpc('is_karliligi', { p_limit: 25, p_sadece_zararli: true });
+      if (e2) { setHata(e2.message); return; }
       setZararli(z || []);
 
-      const { data: m } = await supabase.rpc('musteri_karliligi');
+      const { data: m, error: e3 } = await supabase.rpc('musteri_karliligi');
+      if (e3) { setHata(e3.message); return; }
       setMusteriler(m || []);
+    } catch (e: any) {
+      setHata(String(e?.message || e));
     } finally {
       setYukleniyor(false);
     }
@@ -47,7 +54,31 @@ export default function KarMotoruKarti() {
       </div>
     );
   }
-  if (!ozet) return null;
+
+  // Hata varsa GÖRÜNÜR olsun (eskiden sessizce kayboluyordu)
+  if (!ozet) {
+    return (
+      <div className="bg-amber-50 border border-amber-300 rounded-3xl p-5">
+        <div className="flex items-center gap-2 mb-1.5">
+          <AlertTriangle size={16} className="text-amber-600" />
+          <h3 className="font-black text-amber-800 text-sm">İŞ BAZLI KÂR — veri alınamadı</h3>
+        </div>
+        <p className="text-[11px] text-amber-800 font-bold leading-relaxed mb-2">
+          Bu kart <code className="bg-amber-100 px-1 rounded">29-is-bazli-kar-motoru.sql</code> ve{' '}
+          <code className="bg-amber-100 px-1 rounded">33-kar-v2-ve-abonelik.sql</code> scriptlerinin
+          çalıştırılmasını gerektirir.
+        </p>
+        {hata && (
+          <p className="text-[10px] text-amber-700 bg-white/70 rounded-xl p-2.5 font-mono break-all">
+            Hata: {hata}
+          </p>
+        )}
+        <button onClick={getir} className="mt-3 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl text-[10px] font-black transition">
+          TEKRAR DENE
+        </button>
+      </div>
+    );
+  }
 
   const marj = Number(ozet.marj_yuzde || 0);
   const karli = marj >= 30;
