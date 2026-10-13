@@ -13,6 +13,7 @@ import GununPlani from '@/components/GununPlani';
 import Gecmisim from '@/components/Gecmisim';
 import ImzaPad from '@/components/ImzaPad';
 import SesliYazi from '@/components/SesliYazi';
+import SesliRapor from '@/components/SesliRapor';
 import KuyrukBandi from '@/components/KuyrukBandi';
 import { PERSONEL_LISTESI, listedenIsimBul } from '@/lib/personel';
 import { kuyrugaEkle, agHatasiMi, parcalariStoktanDus } from '@/lib/kuyruk';
@@ -891,6 +892,42 @@ export default function PersonelEkrani() {
                                     <div className="space-y-1.5 mt-4">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1 block">Arızanın Cinsi (Sorun Ne İdi?)</label>
                                         <textarea rows={2} placeholder="Arıza detayını buraya girin..." value={raporForm.arizanin_cinsi} onChange={e=>setRaporForm({...raporForm, arizanin_cinsi: e.target.value})} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-500 transition resize-none leading-relaxed" />
+
+                                        {/* 🎤 SESLİ RAPOR — konuş, alanlar dolsun */}
+                                        <div className="mt-3">
+                                            <SesliRapor
+                                                baglam={`Makine: ${raporForm.vinc_modeli || '-'} ${raporForm.vinc_kapasite || ''} ${raporForm.vinc_seri_no || ''}`}
+                                                onSonuc={(s) => {
+                                                    setRaporForm((o) => ({
+                                                        ...o,
+                                                        arizanin_cinsi: s.arizanin_cinsi || o.arizanin_cinsi,
+                                                        yapilan_isler: s.yapilan_isler || o.yapilan_isler,
+                                                    }));
+                                                    if (s.sure_dakika && Number(s.sure_dakika) > 0) {
+                                                        const dk = Number(s.sure_dakika);
+                                                        setRaporForm((o) => ({
+                                                            ...o,
+                                                            isyerinden_ayrilis: o.isyerinden_ayrilis,
+                                                        }));
+                                                        console.info('Sesli raporda söylenen süre (dk):', dk);
+                                                    }
+                                                    // Söylenen parçaları parça listesine ekle
+                                                    if (Array.isArray(s.parcalar) && s.parcalar.length > 0) {
+                                                        setRaporForm((o) => {
+                                                            const mevcut = o.degisen_parcalar.filter((p: any) => (p.parca_adi || '').trim() !== '');
+                                                            const yeniler = (s.parcalar || [])
+                                                                .filter((ad) => !mevcut.some((m: any) => (m.parca_adi || '').toLowerCase() === ad.toLowerCase()))
+                                                                .map((ad) => ({ parca_no: '', parca_adi: ad, adet: '1', birim_fiyat: 0, birim_maliyet: 0, malzeme_id: '' }));
+                                                            return { ...o, degisen_parcalar: [...mevcut, ...yeniler] };
+                                                        });
+                                                    }
+                                                    setTimeout(() => {
+                                                        document.getElementById('yapilan-isler-alani')
+                                                            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                    }, 200);
+                                                }}
+                                            />
+                                        </div>
 
                                         {/* 📚 ARIZA KÜTÜPHANESİ — benzer geçmiş çözümler */}
                                         {kutuphaneAraniyor && (
