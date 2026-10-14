@@ -16,7 +16,7 @@ import { isimEslesiyor } from '@/lib/personel';
 import { motion } from 'framer-motion';
 import {
   CalendarDays, MapPin, Phone, Wrench, FileText, CheckCircle2, AlertTriangle,
-  Search, CalendarClock, Users, RefreshCw, Loader2, ChevronRight, Mic
+  Search, CalendarClock, Users, RefreshCw, Loader2, ChevronRight, Mic, Navigation
 } from 'lucide-react';
 
 const AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -267,9 +267,24 @@ export default function GununPlani({
                         </a>
                       )}
                       {r.adres && (
-                        <p className="text-xs text-slate-500 font-medium flex items-start gap-2">
-                          <MapPin size={12} className="text-slate-400 mt-0.5 shrink-0" /> {r.adres}
-                        </p>
+                        <a
+                          href={
+                            r.lat && r.lng
+                              ? `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}`
+                              : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.adres)}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block bg-sky-50 border border-sky-200 rounded-2xl px-3 py-2.5 active:bg-sky-100 transition"
+                        >
+                          <span className="text-xs text-slate-700 font-bold flex items-start gap-2">
+                            <MapPin size={13} className="text-sky-600 mt-0.5 shrink-0" />
+                            <span className="leading-snug">{r.adres}</span>
+                          </span>
+                          <span className="text-[10px] font-black text-sky-700 flex items-center gap-1 mt-1.5 ml-5">
+                            <Navigation size={11} /> YOL TARİFİ AL
+                          </span>
+                        </a>
                       )}
                       {r.vinc_bilgisi && (
                         <p className="text-xs text-slate-500 font-medium flex items-center gap-2">
