@@ -383,6 +383,42 @@ export default function RaporlarListesi() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* ⭐ MÜŞTERİ MEMNUNİYETİ (personel sahada müşteriye sorar) */}
+                            {(() => {
+                                const puan = Number((seciliRapor as any).musteri_puani || 0);
+                                const yorum = (seciliRapor as any).musteri_yorumu;
+                                if (!puan && !yorum) return null;
+                                const renk = puan >= 5 ? 'border-emerald-300 bg-emerald-50'
+                                           : puan >= 4 ? 'border-lime-300 bg-lime-50'
+                                           : puan >= 3 ? 'border-amber-300 bg-amber-50'
+                                           : 'border-rose-300 bg-rose-50';
+                                return (
+                                    <div className={`rounded-2xl border-2 ${renk} p-4 mb-4 print:border-black print:bg-white`}>
+                                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">
+                                            ⭐ MÜŞTERİ MEMNUNİYETİ
+                                        </p>
+                                        <div className="flex items-center gap-3 flex-wrap">
+                                            <span className="text-2xl leading-none tracking-tight">
+                                                {puan > 0 ? '★'.repeat(puan) + '☆'.repeat(Math.max(0, 5 - puan)) : '—'}
+                                            </span>
+                                            <span className="text-sm font-black text-slate-700">
+                                                {puan > 0 ? `${puan}/5` : 'Puan verilmemiş'}
+                                            </span>
+                                            {puan > 0 && puan <= 2 && (
+                                                <span className="text-[10px] font-black text-rose-700 bg-white border border-rose-300 rounded-lg px-2 py-1">
+                                                    ⚠️ DÜŞÜK PUAN — müşteriyi ara
+                                                </span>
+                                            )}
+                                        </div>
+                                        {yorum && (
+                                            <p className="text-xs text-slate-700 font-medium mt-2 italic">
+                                                &ldquo;{yorum}&rdquo;
+                                            </p>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
 
