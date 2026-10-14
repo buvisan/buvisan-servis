@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Loader2, ArrowLeft, CheckCircle2, XCircle, RefreshCw,
-  Phone, AlertTriangle, Clock, Users
+  Phone, AlertTriangle, Clock, Users, Plus, X, Save
 } from 'lucide-react';
 
 const DURUMLAR = [
@@ -28,6 +28,11 @@ export default function TeklifBekleyenlerPage() {
   const [islemde, setIslemde] = useState<string | null>(null);
   const [mesaj, setMesaj] = useState('');
   const [hata, setHata] = useState('');
+  const [formAcik, setFormAcik] = useState(false);
+  const [kaydediliyor, setKaydediliyor] = useState(false);
+  const [fMusteri, setFMusteri] = useState('');
+  const [fAriza, setFAriza] = useState('');
+  const [fIsEmri, setFIsEmri] = useState('');
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -75,6 +80,30 @@ export default function TeklifBekleyenlerPage() {
     : k === 'manuel' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
     : 'bg-slate-50 text-slate-600 border-slate-200';
 
+  // ➕ MANUEL EKLEME — finanstan bağımsız, elle teklif kaydı
+  const manuelEkle = async () => {
+    if (!fMusteri.trim()) { setMesaj('Müşteri adı girin.'); return; }
+    setKaydediliyor(true);
+    setMesaj('');
+    try {
+      const { data, error } = await supabase.rpc('teklif_gerekli_isaretle', {
+        p_musteri: fMusteri.trim(),
+        p_ariza: fAriza.trim() || null,
+        p_is_emri_no: fIsEmri.trim() || null,
+      });
+      if (error || !(data as any)?.ok) {
+        setMesaj(error?.message || (data as any)?.mesaj || 'Eklenemedi.');
+        return;
+      }
+      setMesaj('✅ ' + ((data as any).mesaj || 'Eklendi.'));
+      setFMusteri(''); setFAriza(''); setFIsEmri('');
+      setFormAcik(false);
+      setDurum('BEKLIYOR');
+      await getir();
+      setTimeout(() => setMesaj(''), 3500);
+    } finally { setKaydediliyor(false); }
+  };
+
   const bekleyenSayi = liste.filter((x) => x.durum === 'BEKLIYOR').length;
 
   return (
@@ -90,6 +119,10 @@ export default function TeklifBekleyenlerPage() {
           </p>
         </div>
         <div className="flex gap-2 w-full md:w-auto flex-wrap">
+          <button onClick={() => setFormAcik(true)}
+            className="flex-1 md:flex-none bg-violet-600 hover:bg-violet-700 text-white px-4 py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
+            <Plus size={16} /> YENİ EKLE
+          </button>
           <button onClick={taramaYap} disabled={yukleniyor}
             className="flex-1 md:flex-none bg-white border border-slate-200 px-4 py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-100 transition">
             <RefreshCw size={16} className={yukleniyor ? 'animate-spin' : ''} /> TARAMA YAP
@@ -195,6 +228,71 @@ export default function TeklifBekleyenlerPage() {
           </AnimatePresence>
         </div>
       )}
+
+      {/* ➕ MANUEL EKLEME MODALI */}
+      <AnimatePresence>
+        {formAcik && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4"
+            onClick={() => setFormAcik(false)}>
+            <motion.div initial={{ y: 60 }} animate={{ y: 0 }} exit={{ y: 60 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white w-full md:max-w-lg rounded-t-3xl md:rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b border-slate-100 px-5 py-4 flex items-center justify-between z-10">
+                <h2 className="font-black text-slate-800 flex items-center gap-2">
+                  <Plus size={20} className="text-violet-600" /> YENİ TEKLİF KAYDI
+                </h2>
+                <button onClick={() => setFormAcik(false)}
+                  className="p-2 hover:bg-slate-100 rounded-xl transition">
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Müşteri Adı *
+                  </label>
+                  <input type="text" value={fMusteri} onChange={(e) => setFMusteri(e.target.value)}
+                    placeholder="Örn: RB KARESİ"
+                    className="w-full mt-1 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-violet-500" />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Arıza / Talep Detayı
+                  </label>
+                  <textarea value={fAriza} onChange={(e) => setFAriza(e.target.value)} rows={4}
+                    placeholder="Örn: Ana kaldırma halatı değişmeli, fren balatası aşınmış. Müşteri fiyat istedi."
+                    className="w-full mt-1 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-medium outline-none focus:border-violet-500 resize-none" />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    İş Emri No (varsa)
+                  </label>
+                  <input type="text" value={fIsEmri} onChange={(e) => setFIsEmri(e.target.value)}
+                    placeholder="İsteğe bağlı — varsa rapor bağlantısı"
+                    className="w-full mt-1 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-medium outline-none focus:border-violet-500" />
+                </div>
+
+                <div className="bg-violet-50 border border-violet-200 rounded-2xl p-3.5">
+                  <p className="text-[11px] text-violet-700 font-bold leading-relaxed">
+                    💡 Ekledikten sonra <strong>Telegram asistanı</strong> bu işi hatırlatmaya başlar.
+                    Teklifi verdiğinde <strong>&quot;TEKLİF VERİLDİ&quot;</strong> de → hatırlatma biter.
+                  </p>
+                </div>
+
+                <button onClick={manuelEkle} disabled={kaydediliyor}
+                  className="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition active:scale-[0.98]">
+                  {kaydediliyor ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                  LİSTEYE EKLE
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ALT BİLGİ */}
       {durum === 'BEKLIYOR' && bekleyenSayi > 0 && (
