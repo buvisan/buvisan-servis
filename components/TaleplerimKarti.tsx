@@ -57,7 +57,7 @@ export default function TaleplerimKarti() {
     setGonderiliyor(true);
     setMesaj('');
     try {
-      const { data, error } = await supabase.rpc('talep_gonder', {
+      const ortak = {
         p_talep_tipi: tip,
         p_baslik: baslik.trim() || null,
         p_aciklama: aciklama.trim() || null,
@@ -65,8 +65,34 @@ export default function TaleplerimKarti() {
         p_baslangic: tip === 'IZIN' && baslangic ? baslangic : null,
         p_bitis: tip === 'IZIN' && bitis ? bitis : null,
         p_oncelik: oncelik,
+      };
+
+      // 1) YENİ sürüm — ücretli/ücretsiz bilgisiyle
+      let { data, error } = await supabase.rpc('talep_gonder', {
+        ...ortak,
         p_ucretli: tip === 'IZIN' ? ucretli : true,
       });
+
+      // 2) 🛡️ EMNİYET VALFİ: veritabanı henüz güncellenmemişse (p_ucretli yoksa)
+      //    eski sürümle tekrar dene → personel ASLA bloke olmaz.
+      if (error && (
+        error.message?.includes('schema cache') ||
+        error.message?.includes('p_ucretli') ||
+        (error as any).code === 'PGRST202'
+      )) {
+        console.warn('talep_gonder yeni sürümü yok, eski sürüm deneniyor:', error.message);
+        const eski = await supabase.rpc('talep_gonder', ortak);
+        if (!eski.error) {
+          setMesaj('✅ Talebiniz gönderildi. (Not: ücretli/ücretsiz ayrımı için yöneticiye haber verin.)');
+          setBaslik(''); setAciklama(''); setTutar(''); setBaslangic(''); setBitis('');
+          await getir();
+          setTimeout(() => { setFormAcik(false); setMesaj(''); }, 3000);
+          return;
+        }
+        error = eski.error;
+        data = eski.data;
+      }
+
       if (error || !(data as any)?.ok) {
         setMesaj(error?.message || (data as any)?.mesaj || 'Gönderilemedi.');
         return;
