@@ -273,23 +273,35 @@ export default function RaporlarListesi() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {seciliRapor.degisen_parcalar && seciliRapor.degisen_parcalar.map((parca: any, i: number) => {
-                                        if(!parca.parca_adi) return null;
+                                    {(() => {
+                                        // 🛡️ SAĞLAMLIK: parça verisi metin olarak saklanmışsa
+                                        // (eski kayıtlar) da doğru gösterilsin.
+                                        let parcalar: any = (seciliRapor as any).degisen_parcalar;
+                                        if (typeof parcalar === 'string') {
+                                            try { parcalar = JSON.parse(parcalar); } catch { parcalar = []; }
+                                        }
+                                        if (!Array.isArray(parcalar)) parcalar = [];
+                                        const dolu = parcalar.filter((p: any) => p && String(p.parca_adi || '').trim());
                                         return (
-                                        <tr key={i} className="font-medium">
-                                            <td className="border border-black p-2">{parca.parca_no}</td>
-                                            <td className="border border-black p-2 text-left px-4 uppercase">{parca.parca_adi}</td>
-                                            <td className="border border-black p-2 font-bold">{parca.adet}</td>
-                                        </tr>
-                                    )})}
-                                    {/* Boş Satırlar */}
-                                    {[...Array(seciliRapor.degisen_parcalar?.some((p:any)=>p.parca_adi) ? 1 : 4)].map((_, i) => (
-                                        <tr key={'empty'+i}>
-                                            <td className="border border-black p-4"></td>
-                                            <td className="border border-black p-4"></td>
-                                            <td className="border border-black p-4"></td>
-                                        </tr>
-                                    ))}
+                                            <>
+                                                {dolu.map((parca: any, i: number) => (
+                                                    <tr key={i} className="font-medium">
+                                                        <td className="border border-black p-2">{parca.parca_no || '-'}</td>
+                                                        <td className="border border-black p-2 text-left px-4 uppercase">{parca.parca_adi}</td>
+                                                        <td className="border border-black p-2 font-bold">{parca.adet || '1'}</td>
+                                                    </tr>
+                                                ))}
+                                                {/* Boş Satırlar */}
+                                                {[...Array(dolu.length > 0 ? 1 : 4)].map((_, i) => (
+                                                    <tr key={'empty' + i}>
+                                                        <td className="border border-black p-4"></td>
+                                                        <td className="border border-black p-4"></td>
+                                                        <td className="border border-black p-4"></td>
+                                                    </tr>
+                                                ))}
+                                            </>
+                                        );
+                                    })()}
                                 </tbody>
                             </table>
 
