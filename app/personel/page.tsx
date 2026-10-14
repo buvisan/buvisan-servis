@@ -231,6 +231,8 @@ export default function PersonelEkrani() {
         ...yeni[index],
         malzeme_id: m.id,
         parca_adi: m.name,
+        // ⭐ Adet boşsa 1 yaz — parça seçildiyse mutlaka bir miktarı olmalı
+        adet: String(yeni[index]?.adet || '').trim() || '1',
         birim_fiyat: Number(m.sale_price) || 0,
         birim_maliyet: Number(m.buy_price) || 0,
       };
