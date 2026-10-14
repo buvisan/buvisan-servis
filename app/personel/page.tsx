@@ -1136,16 +1136,25 @@ export default function PersonelEkrani() {
 
                                                         {/* DEPO ÖNERİLERİ */}
                                                         {aktifParcaIndex === index && malzemeOnerileri.length > 0 && (
-                                                            <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
-                                                                <div className="bg-emerald-50 px-3 py-1.5 border-b border-emerald-100">
-                                                                    <p className="text-[9px] font-black text-emerald-700 uppercase tracking-wider">Depodan seç</p>
+                                                            <div className="absolute z-30 left-0 right-0 mt-1 bg-white border-2 border-emerald-300 rounded-xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto">
+                                                                <div className="bg-emerald-50 px-3 py-2 border-b border-emerald-100 sticky top-0">
+                                                                    <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">
+                                                                        📦 DEPODAN SEÇ ({malzemeOnerileri.length})
+                                                                    </p>
                                                                 </div>
                                                                 {malzemeOnerileri.map((m) => (
-                                                                    <button key={m.name} type="button" onClick={() => malzemeSec(index, m)}
-                                                                        className="w-full px-3 py-2.5 text-left hover:bg-emerald-50 transition border-b border-slate-50 last:border-0">
-                                                                        <p className="text-[11px] font-bold text-slate-700">{m.name}</p>
-                                                                        <p className="text-[9px] text-slate-400 font-medium">
+                                                                    <button key={m.name} type="button"
+                                                                        /* ⭐ MOBİL DÜZELTME: onPointerDown, onBlur'dan ÖNCE çalışır.
+                                                                           Eskiden onClick kullanılıyordu → input blur olunca liste
+                                                                           kapanıyor ve dokunuş BOŞA GİDİYORDU. */
+                                                                        onPointerDown={(e) => { e.preventDefault(); malzemeSec(index, m); }}
+                                                                        className="w-full px-3 py-3 text-left hover:bg-emerald-50 active:bg-emerald-100 transition border-b border-slate-50 last:border-0">
+                                                                        <p className="text-[12px] font-bold text-slate-800">{m.name}</p>
+                                                                        <p className="text-[10px] text-slate-400 font-medium">
                                                                             {Number(m.sale_price || 0).toLocaleString('tr-TR')} ₺ · {m.unit || 'adet'}
+                                                                            {Number(m.buy_price) > 0 && (
+                                                                                <span className="text-emerald-600 font-bold"> · alış {Number(m.buy_price).toLocaleString('tr-TR')} ₺</span>
+                                                                            )}
                                                                         </p>
                                                                     </button>
                                                                 ))}
