@@ -301,7 +301,7 @@ begin
       '⭐ <b>%s müşteri düşük puan verdi</b> (son 14 gün). Ara, gönlünü al.',
       '😐 Kanka <b>%s memnuniyetsiz müşteri</b> var. İtibar önemli, bir ara.'
     ]
-    else array['🔔 Kanka bir bakman gereken şey var: <b>%s</b>'];
+    else array['🔔 Kanka bir bakman gereken şey var: <b>%s</b>']
   end;
 
   v_secim := 1 + floor(random() * array_length(v_sablonlar, 1))::int;
