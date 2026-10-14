@@ -82,14 +82,21 @@ end $$;
 -- 2) "113 RAPOR" NEREDEN GELİYOR? — hangi işler, ne zaman?
 -- ============================================================================
 select
-  coalesce(t.customer_name, t.firma_adi, '(isimsiz)')        as musteri,
-  coalesce(t.status, '-')                                     as durum,
-  coalesce(t.pipeline_status, '-')                            as pipeline,
+  coalesce(
+    nullif(trim(coalesce(to_jsonb(t) ->> 'customer_name', '')), ''),
+    nullif(trim(coalesce(to_jsonb(t) ->> 'firma_adi', '')), ''),
+    nullif(trim(coalesce(to_jsonb(t) ->> 'customer', '')), ''),
+    nullif(trim(coalesce(to_jsonb(t) ->> 'company_name', '')), ''),
+    nullif(trim(coalesce(to_jsonb(t) ->> 'musteri_adi', '')), ''),
+    '(isimsiz)'
+  )                                                           as musteri,
+  coalesce(to_jsonb(t) ->> 'status', '-')                     as durum,
+  coalesce(to_jsonb(t) ->> 'pipeline_status', '-')            as pipeline,
   to_char(t.created_at, 'DD.MM.YYYY')                         as olusturma,
   (current_date - t.created_at::date)                         as gun_once,
   case when t.created_at::date > current_date - 30 then '🟢 YENİ' else '⚪ ESKİ' end as yas
 from public.service_tickets t
-where coalesce(t.pipeline_status, '') = 'tamamlandi'
+where coalesce(to_jsonb(t) ->> 'pipeline_status', '') = 'tamamlandi'
   and not exists (select 1 from public.service_reports r where r.ticket_id = t.id)
 order by t.created_at desc
 limit 30;
@@ -105,7 +112,7 @@ select
   min(created_at::date)                                           as en_eski,
   max(created_at::date)                                           as en_yeni
 from public.service_tickets t
-where coalesce(t.pipeline_status, '') = 'tamamlandi'
+where coalesce(to_jsonb(t) ->> 'pipeline_status', '') = 'tamamlandi'
   and not exists (select 1 from public.service_reports r where r.ticket_id = t.id);
 
 
@@ -136,16 +143,20 @@ set search_path = public
 as $$
   select
     count(*)::int,
-    (select string_agg(coalesce(x.customer_name, x.firma_adi, 'İsimsiz'), ', ')
+    (select string_agg(coalesce(
+        nullif(trim(coalesce(to_jsonb(x) ->> 'customer_name', '')), ''),
+        nullif(trim(coalesce(to_jsonb(x) ->> 'firma_adi', '')), ''),
+        nullif(trim(coalesce(to_jsonb(x) ->> 'customer', '')), ''),
+        'İsimsiz'), ', ')
      from (
-       select customer_name, firma_adi from public.service_tickets t2
-       where coalesce(t2.pipeline_status,'') = 'tamamlandi'
+       select t2.* from public.service_tickets t2
+       where coalesce(to_jsonb(t2) ->> 'pipeline_status','') = 'tamamlandi'
          and t2.created_at::date > current_date - 90
          and not exists (select 1 from public.service_reports r where r.ticket_id = t2.id)
        limit 3
      ) x)
   from public.service_tickets t
-  where coalesce(t.pipeline_status, '') = 'tamamlandi'
+  where coalesce(to_jsonb(t) ->> 'pipeline_status', '') = 'tamamlandi'
     and t.created_at::date > current_date - 90          -- ⏱️ sadece son 90 gün
     and not exists (select 1 from public.service_reports r where r.ticket_id = t.id);
 $$;
