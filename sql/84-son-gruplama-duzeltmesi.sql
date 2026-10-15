@@ -1,4 +1,37 @@
 -- ============================================================================
+-- 0) YARDIMCI FONKSİYON — sözleşmeli mi? (SQL 83 hata verince oluşmamıştı)
+--    Sütun adı ne olursa olsun bulur, yoksa FALSE döner.
+-- ============================================================================
+create or replace function public.sozlesmeli_mi(p_crane_id uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_var boolean := false;
+begin
+  if p_crane_id is null then return false; end if;
+  begin
+    execute $q$
+      select exists (
+        select 1 from public.maintenance_contracts mc
+        where public.jalan(to_jsonb(mc), 'crane_id','cranes_id','crane','makine_id','vinc_id','vincl_id','crane_uuid')
+              = $1::text
+      )
+    $q$ into v_var using p_crane_id;
+    return coalesce(v_var, false);
+  exception when others then
+    return false;
+  end;
+end $$;
+
+revoke all on function public.sozlesmeli_mi(uuid) from public;
+grant execute on function public.sozlesmeli_mi(uuid) to authenticated;
+
+
+-- ============================================================================
 --  🔧 SON DÜZELTME — bakim_firsatlari (Güncelleme #58)
 -- ----------------------------------------------------------------------------
 --  HATA: subquery uses ungrouped column "c.*" from outer query
