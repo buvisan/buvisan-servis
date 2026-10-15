@@ -338,20 +338,24 @@ begin
 
   if v_hafta_ici is not null then
     v_r := public.mesai_girisi_ekle(v_hafta_ici, '08:00', '23:00', 60);
-    raise notice 'HAFTA İÇİ (%) 08:00-23:00 → normal % sa · %%50 % sa',
-      to_char(v_hafta_ici,'DD.MM'), v_r->>'normal_saat', v_r->>'mesai50_saat';
+    raise notice 'HAFTA ICI - gun: %', to_char(v_hafta_ici,'DD.MM');
+    raise notice '   normal saat  : %', v_r->>'normal_saat';
+    raise notice '   mesai50 saat : %', v_r->>'mesai50_saat';
+    raise notice '   mesai100 saat: %', v_r->>'mesai100_saat';
   end if;
 
   if v_cmt is not null then
     v_r := public.mesai_girisi_ekle(v_cmt, '08:00', '18:00', 60);
-    raise notice 'CUMARTESİ (%) 08:00-18:00 → normal % sa · %%50 % sa',
-      to_char(v_cmt,'DD.MM'), v_r->>'normal_saat', v_r->>'mesai50_saat';
+    raise notice 'CUMARTESI - gun: %', to_char(v_cmt,'DD.MM');
+    raise notice '   normal saat  : %', v_r->>'normal_saat';
+    raise notice '   mesai50 saat : %', v_r->>'mesai50_saat';
   end if;
 
   if v_paz is not null then
     v_r := public.mesai_girisi_ekle(v_paz, '09:00', '15:00', 0);
-    raise notice 'PAZAR (%) 09:00-15:00 → normal % sa · %%100 % sa',
-      to_char(v_paz,'DD.MM'), v_r->>'normal_saat', v_r->>'mesai100_saat';
+    raise notice 'PAZAR - gun: %', to_char(v_paz,'DD.MM');
+    raise notice '   normal saat   : %', v_r->>'normal_saat';
+    raise notice '   mesai100 saat : %', v_r->>'mesai100_saat';
   end if;
 
   raise notice '═══════════════════════════════════════════';
