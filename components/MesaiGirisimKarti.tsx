@@ -1,23 +1,35 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN - MESAİ GİRİŞİM ⏱️
-// Personel kendi giriş/çıkış saatini girer → /admin/puantaj'a otomatik yansır.
-// Cumartesi %50, pazar %100 mesai OTOMATİK hesaplanır.
-// Kaynak: benim_mesaim_ekle() + benim_mesailerim()
+// BUVISAN - MESAİ GİRİŞİM ⏱️ (v2 — giriş/çıkış saati)
+// Personel tarih + GİRİŞ SAATİ + ÇIKIŞ SAATİ girer.
+// Sistem: süreyi hesaplar · mola düşer · gün tipine göre böler
+//         → /admin/puantaj ekranına OTOMATİK işlenir.
+// Cumartesi %50, pazar %100 mesai otomatik.
+// Kaynak: mesai_girisi_ekle() + benim_mesailerim()
 // ----------------------------------------------------------------------------
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Loader2, Save, ChevronDown, Check, CalendarDays } from "lucide-react";
+import { Clock, Loader2, Save, ChevronDown, CalendarDays, LogIn, LogOut, ArrowRight } from "lucide-react";
 
 const AYLAR = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
 
+// "08:00" → 8.0 saat
+const saatSayi = (t: string): number => {
+  if (!t || !t.includes(":")) return 0;
+  const [h, m] = t.split(":").map((x) => Number(x) || 0);
+  return h + m / 60;
+};
+
 export default function MesaiGirisimKarti() {
   const bugun = new Date();
-  const [tarih, setTarih] = useState(bugun.toISOString().slice(0, 10));
-  const [saat, setSaat] = useState("9");
+  const bugunStr = bugun.toISOString().slice(0, 10);
+
+  const [tarih, setTarih] = useState(bugunStr);
+  const [giris, setGiris] = useState("08:00");
+  const [cikis, setCikis] = useState("18:00");
   const [kayitlar, setKayitlar] = useState<any[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [kaydediliyor, setKaydediliyor] = useState(false);
@@ -36,12 +48,34 @@ export default function MesaiGirisimKarti() {
 
   useEffect(() => { getir(); }, [getir]);
 
+  // ---- CANLI HESAPLAMA ÖNİZLEMESİ ----
+  const hesap = useMemo(() => {
+    const g = saatSayi(giris);
+    const c = saatSayi(cikis);
+    if (!giris || !cikis || g === 0 || c === 0) return null;
+
+    let dk = (c - g) * 60;
+    if (dk < 0) dk += 1440;                    // gece vardiyası
+    const ham = dk / 60;
+    const molaVar = dk > 480;                  // 8 saatten fazla → mola düş
+    const net = molaVar ? (dk - 60) / 60 : ham;
+
+    if (net <= 0) return { hata: "Çıkış saati giriş saatinden sonra olmalı." };
+    if (net > 16) return { hata: "Günde 16 saatten fazla mesai girilemez." };
+
+    const dow = new Date(tarih + "T00:00:00").getDay();
+    const tip = dow === 6 ? "cmt" : dow === 0 ? "paz" : "normal";
+
+    return { ham, molaVar, net: Math.round(net * 100) / 100, tip };
+  }, [giris, cikis, tarih]);
+
   const kaydet = async () => {
+    if (hesap && "hata" in hesap) { setMesaj("⚠️ " + hesap.hata); return; }
     setKaydediliyor(true);
     setMesaj("");
     try {
-      const { data, error } = await supabase.rpc("benim_mesaim_ekle", {
-        p_tarih: tarih, p_saat: Number(saat) || 0, p_aciklama: null,
+      const { data, error } = await supabase.rpc("mesai_girisi_ekle", {
+        p_tarih: tarih, p_giris: giris, p_cikis: cikis, p_mola_dk: 60,
       });
       if (error || !(data as any)?.ok) {
         setMesaj(error?.message || (data as any)?.mesaj || "Kaydedilemedi.");
@@ -49,15 +83,13 @@ export default function MesaiGirisimKarti() {
       }
       setMesaj("✅ " + ((data as any).mesaj || "Kaydedildi."));
       await getir();
-      setTimeout(() => setMesaj(""), 3000);
+      setTimeout(() => setMesaj(""), 4000);
     } finally { setKaydediliyor(false); }
   };
 
-  // Seçilen tarihin gün tipi önizlemesi
   const gunTipi = (() => {
     if (!tarih) return null;
-    const d = new Date(tarih + "T00:00:00");
-    const dow = d.getDay();
+    const dow = new Date(tarih + "T00:00:00").getDay();
     if (dow === 6) return { renk: "text-blue-600", yazi: "🔵 Cumartesi → %50 mesai" };
     if (dow === 0) return { renk: "text-violet-600", yazi: "🟣 Pazar → %100 mesai" };
     return { renk: "text-emerald-600", yazi: "🟢 Hafta içi → normal saat" };
@@ -76,33 +108,78 @@ export default function MesaiGirisimKarti() {
         <div>
           <h2 className="text-white font-black text-sm tracking-tight leading-none">MESAİ GİRİŞİM</h2>
           <p className="text-[10px] text-sky-200 font-bold uppercase tracking-widest mt-1">
-            kendi saatlerini gir · puantaja işlenir
+            giriş-çıkış saati gir · puantaja işlenir
           </p>
         </div>
       </div>
 
       <div className="p-4 space-y-3">
-        {/* GİRİŞ FORMU */}
+        {/* TARİH */}
+        <div>
+          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Tarih</label>
+          <input type="date" value={tarih} max={bugunStr}
+            onChange={(e) => setTarih(e.target.value)}
+            className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-sky-500" />
+        </div>
+
+        {/* GİRİŞ / ÇIKIŞ SAATİ */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Tarih</label>
-            <input type="date" value={tarih} max={bugun.toISOString().slice(0, 10)}
-              onChange={(e) => setTarih(e.target.value)}
-              className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-sky-500" />
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+              <LogIn size={11} /> Giriş saati
+            </label>
+            <input type="time" value={giris} step="60"
+              onChange={(e) => setGiris(e.target.value)}
+              className="w-full mt-1 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl font-black text-emerald-800 outline-none focus:border-emerald-500" />
           </div>
           <div>
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Kaç saat çalıştın?</label>
-            <input type="number" step="0.5" min="0" max="16" value={saat}
-              onChange={(e) => setSaat(e.target.value)}
-              className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-sky-500" />
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+              <LogOut size={11} /> Çıkış saati
+            </label>
+            <input type="time" value={cikis} step="60"
+              onChange={(e) => setCikis(e.target.value)}
+              className="w-full mt-1 p-3 bg-rose-50 border border-rose-200 rounded-2xl font-black text-rose-800 outline-none focus:border-rose-500" />
           </div>
         </div>
 
-        {gunTipi && (
+        {/* CANLI HESAP ÖNİZLEMESİ */}
+        {hesap && "hata" in hesap ? (
+          <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-[11px] font-black text-rose-700">
+            ⚠️ {hesap.hata}
+          </div>
+        ) : hesap ? (
+          <div className="p-3 rounded-2xl bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200">
+            <div className="flex items-center justify-center gap-2 text-[13px] font-black text-slate-700">
+              <span className="text-emerald-700">{giris}</span>
+              <ArrowRight size={13} className="text-slate-400" />
+              <span className="text-rose-700">{cikis}</span>
+              <span className="text-slate-300">·</span>
+              <span className="text-sky-700">
+                {hesap.tip === "cmt" ? "Cumartesi (%50)" : hesap.tip === "paz" ? "Pazar (%100)" : "Hafta içi"}
+              </span>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+              <div className="bg-white/70 rounded-xl py-1.5">
+                <p className="text-[9px] font-black text-slate-400 uppercase">Ham süre</p>
+                <p className="text-sm font-black text-slate-600">{hesap.ham.toFixed(1)} sa</p>
+              </div>
+              <div className={`rounded-xl py-1.5 ${hesap.molaVar ? "bg-amber-100" : "bg-white/70"}`}>
+                <p className="text-[9px] font-black text-amber-600 uppercase">Mola</p>
+                <p className="text-sm font-black text-amber-700">{hesap.molaVar ? "−1 sa" : "—"}</p>
+              </div>
+              <div className="bg-emerald-100 rounded-xl py-1.5">
+                <p className="text-[9px] font-black text-emerald-600 uppercase">Net</p>
+                <p className="text-sm font-black text-emerald-800">{hesap.net} sa</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {gunTipi && !hesap && (
           <p className={`text-[11px] font-black ${gunTipi.renk}`}>{gunTipi.yazi}</p>
         )}
 
-        <button onClick={kaydet} disabled={kaydediliyor}
+        <button onClick={kaydet} disabled={kaydediliyor || !!(hesap && "hata" in hesap)}
           className="w-full bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white py-3.5 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition active:scale-[0.98]">
           {kaydediliyor ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           MESAİMİ KAYDET
@@ -118,15 +195,15 @@ export default function MesaiGirisimKarti() {
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
             <p className="text-[9px] font-black text-slate-400 uppercase">Normal</p>
-            <p className="text-base font-black text-slate-700">{toplamNormal} sa</p>
+            <p className="text-base font-black text-slate-700">{Math.round(toplamNormal * 10) / 10} sa</p>
           </div>
           <div className="bg-blue-50 rounded-xl p-2.5 border border-blue-100 text-center">
             <p className="text-[9px] font-black text-blue-500 uppercase">Cmt %50</p>
-            <p className="text-base font-black text-blue-700">{toplam50} sa</p>
+            <p className="text-base font-black text-blue-700">{Math.round(toplam50 * 10) / 10} sa</p>
           </div>
           <div className="bg-violet-50 rounded-xl p-2.5 border border-violet-100 text-center">
             <p className="text-[9px] font-black text-violet-500 uppercase">Paz %100</p>
-            <p className="text-base font-black text-violet-700">{toplam100} sa</p>
+            <p className="text-base font-black text-violet-700">{Math.round(toplam100 * 10) / 10} sa</p>
           </div>
         </div>
 
@@ -158,7 +235,13 @@ export default function MesaiGirisimKarti() {
                         <p className="text-[11px] font-black text-slate-700">
                           {new Date(k.tarih).toLocaleDateString("tr-TR")} · {k.gun_adi}
                         </p>
-                        {k.izin_mi && <p className="text-[9px] font-black text-amber-600">⛱️ ONAYLI İZİN</p>}
+                        {k.izin_mi ? (
+                          <p className="text-[9px] font-black text-amber-600">⛱️ ONAYLI İZİN</p>
+                        ) : (k.giris || k.cikis) ? (
+                          <p className="text-[9px] font-black text-slate-400">
+                            🕐 {k.giris || "?"} → {k.cikis || "?"}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="text-right">
                         {Number(k.normal_saat) > 0 && <p className="text-[11px] font-black text-slate-600">{k.normal_saat} sa normal</p>}
@@ -174,8 +257,9 @@ export default function MesaiGirisimKarti() {
         </AnimatePresence>
 
         <p className="text-[9px] text-slate-400 font-medium text-center leading-relaxed">
-          Girdiğin saatler <strong>yönetimin puantaj ekranına otomatik yansır</strong>.
-          İzniniz onaylandığında o günler <strong>izinli</strong> olarak işaretlenir.
+          Giriş ve çıkış saatini gir — <strong>süre, mola ve mesai otomatik hesaplanır</strong> ve
+          <strong> yönetimin puantaj ekranına yansır</strong>. İzniniz onaylandığında o günler
+          <strong> izinli</strong> olarak işaretlenir.
         </p>
       </div>
     </div>
