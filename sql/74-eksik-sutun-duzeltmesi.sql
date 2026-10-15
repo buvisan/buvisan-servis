@@ -41,33 +41,29 @@ do $$
 declare
   v_doldurulan integer := 0;
 begin
-  update public.cranes c
-     set crane_capacity = src.kapasite
-  from (
+  -- Her müşteri için EN SIK geçen kapasite (DISTINCT ON — gruplama sorunu yok)
+  with kapasiteler as (
     select
       public.parca_adi_normal(
         coalesce(nullif(trim(coalesce(to_jsonb(cs)->>'customer_name','')),''),
                  nullif(trim(coalesce(to_jsonb(cs)->>'firm_name','')),''),'')) as mnorm,
-      -- En sık geçen kapasite değeri
-      (select cs2.crane_capacity
-       from public.completed_services cs2
-       where public.parca_adi_normal(
-               coalesce(nullif(trim(coalesce(to_jsonb(cs2)->>'customer_name','')),''),
-                        nullif(trim(coalesce(to_jsonb(cs2)->>'firm_name','')),''),''))
-             = public.parca_adi_normal(
-                 coalesce(nullif(trim(coalesce(to_jsonb(cs)->>'customer_name','')),''),
-                          nullif(trim(coalesce(to_jsonb(cs)->>'firm_name','')),''),''))
-         and coalesce(trim(cs2.crane_capacity), '') <> ''
-       group by cs2.crane_capacity
-       order by count(*) desc
-       limit 1) as kapasite
+      trim(cs.crane_capacity) as kapasite,
+      count(*) as adet
     from public.completed_services cs
     where coalesce(trim(cs.crane_capacity), '') <> ''
-    group by 1
-  ) src
-  where public.parca_adi_normal(coalesce(c.customer_name,'')) = src.mnorm
-    and coalesce(trim(c.crane_capacity), '') = ''
-    and coalesce(src.kapasite, '') <> '';
+    group by 1, 2
+  ),
+  en_sik as (
+    select distinct on (mnorm) mnorm, kapasite
+    from kapasiteler
+    where coalesce(mnorm,'') <> ''
+    order by mnorm, adet desc
+  )
+  update public.cranes c
+     set crane_capacity = e.kapasite
+    from en_sik e
+   where public.parca_adi_normal(coalesce(c.customer_name,'')) = e.mnorm
+     and coalesce(trim(c.crane_capacity), '') = '';
 
   get diagnostics v_doldurulan = row_count;
   raise notice 'Kapasitesi doldurulan vinç: %', v_doldurulan;
