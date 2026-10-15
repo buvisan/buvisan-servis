@@ -376,6 +376,11 @@ export default function AdminPanel() {
                     <div className="bg-white/15 text-white w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-white/25 transition-colors relative z-10"><Sparkles size={20}/></div>
                     <div className="relative z-10"><h3 className="font-bold text-white text-sm">Akıllı Analiz</h3><p className="text-[10px] text-fuchsia-200">Foto AI · fiyat · anomali</p></div>
                 </motion.button>
+                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/buyume')} className="bg-gradient-to-br from-teal-600 to-cyan-700 p-5 rounded-2xl shadow-md border border-teal-500 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
+                    <div className="absolute -right-4 -bottom-4 opacity-10"><TrendingUp size={80}/></div>
+                    <div className="bg-white/15 text-white w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-white/25 transition-colors relative z-10"><TrendingUp size={20}/></div>
+                    <div className="relative z-10"><h3 className="font-bold text-white text-sm">Büyüme Merkezi</h3><p className="text-[10px] text-teal-100">Kayıp riski · kâr · tahmin</p></div>
+                </motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/cari')} className="bg-gradient-to-br from-emerald-600 to-teal-700 p-5 rounded-2xl shadow-md border border-emerald-500 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
                     <div className="absolute -right-4 -bottom-4 opacity-10"><Wallet size={80}/></div>
                     <div className="bg-white/15 text-white w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-white/25 transition-colors relative z-10"><Wallet size={20}/></div>
