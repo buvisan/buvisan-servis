@@ -9,8 +9,8 @@
 
 ```
 1. 77-tam-sema-duzeltmesi.sql          ← SÜTUNLARI EKLER (zorunlu ilk adım)
-2. 79-saglik-kontrolu.sql              ← DURUM RAPORU (Messages sekmesine bak)
-3. 80-sema-bagimsiz-fonksiyonlar.sql   ← KRİTİK FONKSİYONLARI SAĞLAMLAŞTIRIR
+2. 80-sema-bagimsiz-fonksiyonlar.sql   ← KRİTİK FONKSİYONLARI SAĞLAMLAŞTIRIR
+3. 81-kalan-saglamlastirma.sql         ← KALAN FONKSİYONLARI SAĞLAMLAŞTIRIR
 4. 71 → 72 → 73 → 75 → 76 → 78         ← FAZ VERİ KATMANLARI
 5. 79-saglik-kontrolu.sql              ← SON TEST (hepsi ✅ olmalı)
 ```
