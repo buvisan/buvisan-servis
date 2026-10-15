@@ -30,7 +30,20 @@ alter table public.cranes add column if not exists makine_tipi    text;
 alter table public.cranes add column if not exists location_address  text;
 alter table public.cranes add column if not exists customer_phone    text;
 
+-- ⭐ FAZ 2/3 için kritik: bakım tarihi ve koordinatlar
+alter table public.cranes add column if not exists next_maintenance_date date;
+alter table public.cranes add column if not exists lat numeric;
+alter table public.cranes add column if not exists lng numeric;
+
+-- Randevu ve talep koordinatları (FAZ 5)
+alter table public.appointments    add column if not exists lat numeric;
+alter table public.appointments    add column if not exists lng numeric;
+alter table public.service_tickets add column if not exists lat numeric;
+alter table public.service_tickets add column if not exists lng numeric;
+
 comment on column public.cranes.crane_capacity is 'Vinç kapasitesi/modeli (örn: 5 TON, ASANSÖR 630)';
+comment on column public.cranes.next_maintenance_date is 'Sonraki bakım tarihi — FAZ 2/3 motorları bunu kullanır';
+comment on column public.cranes.lat is 'Vinç/müşteri konum enlemi (harita için)';
 
 
 -- ============================================================================
