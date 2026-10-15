@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { googleMapsLink, yolTarifiLink } from '@/lib/geocode';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
@@ -93,14 +94,16 @@ export default function RotaHaritaPage() {
       if (!la || !ln) return;
       L.circleMarker([la, ln], { radius: 7, fillColor: renk, color: '#fff', weight: 2, fillOpacity: 0.9 })
         .bindPopup(
-          `<div style="font-family:system-ui;min-width:170px">
+          `<div style="font-family:system-ui;min-width:190px">
              <div style="font-weight:900;font-size:13px;color:#1e293b">${baslik || '-'}</div>
              <div style="font-size:11px;color:#64748b;margin-top:2px">${alt || ''}</div>
              ${adres ? `<div style="font-size:10px;color:#94a3b8;margin-top:4px">📍 ${adres}</div>` : ''}
-             <div style="margin-top:8px;display:flex;gap:6px">
-               <a href="https://www.google.com/maps/dir/?api=1&destination=${la},${ln}" target="_blank"
-                  style="background:#0f172a;color:#fff;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:800;text-decoration:none">YOL TARİFİ</a>
-               ${tel ? `<a href="tel:${tel}" style="background:#10b981;color:#fff;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:800;text-decoration:none">ARA</a>` : ''}
+             <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+               <a href="${googleMapsLink(adres, la, ln)}" target="_blank"
+                  style="background:#2563eb;color:#fff;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:800;text-decoration:none">🗺️ HARİTADA AÇ</a>
+               <a href="${yolTarifiLink(adres, la, ln)}" target="_blank"
+                  style="background:#0f172a;color:#fff;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:800;text-decoration:none">🧭 YOL TARİFİ</a>
+               ${tel ? `<a href="tel:${tel}" style="background:#10b981;color:#fff;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:800;text-decoration:none">📞 ARA</a>` : ''}
              </div>
            </div>`)
         .addTo(katman.current);
