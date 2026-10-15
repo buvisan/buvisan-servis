@@ -359,7 +359,7 @@ begin
   end if;
 
   raise notice '═══════════════════════════════════════════';
-  raise notice 'BEKLENEN: Hafta içi 08:00-23:00 → 9 sa normal + 5 sa %50';
+  raise notice 'BEKLENEN: Hafta ici 08:00-23:00 -> 9 sa normal + 5 sa mesai50';
   raise notice '═══════════════════════════════════════════';
 end $$;
 
