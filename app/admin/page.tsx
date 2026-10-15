@@ -17,7 +17,7 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, CalendarDays, Play, ClipboardList, Wallet, BookOpen, Inbox
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, CalendarDays, Play, ClipboardList, Wallet, BookOpen, Inbox, Trophy
 } from 'lucide-react';
 
 const PERSONEL_LISTESI = [
@@ -360,6 +360,11 @@ export default function AdminPanel() {
                     <div className="absolute -right-4 -bottom-4 opacity-10"><CalendarDays size={80}/></div>
                     <div className="bg-white/15 text-white w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-white/25 transition-colors relative z-10"><CalendarDays size={20}/></div>
                     <div className="relative z-10"><h3 className="font-bold text-white text-sm">Bakım Takvimi</h3><p className="text-[10px] text-cyan-200">Yıllık plan · kampanya</p></div>
+                </motion.button>
+                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/personel-performans')} className="bg-gradient-to-br from-amber-500 to-orange-600 p-5 rounded-2xl shadow-md border border-amber-400 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
+                    <div className="absolute -right-4 -bottom-4 opacity-10"><Trophy size={80}/></div>
+                    <div className="bg-white/15 text-white w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-white/25 transition-colors relative z-10"><Trophy size={20}/></div>
+                    <div className="relative z-10"><h3 className="font-bold text-white text-sm">Personel Performans</h3><p className="text-[10px] text-amber-100">Karne · yetkinlik · skor</p></div>
                 </motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/cari')} className="bg-gradient-to-br from-emerald-600 to-teal-700 p-5 rounded-2xl shadow-md border border-emerald-500 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
                     <div className="absolute -right-4 -bottom-4 opacity-10"><Wallet size={80}/></div>
