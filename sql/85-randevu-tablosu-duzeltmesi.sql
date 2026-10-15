@@ -18,6 +18,171 @@
 
 
 -- ============================================================================
+-- 0) EKSİK YARDIMCILAR (SQL 75 hata verince oluşmamıştı)
+-- ============================================================================
+
+-- 📏 Mesafe hesabı (Haversine — kuş uçuşu km)
+create or replace function public.mesafe_km(
+  p_lat1 numeric, p_lng1 numeric,
+  p_lat2 numeric, p_lng2 numeric
+)
+returns numeric
+language sql
+immutable
+as $$
+  select case
+    when p_lat1 is null or p_lng1 is null or p_lat2 is null or p_lng2 is null then null
+    else round(
+      6371 * 2 * asin(sqrt(
+        power(sin(radians(p_lat2 - p_lat1) / 2), 2) +
+        cos(radians(p_lat1)) * cos(radians(p_lat2)) *
+        power(sin(radians(p_lng2 - p_lng1) / 2), 2)
+      ))::numeric
+    , 1)
+  end;
+$$;
+
+revoke all on function public.mesafe_km(numeric, numeric, numeric, numeric) from public;
+grant execute on function public.mesafe_km(numeric, numeric, numeric, numeric) to authenticated;
+
+
+-- 📊 Bölge analizi (randevusuz — sadece vinç müşterileri)
+create or replace function public.bolge_analizi()
+returns table (
+  bolge text, vinc_sayisi integer, musteri_sayisi integer, toplam_ciro numeric,
+  son_servis text, gun_once integer, bakim_bekleyen integer, durum text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with bolgeler as (
+    select
+      public.jalan(to_jsonb(c),'customer_name','firma_adi','musteri_adi') as customer_name,
+      coalesce(
+        nullif(trim(split_part(coalesce(public.jalan(to_jsonb(c),'location_address','address'),''), '/', 1)), ''),
+        nullif(trim(split_part(coalesce(public.jalan(to_jsonb(c),'location_address','address'),''), ',', 1)), ''),
+        'Adres yok'
+      ) as bolge,
+      nullif(trim(coalesce(to_jsonb(c)->>'next_maintenance_date','')),'')::date as bakim
+    from public.cranes c
+    where public.jalan(to_jsonb(c),'customer_name','firma_adi','musteri_adi') <> ''
+  ),
+  ciro as (
+    select public.parca_adi_normal(public.jalan(to_jsonb(cs),'customer_name','firm_name','customer')) as mnorm,
+           round(coalesce(sum(cs.price),0)) as toplam, max(cs.service_date::date) as son_t
+    from public.completed_services cs group by 1
+  )
+  select
+    b.bolge,
+    count(*)::int,
+    count(distinct b.customer_name)::int,
+    coalesce(sum(ci.toplam), 0),
+    case when max(ci.son_t) is not null then to_char(max(ci.son_t),'DD.MM.YYYY') else null end,
+    case when max(ci.son_t) is not null then (current_date - max(ci.son_t))::int else null end,
+    count(*) filter (where b.bakim is not null and b.bakim <= current_date + 30)::int,
+    case
+      when b.bolge = 'Adres yok' then '⚠️ Adres eksik'
+      when count(*) >= 20 then '⭐ ANA BÖLGE'
+      when count(*) >= 10 then '🟢 GÜÇLÜ'
+      when count(*) >= 5  then '🟡 ORTA'
+      else '🔵 POTANSİYEL' end
+  from bolgeler b
+  left join ciro ci on ci.mnorm = public.parca_adi_normal(b.customer_name)
+  group by b.bolge
+  order by count(*) desc
+  limit 30;
+$$;
+
+revoke all on function public.bolge_analizi() from public;
+grant execute on function public.bolge_analizi() to authenticated;
+
+
+-- 📍 Harita noktaları (SQL 80'de kuruldu ama garanti olsun)
+create or replace function public.harita_noktalari()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_vinc jsonb := '[]'::jsonb;
+  v_talep jsonb := '[]'::jsonb;
+  v_bakim jsonb := '[]'::jsonb;
+  v_yapildi jsonb := '[]'::jsonb;
+begin
+  begin
+    select coalesce(jsonb_agg(jsonb_build_object(
+             'lat', (to_jsonb(c)->>'lat')::numeric, 'lng', (to_jsonb(c)->>'lng')::numeric, 'tip', 'vinc',
+             'baslik', public.jalan(to_jsonb(c),'customer_name','firma_adi','musteri_adi'),
+             'alt', coalesce(nullif(public.jalan(to_jsonb(c),'makine_tipi','machine_type'),''),'Vinç') || ' · ' ||
+                    coalesce(nullif(public.jalan(to_jsonb(c),'crane_capacity','capacity'),''),'—'),
+             'adres', public.jalan(to_jsonb(c),'location_address','address'),
+             'telefon', public.jalan(to_jsonb(c),'customer_phone','phone','telefon'))), '[]'::jsonb)
+      into v_vinc
+    from public.cranes c
+    where nullif(trim(coalesce(to_jsonb(c)->>'lat','')),'') is not null
+      and public.jalan(to_jsonb(c),'customer_name','firma_adi','musteri_adi') <> '';
+  exception when others then v_vinc := '[]'::jsonb; end;
+
+  begin
+    select coalesce(jsonb_agg(jsonb_build_object(
+             'lat', (to_jsonb(t)->>'lat')::numeric, 'lng', (to_jsonb(t)->>'lng')::numeric, 'tip', 'talep',
+             'baslik', coalesce(nullif(public.jalan(to_jsonb(t),'manual_customer_name','customer_name'),''),'İsimsiz'),
+             'alt', left(coalesce(public.jalan(to_jsonb(t),'description','issue_type'),'-'), 60),
+             'aciliyet', coalesce(nullif(public.jalan(to_jsonb(t),'priority'),''),'Normal'),
+             'adres', public.jalan(to_jsonb(t),'manual_location','location'),
+             'telefon', public.jalan(to_jsonb(t),'manual_phone','phone'))), '[]'::jsonb)
+      into v_talep
+    from public.service_tickets t
+    where nullif(trim(coalesce(to_jsonb(t)->>'lat','')),'') is not null
+      and coalesce(public.jalan(to_jsonb(t),'pipeline_status'),'') not in ('tamamlandi','iptal');
+  exception when others then v_talep := '[]'::jsonb; end;
+
+  begin
+    select coalesce(jsonb_agg(jsonb_build_object(
+             'lat', (to_jsonb(c)->>'lat')::numeric, 'lng', (to_jsonb(c)->>'lng')::numeric, 'tip', 'bakim',
+             'baslik', public.jalan(to_jsonb(c),'customer_name','firma_adi'),
+             'alt', 'Bakım: ' || coalesce(public.jalan(to_jsonb(c),'next_maintenance_date'),'?'),
+             'adres', public.jalan(to_jsonb(c),'location_address','address'),
+             'telefon', public.jalan(to_jsonb(c),'customer_phone','phone'))), '[]'::jsonb)
+      into v_bakim
+    from public.cranes c
+    where nullif(trim(coalesce(to_jsonb(c)->>'lat','')),'') is not null
+      and nullif(trim(coalesce(to_jsonb(c)->>'next_maintenance_date','')),'') is not null
+      and (to_jsonb(c)->>'next_maintenance_date')::date <= current_date + 30;
+  exception when others then v_bakim := '[]'::jsonb; end;
+
+  begin
+    select coalesce(jsonb_agg(jsonb_build_object(
+             'lat', (to_jsonb(r)->>'lat')::numeric, 'lng', (to_jsonb(r)->>'lng')::numeric,
+             'tip', 'yapildi', 'baslik', 'Bugün yapıldı',
+             'alt', public.jalan(to_jsonb(r),'musteri_adi','customer_name'))), '[]'::jsonb)
+      into v_yapildi
+    from public.service_reports r
+    where nullif(trim(coalesce(to_jsonb(r)->>'lat','')),'') is not null
+      and r.created_at::date = (now() at time zone 'Europe/Istanbul')::date;
+  exception when others then v_yapildi := '[]'::jsonb; end;
+
+  return jsonb_build_object(
+    'vinc', v_vinc, 'talep', v_talep, 'bakim', v_bakim, 'yapildi', v_yapildi,
+    'merkez', jsonb_build_object(
+      'lat', coalesce((select round(avg((to_jsonb(c)->>'lat')::numeric),4) from public.cranes c
+                        where nullif(trim(coalesce(to_jsonb(c)->>'lat','')),'') is not null), 40.1950),
+      'lng', coalesce((select round(avg((to_jsonb(c)->>'lng')::numeric),4) from public.cranes c
+                        where nullif(trim(coalesce(to_jsonb(c)->>'lng','')),'') is not null), 29.0600)),
+    'sayilar', jsonb_build_object(
+      'vinc', jsonb_array_length(v_vinc), 'talep', jsonb_array_length(v_talep),
+      'bakim', jsonb_array_length(v_bakim), 'yapildi', jsonb_array_length(v_yapildi)));
+end $$;
+
+revoke all on function public.harita_noktalari() from public;
+grant execute on function public.harita_noktalari() to authenticated;
+
+
+-- ============================================================================
 -- 1) YARDIMCILAR — randevu tablosunu dinamik bul
 -- ============================================================================
 create or replace function public.randevu_tablo()
