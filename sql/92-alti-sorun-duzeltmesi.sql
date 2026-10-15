@@ -347,7 +347,10 @@ grant execute on function public.mesai_girisi_ekle(date, text, text, integer) to
 
 -- ============================================================================
 -- 6) 📋 BENİM MESAİLERİM v2 — giriş/çıkış saatlerini de göster
+--    ⚠️ Dönüş tipi değişti (giris, cikis eklendi) → önce DROP gerekiyor
 -- ============================================================================
+drop function if exists public.benim_mesailerim(text);
+
 create or replace function public.benim_mesailerim(p_ay text default null)
 returns table (
   tarih date, gun_adi text, giris text, cikis text,
