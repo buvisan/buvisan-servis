@@ -528,7 +528,7 @@ end $$;
 select
   public.randevu_tablo()                                        as randevu_tablosu,
   public.randevu_sayisi(current_date - 30, current_date + 30)   as son_60_gun_randevu,
-  (select count(*) from public.cranes
+  (select count(*) from public.cranes c
     where nullif(trim(coalesce(to_jsonb(c)->>'next_maintenance_date','')),'') is not null) as bakim_tarihli_vinc,
   coalesce(public.gunun_rotasi() ->> 'durak_sayisi','?')        as bugun_durak,
   coalesce(public.gunun_rotasi() ->> 'toplam_km','?')           as bugun_km;
