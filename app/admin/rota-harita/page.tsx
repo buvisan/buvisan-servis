@@ -16,7 +16,7 @@ import Link from 'next/link';
 import {
   Map, Loader2, RefreshCw, ArrowLeft, AlertTriangle, Navigation,
   MapPin, Truck, Wrench, CheckCircle2, Layers, TrendingUp, Route
-} from 'lucide-react';
+, CalendarDays} from 'lucide-react';
 
 const para = (n: any) => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
 
@@ -37,7 +37,7 @@ export default function RotaHaritaPage() {
   const [yukleniyor, setYukleniyor] = useState(true);
   const [hata, setHata] = useState('');
   const [goster, setGoster] = useState<Record<string, boolean>>({
-    vinc: true, talep: true, bakim: false, yapildi: true, rota: true,
+    vinc: true, randevu: true, talep: true, bakim: false, yapildi: true, rota: true,
   });
   const [panel, setPanel] = useState<'rota' | 'bolge'>('rota');
 
@@ -107,6 +107,7 @@ export default function RotaHaritaPage() {
     };
 
     if (goster.vinc) (noktalar.vinc || []).forEach((x: any) => ekle(x.lat, x.lng, RENKLER.vinc, x.baslik, x.alt, x.adres, x.telefon));
+    if (goster.randevu) (noktalar.randevu || []).forEach((x: any) => ekle(x.lat, x.lng, '#f59e0b', '📅 ' + x.baslik, x.alt, x.adres, x.telefon));
     if (goster.talep) (noktalar.talep || []).forEach((x: any) => ekle(x.lat, x.lng, RENKLER.talep, '🔴 ' + x.baslik, x.alt, x.adres, x.telefon));
     if (goster.bakim) (noktalar.bakim || []).forEach((x: any) => ekle(x.lat, x.lng, RENKLER.bakim, '🔧 ' + x.baslik, x.alt, x.adres, x.telefon));
     if (goster.yapildi) (noktalar.yapildi || []).forEach((x: any) => ekle(x.lat, x.lng, RENKLER.yapildi, '✅ ' + x.baslik, x.alt, '', ''));
@@ -166,6 +167,7 @@ export default function RotaHaritaPage() {
         <div className="flex gap-2 mt-3 flex-wrap">
           {[
             { k: 'vinc', a: 'Vinçler', r: RENKLER.vinc, i: <MapPin size={12} /> },
+            { k: 'randevu', a: 'Randevular', r: '#f59e0b', i: <CalendarDays size={12} /> },
             { k: 'talep', a: 'Talepler', r: RENKLER.talep, i: <AlertTriangle size={12} /> },
             { k: 'bakim', a: 'Bakım', r: RENKLER.bakim, i: <Wrench size={12} /> },
             { k: 'yapildi', a: 'Bugün yapılan', r: RENKLER.yapildi, i: <CheckCircle2 size={12} /> },
