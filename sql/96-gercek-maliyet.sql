@@ -247,7 +247,8 @@ begin
   raise notice '  Yol süresi (%)       : % ₺', v_yeni->>'yol_sure', v_yeni->>'yol_ucret';
   raise notice '  ─────────────────────────────';
   raise notice '  TOPLAM GİDER         : % ₺', v_yeni->>'toplam_gider';
-  raise notice '  KÂR (8.500 ₺ iş)     : % ₺ (%%)', v_yeni->>'kar', v_yeni->>'kar_marji';
+  raise notice '  KÂR (8.500 ₺ iş)     : % ₺', v_yeni->>'kar';
+  raise notice '  KÂR MARJI            : yüzde %', v_yeni->>'kar_marji';
   raise notice '  DURUM                : %', v_yeni->>'durum';
   raise notice '═══════════════════════════════════════';
 end $$;
