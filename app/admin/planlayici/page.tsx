@@ -84,6 +84,9 @@ export default function PlanlayiciSayfasi() {
   const [personelSecim, setPersonelSecim] = useState<string[]>([]);
   const [notId, setNotId] = useState<string | null>(null);
   const [notMetni, setNotMetni] = useState('');
+  const [konumId, setKonumId] = useState<string | null>(null);
+  const [konumLat, setKonumLat] = useState<number | null>(null);
+  const [konumLng, setKonumLng] = useState<number | null>(null);
   const [kaydediliyor, setKaydediliyor] = useState(false);
 
   const [yeni, setYeni] = useState({
@@ -264,6 +267,17 @@ export default function PlanlayiciSayfasi() {
     setIslemde(null);
   }
 
+
+  // 📍 KONUM KAYDET (koordinat güncelle)
+  async function konumKaydet(r: any) {
+    if (konumLat === null || konumLng === null) {
+      alert('Enlem ve boylam girin (veya Google Maps linki yapıştırıp AL tuşuna basın).');
+      return;
+    }
+    const { error } = await supabase.from('randevular').update({ lat: konumLat, lng: konumLng }).eq('id', r.id);
+    if (error) alert('Kaydedilemedi: ' + error.message);
+    else { setKonumId(null); setKonumLat(null); setKonumLng(null); await verileriGetir(); }
+  }
   async function manuelEkle() {
     if (!yeni.musteri_adi.trim() || !yeni.telefon.trim()) return alert('Firma adı ve telefon zorunludur.');
     if (!yeni.tarih) return alert('Lütfen tarih seçin.');
@@ -661,6 +675,14 @@ export default function PlanlayiciSayfasi() {
                           setNotMetni={setNotMetni}
                           onNotKaydet={() => notKaydet(kayit)}
                           onNotVazgec={() => { setNotId(null); setNotMetni(''); }}
+                  konumAcik={konumId === kayit.id}
+                  onKonum={() => { setKonumId(kayit.id); setKonumLat(kayit.lat ?? null); setKonumLng(kayit.lng ?? null); }}
+                  konumKaydet={() => konumKaydet(kayit)}
+                  konumVazgec={() => { setKonumId(null); setKonumLat(null); setKonumLng(null); }}
+                  konumLat={konumLat}
+                  konumLng={konumLng}
+                  setKonumLat={setKonumLat}
+                  setKonumLng={setKonumLng}
                         />
                       ) : (
                         <button
@@ -987,6 +1009,7 @@ function RandevuKarti({
   tasimaAcik, tasimaTarih, setTasimaTarih, onTasiOnayla, onTasiVazgec,
   personelAcik, personelSecim, onPersonelToggle, onPersonelKaydet, onPersonelVazgec,
   notAcik, notMetni, setNotMetni, onNotKaydet, onNotVazgec,
+  konumAcik, onKonum, konumKaydet, konumVazgec, konumLat, konumLng, setKonumLat, setKonumLng,
 }: any) {
   const tip = IS_TIPI[kayit.is_tipi] || IS_TIPI.ariza;
   const TipIkon = tip.ikon;
@@ -1054,6 +1077,9 @@ function RandevuKarti({
         <button onClick={onNot} className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-2.5 py-2 rounded-lg text-[10px] font-bold transition" title="Not ekle">
           <GripVertical size={12} />
         </button>
+        <button onClick={onKonum} className={`border px-2.5 py-2 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${kayit.lat ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"}`} title="Konum ekle / düzenle">
+          <MapPin size={12} /> {kayit.lat ? "" : "Konum"}
+        </button>
         {kayit.durum !== 'iptal' && (
           <button onClick={onIptal} className="bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 px-2.5 py-2 rounded-lg text-[10px] font-bold transition" title="İptal et (yer açılır)">
             <XCircle size={12} />
@@ -1103,6 +1129,20 @@ function RandevuKarti({
               KAYDET ({(personelSecim || []).length})
             </button>
             <button onClick={onPersonelVazgec} className="bg-white border border-slate-200 text-slate-500 px-3 py-2 rounded-lg text-[10px] font-bold">İptal</button>
+          </div>
+        </div>
+      )}
+
+      {/* KONUM PANELİ */}
+      {konumAcik && (
+        <div className="mt-3">
+          <KoordinatGirisi lat={konumLat} lng={konumLng}
+            onChange={(la, ln) => { setKonumLat(la); setKonumLng(ln); }} />
+          <div className="flex gap-2 mt-2">
+            <button onClick={konumKaydet} className="bg-slate-900 text-white px-3 py-2 rounded-lg text-[10px] font-black hover:bg-slate-800 transition">
+              KONUMU KAYDET
+            </button>
+            <button onClick={konumVazgec} className="bg-white border border-slate-200 text-slate-500 px-3 py-2 rounded-lg text-[10px] font-bold">İptal</button>
           </div>
         </div>
       )}
