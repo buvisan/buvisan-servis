@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { PERSONEL_LISTESI } from '@/lib/personel';
+import KonumSecici from '@/components/KonumSecici';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -86,7 +87,7 @@ export default function PlanlayiciSayfasi() {
   const [kaydediliyor, setKaydediliyor] = useState(false);
 
   const [yeni, setYeni] = useState({
-    musteri_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '',
+    musteri_adi: '', yetkili: '', telefon: '', adres: '', lat: null as number | null, lng: null as number | null, vinc_bilgisi: '',
     is_tipi: 'ariza', tarih: '', aciklama: '', personeller: [] as string[], ticketAc: true
   });
 
@@ -308,6 +309,8 @@ export default function PlanlayiciSayfasi() {
         yetkili: yeni.yetkili || null,
         telefon: yeni.telefon.trim(),
         adres: yeni.adres || null,
+        lat: yeni.lat ?? null,
+        lng: yeni.lng ?? null,
         vinc_bilgisi: yeni.vinc_bilgisi || null,
         is_tipi: yeni.is_tipi,
         randevu_tarihi: yeni.tarih,
@@ -322,7 +325,7 @@ export default function PlanlayiciSayfasi() {
       if (error) throw error;
 
       setEkleAcik(false);
-      setYeni({ musteri_adi: '', yetkili: '', telefon: '', adres: '', vinc_bilgisi: '', is_tipi: 'ariza', tarih: seciliTarih, aciklama: '', personeller: [], ticketAc: true });
+      setYeni({ musteri_adi: '', yetkili: '', telefon: '', adres: '', lat: null as number | null, lng: null as number | null, vinc_bilgisi: '', is_tipi: 'ariza', tarih: seciliTarih, aciklama: '', personeller: [], ticketAc: true });
       setSeciliTarih(yeni.tarih);
       await verileriGetir();
     } catch (e: any) {
@@ -832,6 +835,14 @@ export default function PlanlayiciSayfasi() {
                   <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Adres</label>
                   <input value={yeni.adres} onChange={(e) => setYeni({ ...yeni, adres: e.target.value })} placeholder="İl, ilçe, açık adres"
                     className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-400 transition" />
+                  <div className="mt-2">
+                    <KonumSecici
+                      adres={yeni.adres}
+                      lat={yeni.lat}
+                      lng={yeni.lng}
+                      onChange={(la, ln) => setYeni({ ...yeni, lat: la, lng: ln })}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
