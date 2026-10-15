@@ -237,7 +237,7 @@ as $$
     select
       public.jalan(to_jsonb(c),'customer_name','firma_adi','musteri_adi') as ad,
       count(*)::int as vinc_sayisi,
-      bool_or(exists (select 1 from public.maintenance_contracts mc where mc.crane_id = c.id)) as soz
+      bool_or(exists (select 1 from public.maintenance_contracts mc where public.jalan(to_jsonb(mc),'crane_id','cranes_id','crane','makine_id','vinc_id','vincl_id','crane_uuid') = c.id::text)) as soz
     from public.cranes c
     where public.jalan(to_jsonb(c),'customer_name','firma_adi','musteri_adi') <> ''
     group by 1

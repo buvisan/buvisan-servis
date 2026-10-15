@@ -311,7 +311,7 @@ as $$
       public.jalan(to_jsonb(c),'makine_tipi','machine_type','tip') as makine,
       nullif(trim(coalesce(to_jsonb(c)->>'next_maintenance_date','')),'')::date as bakim,
       public.parca_adi_normal(public.jalan(to_jsonb(c),'customer_name','firma_adi','musteri_adi')) as mnorm,
-      exists (select 1 from public.maintenance_contracts mc where mc.crane_id = c.id) as soz
+      exists (select 1 from public.maintenance_contracts mc where public.jalan(to_jsonb(mc),'crane_id','cranes_id','crane','makine_id','vinc_id','vincl_id','crane_uuid') = c.id::text) as soz
     from public.cranes c
     where public.jalan(to_jsonb(c),'customer_name','firma_adi','musteri_adi') <> ''
   ),
