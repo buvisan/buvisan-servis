@@ -82,6 +82,8 @@ export default function RotaHaritaPage() {
         maxZoom: 19, attribution: '© OpenStreetMap',
       }).addTo(mapObj.current);
       katman.current = L.layerGroup().addTo(mapObj.current);
+      // ⭐ Harita kapsayıcısı başlangıçta 0 yükseklikte olabilir → yeniden ölç
+      setTimeout(() => { try { mapObj.current?.invalidateSize(); } catch { /* yoksay */ } }, 250);
     }
 
     katman.current.clearLayers();
@@ -123,6 +125,14 @@ export default function RotaHaritaPage() {
           .addTo(katman.current);
       });
     }
+
+    // ⭐ İŞARETLERİ GÖRÜNÜR ALANA SIĞDIR (marker'lar ekranda kalsın)
+    try {
+      const sinirlar = katman.current.getBounds();
+      if (sinirlar && sinirlar.isValid()) {
+        mapObj.current.fitBounds(sinirlar, { padding: [40, 40], maxZoom: 12 });
+      }
+    } catch { /* yoksay */ }
   }, [hazir, noktalar, rota, goster]);
 
   const sayilar = noktalar?.sayilar || {};
