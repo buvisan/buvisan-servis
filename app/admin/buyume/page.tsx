@@ -7,7 +7,7 @@
 //  İlke: her bölüm bağımsız yüklenir, biri hata verse diğerleri çalışır
 // ============================================================================
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -36,7 +36,34 @@ export default function BuyumePage() {
   // Kâr hesaplayıcı
   const [ucret, setUcret] = useState('');
   const [sure, setSure] = useState('');
-  const [parcalar, setParcalar] = useState<{ ad: string; adet: string }[]>([{ ad: '', adet: '1' }]);
+  const [parcalar, setParcalar] = useState<{ ad: string; adet: string; birim?: number }[]>([{ ad: '', adet: '1' }]);
+  // 🔍 Malzeme otomatik tamamlama
+  const [oneriler, setOneriler] = useState<any[]>([]);
+  const [aktifIdx, setAktifIdx] = useState<number | null>(null);
+  const aramaZaman = useRef<any>(null);
+
+  // Yazarken depodan ara (300 ms bekleme)
+  const malzemeAra = useCallback((metin: string, i: number) => {
+    if (aramaZaman.current) clearTimeout(aramaZaman.current);
+    if (!metin || metin.trim().length < 2) { setOneriler([]); setAktifIdx(null); return; }
+    aramaZaman.current = setTimeout(async () => {
+      try {
+        const { data } = await supabase.rpc("malzeme_ara", { p_arama: metin, p_limit: 8 });
+        setOneriler(data || []);
+        setAktifIdx(i);
+      } catch { setOneriler([]); }
+    }, 300);
+  }, []);
+
+  // Öneriyi seç
+  const oneriSec = (i: number, m: any) => {
+    const y = [...parcalar];
+    y[i].ad = m.ad;
+    y[i].birim = Number(m.alis_fiyati) || 0;
+    setParcalar(y);
+    setOneriler([]);
+    setAktifIdx(null);
+  };
   const [kar, setKar] = useState<any>(null);
   const [karYuk, setKarYuk] = useState(false);
 
@@ -301,19 +328,63 @@ export default function BuyumePage() {
                 </div>
                 <div className="space-y-2">
                   {parcalar.map((p, i) => (
-                    <div key={i} className="flex gap-2">
-                      <input type="text" value={p.ad}
-                        onChange={(e) => { const y = [...parcalar]; y[i].ad = e.target.value; setParcalar(y); }}
-                        placeholder="Parça adı (depodan bulunur)"
-                        className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none focus:border-emerald-400" />
-                      <input type="number" value={p.adet}
-                        onChange={(e) => { const y = [...parcalar]; y[i].adet = e.target.value; setParcalar(y); }}
-                        className="w-16 p-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-xs text-center outline-none focus:border-emerald-400" />
-                      {parcalar.length > 1 && (
-                        <button onClick={() => setParcalar(parcalar.filter((_, x) => x !== i))}
-                          className="px-2.5 bg-rose-50 border border-rose-200 rounded-2xl">
-                          <X size={14} className="text-rose-500" />
-                        </button>
+                    <div key={i} className="relative">
+                      <div className="flex gap-2">
+                        <input type="text" value={p.ad}
+                          onChange={(e) => {
+                            const y = [...parcalar]; y[i].ad = e.target.value; setParcalar(y);
+                            malzemeAra(e.target.value, i);
+                          }}
+                          onFocus={() => { if (p.ad.length >= 2) malzemeAra(p.ad, i); }}
+                          onBlur={() => setTimeout(() => { if (aktifIdx === i) { setOneriler([]); setAktifIdx(null); } }, 200)}
+                          placeholder="Parça adı yaz → depodan öneri çıkar"
+                          className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none focus:border-emerald-400" />
+                        <input type="number" value={p.adet}
+                          onChange={(e) => { const y = [...parcalar]; y[i].adet = e.target.value; setParcalar(y); }}
+                          className="w-16 p-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-xs text-center outline-none focus:border-emerald-400" />
+                        {parcalar.length > 1 && (
+                          <button onClick={() => setParcalar(parcalar.filter((_, x) => x !== i))}
+                            className="px-2.5 bg-rose-50 border border-rose-200 rounded-2xl">
+                            <X size={14} className="text-rose-500" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* 🔍 DEPODAN ÖNERİLER */}
+                      {aktifIdx === i && oneriler.length > 0 && (
+                        <div className="absolute z-30 left-0 right-16 mt-1 bg-white border-2 border-emerald-300 rounded-2xl shadow-xl overflow-hidden max-h-56 overflow-y-auto">
+                          <div className="px-3 py-1.5 bg-emerald-50 border-b border-emerald-100">
+                            <p className="text-[9px] font-black text-emerald-700 uppercase tracking-wider">
+                              🏭 Depodan {oneriler.length} sonuç
+                            </p>
+                          </div>
+                          {oneriler.map((m: any) => (
+                            <button key={m.id} onMouseDown={(ev) => { ev.preventDefault(); oneriSec(i, m); }}
+                              className="w-full text-left px-3 py-2 hover:bg-emerald-50 transition border-b border-slate-50 last:border-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[11px] font-black text-slate-800 truncate">{m.ad}</p>
+                                  <p className="text-[9px] font-bold text-slate-400">
+                                    Stok: {Number(m.stok) || 0} {m.birim || 'adet'}
+                                  </p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-[11px] font-black text-emerald-700">
+                                    {Number(m.alis_fiyati) > 0 ? Number(m.alis_fiyati).toLocaleString('tr-TR') + ' ₺' : 'fiyat yok'}
+                                  </p>
+                                  <p className="text-[8px] font-bold text-slate-400">alış</p>
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {aktifIdx === i && oneriler.length === 0 && p.ad.length >= 2 && (
+                        <div className="absolute z-30 left-0 right-16 mt-1 bg-amber-50 border-2 border-amber-200 rounded-2xl px-3 py-2">
+                          <p className="text-[10px] font-black text-amber-700">
+                            ⚠️ Depoda bulunamadı — yine de kaydedilebilir
+                          </p>
+                        </div>
                       )}
                     </div>
                   ))}
