@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { PERSONEL_LISTESI } from '@/lib/personel';
-import KonumSecici from '@/components/KonumSecici';
+import KoordinatGirisi from '@/components/KoordinatGirisi';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -836,8 +836,7 @@ export default function PlanlayiciSayfasi() {
                   <input value={yeni.adres} onChange={(e) => setYeni({ ...yeni, adres: e.target.value })} placeholder="İl, ilçe, açık adres"
                     className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-400 transition" />
                   <div className="mt-2">
-                    <KonumSecici
-                      adres={yeni.adres}
+                    <KoordinatGirisi
                       lat={yeni.lat}
                       lng={yeni.lng}
                       onChange={(la, ln) => setYeni({ ...yeni, lat: la, lng: ln })}
