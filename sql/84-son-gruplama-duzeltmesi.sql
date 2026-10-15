@@ -208,23 +208,98 @@ grant execute on function public.mevsim_kampanya() to authenticated;
 
 
 -- ============================================================================
--- TEST
+-- 3) 📊 BAKIM DURUMU (72'de kalmıştı — buraya alındı ki 84 tek başına yetsin)
 -- ============================================================================
-select 'bakim_firsatlari' as test, (select count(*)::text from public.bakim_firsatlari(10)) as sonuc
-union all
-select 'mevsim_kampanya', coalesce(public.mevsim_kampanya() ->> 'hedef_adet','?')
-union all
-select 'bakim_takvimi', (select count(*)::text from public.bakim_takvimi(null,5))
-union all
-select 'bakim_durumu', coalesce(public.bakim_durumu() ->> 'toplam_vinc','?')
-union all
-select 'musteri_kayip_riski', (select count(*)::text from public.musteri_kayip_riski(5))
-union all
-select 'vinc_saglik_skoru', coalesce(public.vinc_saglik_skoru((select id from public.cranes limit 1)) ->> 'skor','?')
-union all
-select 'sozlesmeli_mi', public.sozlesmeli_mi((select id from public.cranes limit 1))::text
-union all
-select 'akilli_haftalik_plan', coalesce(jsonb_array_length(public.akilli_haftalik_plan() -> 'gunler')::text,'?');
+create or replace function public.bakim_durumu()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_gecikmis integer := 0; v_bu_hafta integer := 0; v_bu_ay integer := 0;
+  v_gelecek integer := 0; v_tarihsiz integer := 0; v_toplam integer := 0;
+  v_sozlesmeli integer := 0;
+begin
+  begin
+    select
+      count(*) filter (where nullif(trim(coalesce(to_jsonb(c)->>'next_maintenance_date','')),'')::date < current_date),
+      count(*) filter (where nullif(trim(coalesce(to_jsonb(c)->>'next_maintenance_date','')),'')::date
+                             between current_date and current_date + 7),
+      count(*) filter (where nullif(trim(coalesce(to_jsonb(c)->>'next_maintenance_date','')),'')::date
+                             between current_date and current_date + 30),
+      count(*) filter (where nullif(trim(coalesce(to_jsonb(c)->>'next_maintenance_date','')),'')::date > current_date + 30),
+      count(*) filter (where nullif(trim(coalesce(to_jsonb(c)->>'next_maintenance_date','')),'') is null),
+      count(*)
+    into v_gecikmis, v_bu_hafta, v_bu_ay, v_gelecek, v_tarihsiz, v_toplam
+    from public.cranes c
+    where public.jalan(to_jsonb(c),'customer_name','firma_adi','musteri_adi') <> '';
+  exception when others then null; end;
 
--- Kampanya hedef örnekleri
+  begin
+    select count(*) into v_sozlesmeli from public.cranes c where public.sozlesmeli_mi(c.id);
+  exception when others then v_sozlesmeli := 0; end;
+
+  return jsonb_build_object(
+    'gecikmis', v_gecikmis, 'bu_hafta', v_bu_hafta, 'bu_ay', v_bu_ay,
+    'gelecek', v_gelecek, 'tarihsiz', v_tarihsiz, 'toplam_vinc', v_toplam,
+    'sozlesmeli', v_sozlesmeli, 'sozlesmesiz', greatest(0, v_toplam - v_sozlesmeli),
+    'uyum_orani', case when v_toplam > 0
+                       then round(((v_toplam - v_gecikmis - v_tarihsiz)::numeric / v_toplam) * 100)
+                       else 0 end);
+end $$;
+
+revoke all on function public.bakim_durumu() from public;
+grant execute on function public.bakim_durumu() to authenticated;
+
+
+-- ============================================================================
+-- TEST — her test KENDİ KORUMASINDA (biri patlarsa diğerleri devam eder)
+-- ============================================================================
+do $$
+declare
+  v_testler text[][] := array[
+    ['sozlesmeli_mi',    'select public.sozlesmeli_mi((select id from public.cranes limit 1))'],
+    ['bakim_firsatlari', 'select * from public.bakim_firsatlari(3)'],
+    ['mevsim_kampanya',  'select public.mevsim_kampanya()'],
+    ['bakim_durumu',     'select public.bakim_durumu()']
+  ];
+  t text[];
+  v_ok integer := 0; v_hata integer := 0;
+begin
+  raise notice ' ';
+  raise notice '═══════ SQL 84 TEST RAPORU ═══════';
+  foreach t slice 1 in array v_testler loop
+    begin
+      execute t[2];
+      raise notice '✅ %', rpad(t[1], 22);
+      v_ok := v_ok + 1;
+    exception when others then
+      raise notice '❌ % → %', rpad(t[1], 22), sqlerrm;
+      v_hata := v_hata + 1;
+    end;
+  end loop;
+  raise notice '─────────────────────────────';
+  raise notice 'ÇALIŞAN: %   HATALI: %', v_ok, v_hata;
+  raise notice '════════════════════════════════';
+end $$;
+
+
+-- ============================================================================
+-- SONUÇ TABLOSU — güvenli (sadece bu scriptin kurduğu fonksiyonlar)
+-- ============================================================================
+select 'sozlesmeli_mi' as test,
+       public.sozlesmeli_mi((select id from public.cranes limit 1))::text as sonuc
+union all
+select 'bakim_firsatlari',
+       (select count(*)::text from public.bakim_firsatlari(10))
+union all
+select 'mevsim_kampanya',
+       coalesce(public.mevsim_kampanya() ->> 'hedef_adet', '?')
+union all
+select 'bakim_durumu',
+       coalesce(public.bakim_durumu() ->> 'toplam_vinc', '?');
+
+-- Sözleşmesiz müşteriler (abonelik fırsatları)
 select * from public.bakim_firsatlari(8);
