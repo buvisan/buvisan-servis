@@ -407,7 +407,7 @@ as $$
     cross join lateral jsonb_array_elements(
       case when jsonb_typeof(cs.materials) = 'array' then cs.materials else '[]'::jsonb end
     ) m
-    where coalesce(cs.service_date,'') is not null
+    where cs.service_date is not null
   )
   select
     k.parca,
