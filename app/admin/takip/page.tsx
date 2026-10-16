@@ -37,6 +37,7 @@ export default function TakipYonetimiSayfasi() {
   const [vinc, setVinc] = useState('');
   const [adres, setAdres] = useState('');
   const [eta, setEta] = useState('');
+  const [varisZaman, setVarisZaman] = useState<Record<string,string>>({});
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -78,6 +79,28 @@ export default function TakipYonetimiSayfasi() {
       });
       if (error) { alert('Güncellenemedi: ' + error.message); return; }
       await getir();
+    } finally { setIslemde(''); }
+  };
+
+  const varisKaydet = async (id: string) => {
+    const deger = varisZaman[id];
+    if (!deger) { setMesaj('⚠️ Önce tarih/saat seçin.'); return; }
+    setIslemde(id + 'varis');
+    try {
+      const { data, error } = await supabase.rpc('takip_varis_ayarla', {
+        p_id: id,
+        p_tahmini_varis: new Date(deger).toISOString(),
+        p_musteri_notu: null,
+        p_teknisyen: null,
+      });
+      if (error || !(data as any)?.ok) {
+        setMesaj('❌ ' + (error?.message || (data as any)?.mesaj || 'Kaydedilemedi.'));
+        return;
+      }
+      setMesaj('✅ ' + ((data as any).mesaj || 'Varış saati kaydedildi.'));
+      setVarisZaman((v) => ({ ...v, [id]: '' }));
+      await getir();
+      setTimeout(() => setMesaj(''), 4000);
     } finally { setIslemde(''); }
   };
 
@@ -189,6 +212,20 @@ export default function TakipYonetimiSayfasi() {
                     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-[10px] font-black transition">
                     YOLDA + SÜRE
                   </button>
+                </div>
+
+                {/* TAHMİNİ VARIŞ SAATİ */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-2.5 mb-3">
+                  <p className="text-[10px] font-black text-blue-700 mb-2">🕐 TAHMİNİ VARIŞ SAATİ (müşteri görür)</p>
+                  <div className="flex items-center gap-2">
+                    <input type="datetime-local" value={varisZaman[t.id] || ''}
+                      onChange={(e) => setVarisZaman((v) => ({ ...v, [t.id]: e.target.value }))}
+                      className="flex-1 p-2 bg-white border border-blue-200 rounded-lg text-[11px] font-bold outline-none focus:border-blue-500" />
+                    <button onClick={() => varisKaydet(t.id)} disabled={islemde === t.id + 'varis'}
+                      className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white px-3 py-2 rounded-lg text-[10px] font-black transition shrink-0">
+                      {islemde === t.id + 'varis' ? '...' : 'KAYDET'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* AKSİYONLAR */}
