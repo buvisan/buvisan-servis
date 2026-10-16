@@ -89,6 +89,7 @@ export default function PlanlayiciSayfasi() {
   const [konumLng, setKonumLng] = useState<number | null>(null);
   const [takipId, setTakipId] = useState<string | null>(null);
   const [takipKopya, setTakipKopya] = useState(false);
+  const [takipLink, setTakipLink] = useState<string>('');
   const [kaydediliyor, setKaydediliyor] = useState(false);
 
   const [yeni, setYeni] = useState({
@@ -272,7 +273,19 @@ export default function PlanlayiciSayfasi() {
 
   // 🔗 TAKİP LİNKİ — canlı müşteri takibi
   function takipLinki(r: any) {
+    if (takipLink) return takipLink;
     return 'https://servis.buvisan.com/takip/' + r.id;
+  }
+
+  // 🔗 Takip kaydını bul/oluştur (is_takip) → varış saati buradan yönetilir
+  async function takipAc(r: any) {
+    if (takipId === r.id) { setTakipId(null); setTakipLink(''); return; }
+    setTakipId(r.id);
+    setTakipLink('');
+    try {
+      const { data } = await supabase.rpc('takip_link_al', { p_randevu_id: r.id });
+      if ((data as any)?.ok && (data as any)?.link) setTakipLink((data as any).link);
+    } catch { /* varsayılan link kullanılır */ }
   }
 
   function takipMesaji(r: any) {
@@ -729,6 +742,7 @@ export default function PlanlayiciSayfasi() {
                   konumVazgec={() => { setKonumId(null); setKonumLat(null); setKonumLng(null); }}
                   takipAcik={takipId === kayit.id}
                   onTakip={() => setTakipId(takipId === kayit.id ? null : kayit.id)}
+                  onTakipAc={takipAc}
                   takipLinkiFn={takipLinki}
                   takipMesajiFn={takipMesaji}
                   takipKopyalaFn={takipKopyala}
@@ -1065,7 +1079,7 @@ function RandevuKarti({
   personelAcik, personelSecim, onPersonelToggle, onPersonelKaydet, onPersonelVazgec,
   notAcik, notMetni, setNotMetni, onNotKaydet, onNotVazgec,
   konumAcik, onKonum, konumKaydet, konumVazgec, konumLat, konumLng, setKonumLat, setKonumLng,
-  takipAcik, onTakip, takipLinkiFn, takipMesajiFn, takipKopyalaFn, takipWhatsappFn, takipKopyaMi,
+  takipAcik, onTakip, onTakipAc, takipLinkiFn, takipMesajiFn, takipKopyalaFn, takipWhatsappFn, takipKopyaMi,
 }: any) {
   const tip = IS_TIPI[kayit.is_tipi] || IS_TIPI.ariza;
   const TipIkon = tip.ikon;
@@ -1136,7 +1150,7 @@ function RandevuKarti({
         <button onClick={onKonum} className={`border px-2.5 py-2 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${kayit.lat ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"}`} title="Konum ekle / düzenle">
           <MapPin size={12} /> {kayit.lat ? "" : "Konum"}
         </button>
-        <button onClick={onTakip} className={`border px-2.5 py-2 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${takipAcik ? "bg-indigo-50 border-indigo-300 text-indigo-700" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"}`} title="Müşteri takip linki">
+        <button onClick={() => onTakipAc(kayit)} className={`border px-2.5 py-2 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${takipAcik ? "bg-indigo-50 border-indigo-300 text-indigo-700" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"}`} title="Müşteri takip linki">
           <Link2 size={12} />
         </button>
         {kayit.durum !== 'iptal' && (
