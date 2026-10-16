@@ -22,7 +22,7 @@ import {
   CheckCircle2, XCircle, Clock, Phone, MapPin, Wrench, Search, Settings2,
   User, AlertTriangle, Ban, Truck, CalendarClock, History, LayoutGrid,
   GripVertical, Save, Trash2, ExternalLink, RefreshCw, Users, TrendingUp, Info, Check
-} from 'lucide-react';
+, Link2} from 'lucide-react';
 
 const AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 const GUNLER = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -87,6 +87,8 @@ export default function PlanlayiciSayfasi() {
   const [konumId, setKonumId] = useState<string | null>(null);
   const [konumLat, setKonumLat] = useState<number | null>(null);
   const [konumLng, setKonumLng] = useState<number | null>(null);
+  const [takipId, setTakipId] = useState<string | null>(null);
+  const [takipKopya, setTakipKopya] = useState(false);
   const [kaydediliyor, setKaydediliyor] = useState(false);
 
   const [yeni, setYeni] = useState({
@@ -267,6 +269,52 @@ export default function PlanlayiciSayfasi() {
     setIslemde(null);
   }
 
+
+  // 🔗 TAKİP LİNKİ — canlı müşteri takibi
+  function takipLinki(r: any) {
+    return 'https://servis.buvisan.com/takip/' + r.id;
+  }
+
+  function takipMesaji(r: any) {
+    const musteri = r.musteri_adi || 'Değerli Müşterimiz';
+    const tarih = r.randevu_tarihi
+      ? new Date(r.randevu_tarihi + 'T00:00:00').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
+      : '';
+    const personel = (r.personel || []).length > 0 ? (r.personel || []).join(' - ') : '';
+    const satirlar = [
+      'Sayın ' + musteri + ',',
+      '',
+      'Servis randevunuz planlanmıştır.',
+      tarih ? '📅 Tarih: ' + tarih : '',
+      personel ? '👷 Görevli teknisyen: ' + personel : '',
+      r.adres ? '📍 Adres: ' + r.adres : '',
+      '',
+      '🔗 Canlı takip linki:',
+      takipLinki(r),
+      '',
+      'Bu sayfadan teknisyenin durumunu ve tahmini varış saatini görebilirsiniz.',
+      '',
+      'BUVİSAN VİNÇ SERVİS',
+    ].filter(Boolean).join('\n');
+    return satirlar;
+  }
+
+  async function takipKopyala(r: any) {
+    try {
+      await navigator.clipboard.writeText(takipLinki(r));
+      setTakipKopya(true);
+      setTimeout(() => setTakipKopya(false), 2500);
+    } catch {
+      alert('Kopyalanamadı. Linki elle seçip kopyalayın:\n' + takipLinki(r));
+    }
+  }
+
+  function takipWhatsapp(r: any) {
+    const tel = String(r.telefon || '').replace(/\D/g, '');
+    const numara = tel.length === 10 ? '90' + tel : tel.length === 11 && tel.startsWith('0') ? '9' + tel : tel;
+    const metin = encodeURIComponent(takipMesaji(r));
+    window.open(numara ? `https://wa.me/${numara}?text=${metin}` : `https://wa.me/?text=${metin}`, '_blank');
+  }
 
   // 📍 KONUM KAYDET (koordinat güncelle)
   async function konumKaydet(r: any) {
@@ -679,6 +727,13 @@ export default function PlanlayiciSayfasi() {
                   onKonum={() => { setKonumId(kayit.id); setKonumLat(kayit.lat ?? null); setKonumLng(kayit.lng ?? null); }}
                   konumKaydet={() => konumKaydet(kayit)}
                   konumVazgec={() => { setKonumId(null); setKonumLat(null); setKonumLng(null); }}
+                  takipAcik={takipId === kayit.id}
+                  onTakip={() => setTakipId(takipId === kayit.id ? null : kayit.id)}
+                  takipLinkiFn={takipLinki}
+                  takipMesajiFn={takipMesaji}
+                  takipKopyalaFn={takipKopyala}
+                  takipWhatsappFn={takipWhatsapp}
+                  takipKopyaMi={takipKopya}
                   konumLat={konumLat}
                   konumLng={konumLng}
                   setKonumLat={setKonumLat}
@@ -1010,6 +1065,7 @@ function RandevuKarti({
   personelAcik, personelSecim, onPersonelToggle, onPersonelKaydet, onPersonelVazgec,
   notAcik, notMetni, setNotMetni, onNotKaydet, onNotVazgec,
   konumAcik, onKonum, konumKaydet, konumVazgec, konumLat, konumLng, setKonumLat, setKonumLng,
+  takipAcik, onTakip, takipLinkiFn, takipMesajiFn, takipKopyalaFn, takipWhatsappFn, takipKopyaMi,
 }: any) {
   const tip = IS_TIPI[kayit.is_tipi] || IS_TIPI.ariza;
   const TipIkon = tip.ikon;
@@ -1080,6 +1136,9 @@ function RandevuKarti({
         <button onClick={onKonum} className={`border px-2.5 py-2 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${kayit.lat ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"}`} title="Konum ekle / düzenle">
           <MapPin size={12} /> {kayit.lat ? "" : "Konum"}
         </button>
+        <button onClick={onTakip} className={`border px-2.5 py-2 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${takipAcik ? "bg-indigo-50 border-indigo-300 text-indigo-700" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"}`} title="Müşteri takip linki">
+          <Link2 size={12} />
+        </button>
         {kayit.durum !== 'iptal' && (
           <button onClick={onIptal} className="bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 px-2.5 py-2 rounded-lg text-[10px] font-bold transition" title="İptal et (yer açılır)">
             <XCircle size={12} />
@@ -1130,6 +1189,40 @@ function RandevuKarti({
             </button>
             <button onClick={onPersonelVazgec} className="bg-white border border-slate-200 text-slate-500 px-3 py-2 rounded-lg text-[10px] font-bold">İptal</button>
           </div>
+        </div>
+      )}
+
+      {/* TAKİP LİNKİ PANELİ */}
+      {takipAcik && (
+        <div className="mt-3 bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+          <p className="text-[10px] font-black text-indigo-700 uppercase tracking-wider mb-2">
+            🔗 Müşteri Canlı Takip Linki
+          </p>
+          <div className="bg-white border border-indigo-200 rounded-lg p-2.5 mb-2">
+            <p className="text-[10px] font-mono text-slate-600 break-all">{takipLinkiFn(kayit)}</p>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            <button onClick={() => takipKopyalaFn(kayit)}
+              className={`flex-1 min-w-[110px] py-2.5 rounded-lg text-[10px] font-black transition flex items-center justify-center gap-1.5 ${takipKopyaMi ? 'bg-emerald-600 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}>
+              {takipKopyaMi ? '✅ KOPYALANDI' : '📋 LİNKİ KOPYALA'}
+            </button>
+            <button onClick={() => takipWhatsappFn(kayit)}
+              className="flex-1 min-w-[110px] bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-lg text-[10px] font-black transition flex items-center justify-center gap-1.5">
+              💬 WHATSAPP
+            </button>
+            <a href={takipLinkiFn(kayit)} target="_blank" rel="noreferrer"
+              className="px-3 bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-700 py-2.5 rounded-lg text-[10px] font-black transition flex items-center gap-1">
+              ↗ AÇ
+            </a>
+          </div>
+          <details className="mt-2">
+            <summary className="text-[9px] font-black text-indigo-600 uppercase tracking-wider cursor-pointer">
+              📄 Hazır WhatsApp mesajını gör
+            </summary>
+            <pre className="mt-2 p-2.5 bg-white border border-indigo-100 rounded-lg text-[9px] font-medium text-slate-600 whitespace-pre-wrap leading-relaxed">
+{takipMesajiFn(kayit)}
+            </pre>
+          </details>
         </div>
       )}
 
