@@ -8,6 +8,7 @@ import BakimFirsatKarti from '@/components/BakimFirsatKarti';
 import ArizaTahminKarti from '@/components/ArizaTahminKarti';
 import KarMotoruKarti from '@/components/KarMotoruKarti';
 import AsansorKarti from '@/components/AsansorKarti';
+import VincKarti from '@/components/VincKarti';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -394,6 +395,7 @@ export default function AdminPanel() {
         </div>
 
         {/* 🏢 ASANSÖR İŞLERİ — kapasite alanından otomatik tespit */}
+        <VincKarti />
         <AsansorKarti />
 
         {/* 💵 İŞ BAZLI KÂR — hangi iş/müşteri kâr bırakıyor */}
