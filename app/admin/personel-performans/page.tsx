@@ -10,13 +10,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import PrimTablosu from '@/components/PrimTablosu';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
   Trophy, Loader2, RefreshCw, ArrowLeft, AlertTriangle, Target,
   Star, Clock, CheckCircle2, X, TrendingUp, Award, GraduationCap,
   Zap, FileText, Shield, Calendar
-} from 'lucide-react';
+, Wallet} from 'lucide-react';
 
 const AYLAR = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 const para = (n: any) => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
@@ -437,6 +438,11 @@ export default function PersonelPerformansPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* PRİM TABLOSU */}
+      <div className="mt-6">
+        <PrimTablosu mod="admin" />
+      </div>
     </div>
   );
 }

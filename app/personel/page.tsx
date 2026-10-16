@@ -17,6 +17,7 @@ import KazancimKarti from '@/components/KazancimKarti';
 import TaleplerimKarti from '@/components/TaleplerimKarti';
 import MesaiGirisimKarti from '@/components/MesaiGirisimKarti';
 import GununRotasi from '@/components/GununRotasi';
+import PrimTablosu from '@/components/PrimTablosu';
 import KuyrukBandi from '@/components/KuyrukBandi';
 import { PERSONEL_LISTESI, listedenIsimBul } from '@/lib/personel';
 import { kuyrugaEkle, agHatasiMi, parcalariStoktanDus } from '@/lib/kuyruk';
@@ -629,7 +630,8 @@ export default function PersonelEkrani() {
       <MesaiGirisimKarti />
 
       {/* 💰 KAZANCIM — maaş + cumartesi (%50) / pazar (%100) mesai dökümü */}
-      <KazancimKarti personel={aktifPersonel?.full_name || ''} />
+      <PrimTablosu mod="personel" personel={aktifPersonel?.full_name || ''} />
+            <KazancimKarti personel={aktifPersonel?.full_name || ''} />
 
       {/* 📋 TALEPLERİM — izin, avans, malzeme, arıza bildirimi */}
       <TaleplerimKarti />
