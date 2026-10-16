@@ -52,8 +52,56 @@ export default function TaleplerimKarti() {
 
   useEffect(() => { getir(); }, [getir]);
 
+  // 📅 Açıklama metninden tarih çıkar ("16.10.2026 için izin istiyorum")
+  const metindenTarih = (metin: string): string => {
+    if (!metin) return '';
+    // GG.AA.YYYY / GG/AA/YYYY / GG-AA-YYYY
+    let m = metin.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);
+    if (m) {
+      const g = m[1].padStart(2, '0'), a = m[2].padStart(2, '0');
+      return `${m[3]}-${a}-${g}`;
+    }
+    // YYYY-AA-GG
+    m = metin.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    // GG.AA (yıl yok → bu yıl)
+    m = metin.match(/(\d{1,2})[./-](\d{1,2})(?![./-]?\d)/);
+    if (m) {
+      const g = Number(m[1]), a = Number(m[2]);
+      if (a >= 1 && a <= 12 && g >= 1 && g <= 31) {
+        return `${new Date().getFullYear()}-${String(a).padStart(2, '0')}-${String(g).padStart(2, '0')}`;
+      }
+    }
+    return '';
+  };
+
   const gonder = async () => {
     if (!baslik.trim() && !aciklama.trim()) { setMesaj('Konu veya açıklama girin.'); return; }
+
+    // ═══ İZİN TARİHLERİ — ZORUNLU ═══
+    let bas = baslangic;
+    let bit = bitis;
+
+    if (tip === 'IZIN') {
+      // Tarih girilmediyse açıklamadan çıkarmayı dene
+      if (!bas) {
+        const cikarilan = metindenTarih(aciklama) || metindenTarih(baslik);
+        if (cikarilan) { bas = cikarilan; setBaslangic(cikarilan); }
+      }
+      // Hâlâ yoksa HATA ver — boş tarihli izin gönderilmesin
+      if (!bas) {
+        setMesaj('⚠️ İzin için BAŞLANGIÇ tarihi zorunludur. Lütfen tarih seçin (açıklamaya "16.10.2026" gibi yazmanız da yeterli).');
+        return;
+      }
+      // Bitiş boşsa başlangıç ile aynı olsun (1 günlük izin)
+      if (!bit) { bit = bas; setBitis(bas); }
+      // Bitiş başlangıçtan önce olamaz
+      if (bit < bas) {
+        setMesaj('⚠️ Bitiş tarihi başlangıçtan önce olamaz.');
+        return;
+      }
+    }
+
     setGonderiliyor(true);
     setMesaj('');
     try {
@@ -62,8 +110,8 @@ export default function TaleplerimKarti() {
         p_baslik: baslik.trim() || null,
         p_aciklama: aciklama.trim() || null,
         p_tutar: tip === 'AVANS' && tutar ? Number(tutar) : null,
-        p_baslangic: tip === 'IZIN' && baslangic ? baslangic : null,
-        p_bitis: tip === 'IZIN' && bitis ? bitis : null,
+        p_baslangic: tip === 'IZIN' ? bas : null,
+        p_bitis: tip === 'IZIN' ? bit : null,
         p_oncelik: oncelik,
       };
 
@@ -235,7 +283,7 @@ export default function TaleplerimKarti() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Başlangıç</label>
-                        <input type="date" value={baslangic} onChange={(e) => setBaslangic(e.target.value)}
+                        <input type="date" value={baslangic} onChange={(e) => { setBaslangic(e.target.value); if (!bitis) setBitis(e.target.value); }}
                           className="w-full mt-1 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-slate-500" />
                       </div>
                       <div>
