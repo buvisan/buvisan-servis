@@ -180,6 +180,7 @@ begin
       when coalesce(v_puan,0) >= 45 then '🥉 ORTA'
       else '📈 GELİŞMELİ' end,
     'sira', coalesce(v_sira, 1),
+    'siralama', coalesce(v_sira, 1),
     'toplam_personel', coalesce(v_toplam_personel, 0),
     'is_sayisi', coalesce(v_is, 0),
     'ciro', round(coalesce(v_ciro, 0)),
