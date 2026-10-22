@@ -311,11 +311,7 @@ export default function RaporlarListesi() {
                                     {seciliRapor.sure_dakika > 0 && (
                                         <span className="text-xs font-bold">SÜRE: {seciliRapor.sure_dakika} dk</span>
                                     )}
-                                    {seciliRapor.malzeme_tutari > 0 && (
-                                        <span className="text-xs font-black">
-                                            MALZEME TUTARI: {Number(seciliRapor.malzeme_tutari).toLocaleString('tr-TR')} ₺
-                                        </span>
-                                    )}
+                                    
                                     {seciliRapor.lat && (
                                         <a href={`https://maps.google.com/?q=${seciliRapor.lat},${seciliRapor.lng}`}
                                            target="_blank" rel="noopener noreferrer"

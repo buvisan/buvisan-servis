@@ -217,9 +217,7 @@ const ServisRaporuFormu = forwardRef<HTMLDivElement, { rapor: any }>(
           {((rapor.malzeme_tutari > 0) || (rapor.sure_dakika > 0)) && (
             <div className="srp-totals">
               {rapor.sure_dakika > 0 && <span>SÜRE: {rapor.sure_dakika} dk</span>}
-              {rapor.malzeme_tutari > 0 && (
-                <span>MALZEME TUTARI: {Number(rapor.malzeme_tutari).toLocaleString("tr-TR")} ₺</span>
-              )}
+              
             </div>
           )}
 
