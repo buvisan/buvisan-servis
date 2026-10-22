@@ -17,6 +17,7 @@ import KazancimKarti from '@/components/KazancimKarti';
 import TaleplerimKarti from '@/components/TaleplerimKarti';
 import MesaiGirisimKarti from '@/components/MesaiGirisimKarti';
 import GununRotasi from '@/components/GununRotasi';
+import BakimFormlarim from '@/components/BakimFormlarim';
 import KuyrukBandi from '@/components/KuyrukBandi';
 import { PERSONEL_LISTESI, listedenIsimBul } from '@/lib/personel';
 import { kuyrugaEkle, agHatasiMi, parcalariStoktanDus } from '@/lib/kuyruk';

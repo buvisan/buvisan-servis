@@ -10,6 +10,7 @@ import KarMotoruKarti from '@/components/KarMotoruKarti';
 import AsansorKarti from '@/components/AsansorKarti';
 import VincKarti from '@/components/VincKarti';
 import DevamEdenIsler from '@/components/DevamEdenIsler';
+import BakimFormlarim from '@/components/BakimFormlarim';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -396,6 +397,7 @@ export default function AdminPanel() {
         </div>
 
         {/* 🏢 ASANSÖR İŞLERİ — kapasite alanından otomatik tespit */}
+        <BakimFormlarim mod="admin" />
         <DevamEdenIsler />
         <VincKarti />
         <AsansorKarti />
