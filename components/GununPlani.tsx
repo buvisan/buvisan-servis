@@ -226,7 +226,9 @@ export default function GununPlani({
                 const tip = IS_TIPI[r.is_tipi] || IS_TIPI.ariza;
                 const TipIkon = tip.ikon;
                 const bilet = r.ticket_id ? biletler[r.ticket_id] : null;
-                const bitti = r.durum === 'yapildi';
+                // ⏸️ DEVAM EDİYOR ise iş BİTMİŞ sayılmaz — tekrar form açılabilsin
+                const devamEdiyor = (bilet?.pipeline_status === 'devam_ediyor') || (bilet?.status === 'devam_ediyor');
+                const bitti = r.durum === 'yapildi' && !devamEdiyor;
                 const personeller = String(r.atanan_personel || '').split(' - ').map((x) => x.trim()).filter(Boolean);
 
                 return (
