@@ -43,16 +43,11 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
 
   useEffect(() => { getir(); }, [getir]);
 
-  const detayAc = async (id: string, kaynak?: string) => {
+  const detayAc = async (id: string) => {
     setDetayYuk(true);
     try {
-      if (kaynak === "servis") {
-        const { data } = await supabase.from("service_reports").select("*").eq("id", id).maybeSingle();
-        setDetay(data ? { ...data, _servis: true } : null);
-      } else {
-        const { data } = await supabase.from("bakim_formlari").select("*").eq("id", id).maybeSingle();
-        setDetay(data);
-      }
+      const { data } = await supabase.from("bakim_formlari").select("*").eq("id", id).maybeSingle();
+      setDetay(data);
     } finally { setDetayYuk(false); }
   };
 
@@ -119,10 +114,10 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
               ) : (
                 <div className="space-y-1.5 max-h-80 overflow-y-auto">
                   {liste.map((f: any) => {
-                    const bakimMi = true;
+                    const bakimMi = f.kaynak === "bakim";
                     return (
                       <button key={f.id}
-                        onClick={() => detayAc(f.id, f.kaynak)}
+                        onClick={() => bakimMi ? detayAc(f.id) : null}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 flex items-center gap-2.5 hover:border-teal-300 transition text-left">
                         <span className="text-base shrink-0">
                           {mod === "admin"
@@ -194,53 +189,10 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
                   <div id="bf-yazdir" className="space-y-3">
                     <div className="text-center border-b-2 border-slate-800 pb-2">
                       <h1 className="text-base font-black">
-                        {detay._servis ? "SERVİS RAPORU"
-                          : detay.form_tipi === "asansor" ? "YÜK PLATFORMU PERİYODİK BAKIM FORMU"
-                          : "VİNÇ PERİYODİK BAKIM FORMU"}
+                        {detay.form_tipi === "asansor" ? "YÜK PLATFORMU PERİYODİK BAKIM FORMU" : "VİNÇ PERİYODİK BAKIM FORMU"}
                       </h1>
                       <p className="text-[10px] font-bold text-slate-500">BUVİSAN VİNÇ SERVİS</p>
                     </div>
-
-                    {/* SERVİS RAPORU DETAYI */}
-                    {detay._servis && (
-                      <div className="space-y-2">
-                        <table className="w-full text-[10px] border-collapse">
-                          <tbody>
-                            <tr>
-                              <td className="border border-slate-300 p-1 font-bold bg-slate-50 w-24">Müşteri</td>
-                              <td className="border border-slate-300 p-1" colSpan={3}>{detay.musteri_adi || detay.customer_name || "—"}</td>
-                            </tr>
-                            <tr>
-                              <td className="border border-slate-300 p-1 font-bold bg-slate-50">Tarih</td>
-                              <td className="border border-slate-300 p-1">{detay.created_at ? new Date(detay.created_at).toLocaleString("tr-TR") : "—"}</td>
-                              <td className="border border-slate-300 p-1 font-bold bg-slate-50 w-24">Ücret</td>
-                              <td className="border border-slate-300 p-1">{detay.price ? Number(detay.price).toLocaleString("tr-TR") + " ₺" : "—"}</td>
-                            </tr>
-                            <tr>
-                              <td className="border border-slate-300 p-1 font-bold bg-slate-50">Teknisyen</td>
-                              <td className="border border-slate-300 p-1">{detay.technician || "—"}</td>
-                              <td className="border border-slate-300 p-1 font-bold bg-slate-50">Süre</td>
-                              <td className="border border-slate-300 p-1">{detay.work_hours ? detay.work_hours + " sa" : "—"}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                        {detay.description && (
-                          <div>
-                            <p className="text-[9px] font-black bg-slate-100 px-2 py-0.5">YAPILAN İŞ</p>
-                            <p className="border border-slate-300 p-1.5 text-[9px] whitespace-pre-wrap">{detay.description}</p>
-                          </div>
-                        )}
-                        {detay.materials_text && (
-                          <div>
-                            <p className="text-[9px] font-black bg-slate-100 px-2 py-0.5">KULLANILAN PARÇALAR</p>
-                            <p className="border border-slate-300 p-1.5 text-[9px] whitespace-pre-wrap">{detay.materials_text}</p>
-                          </div>
-                        )}
-                        {detay.musteri_puani && (
-                          <p className="text-[10px] font-black text-amber-600">⭐ Müşteri Puanı: {detay.musteri_puani}/5</p>
-                        )}
-                      </div>
-                    )}
                     <table className="w-full text-[10px] border-collapse">
                       <tbody>
                         <tr>
