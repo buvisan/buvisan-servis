@@ -227,7 +227,7 @@ export default function BakimFormlariSayfasi() {
                           <td className="border border-slate-300 p-1.5 font-bold bg-slate-50">Adres</td>
                           <td className="border border-slate-300 p-1.5">{detay.adres || "—"}</td>
                         </tr>
-                        {detay.form_tipi === "asansor" && detay.makine_bilgileri && Object.keys(detay.makine_bilgileri).length > 0 && (
+                        {detay.makine_bilgileri && Object.keys(detay.makine_bilgileri).length > 0 && (
                           <tr>
                             <td className="border border-slate-300 p-1.5 font-bold bg-slate-50 align-top">Makine</td>
                             <td className="border border-slate-300 p-1.5" colSpan={3}>
