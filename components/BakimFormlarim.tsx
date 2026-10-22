@@ -114,7 +114,7 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
               ) : (
                 <div className="space-y-1.5 max-h-80 overflow-y-auto">
                   {liste.map((f: any) => {
-                    const bakimMi = mod === "admin" ? f.kaynak === "bakim" : true;
+                    const bakimMi = f.kaynak === "bakim";
                     return (
                       <button key={f.id}
                         onClick={() => bakimMi ? detayAc(f.id) : null}
@@ -139,6 +139,8 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
                             <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${f.kaynak === "bakim" ? "bg-teal-100 text-teal-700" : "bg-blue-100 text-blue-700"}`}>
                               {f.kaynak === "bakim" ? "BAKIM" : "SERVİS"}
                             </span>
+                          ) : f.kaynak === "servis" ? (
+                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">SERVİS</span>
                           ) : f.is_durumu === "devam_ediyor" ? (
                             <span className="text-[8px] font-black text-amber-600 flex items-center gap-0.5"><PauseCircle size={9} /> DEVAM</span>
                           ) : (
