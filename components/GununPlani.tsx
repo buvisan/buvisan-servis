@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import BakimFormu from '@/components/BakimFormu';
 import { isimEslesiyor } from '@/lib/personel';
 import { motion } from 'framer-motion';
 import {
@@ -38,6 +39,7 @@ const IS_TIPI: Record<string, { ad: string; sinif: string; ikon: any }> = {
   bakim: { ad: 'Bakım', sinif: 'bg-blue-100 text-blue-700 border-blue-200', ikon: CalendarClock },
 };
 
+// BAKIM FORMU STATE
 export default function GununPlani({
   aktifPersonel,
   onRaporAc,
@@ -47,6 +49,8 @@ export default function GununPlani({
 }) {
   const [kayitlar, setKayitlar] = useState<any[]>([]);
   const [biletler, setBiletler] = useState<Record<string, any>>({});
+  const [bakimTip, setBakimTip] = useState<'vinc'|'asansor'|null>(null);
+  const [bakimKayit, setBakimKayit] = useState<any>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [benimAdim, setBenimAdim] = useState('');
   const [acikGun, setAcikGun] = useState<'bugun' | 'yarin'>('bugun');
@@ -327,6 +331,20 @@ export default function GununPlani({
                       >
                         <FileText size={14} /> SERVİS RAPORU DOLDUR <ChevronRight size={14} />
                       </button>
+
+                      {/* PERİYODİK BAKIM FORMLARI */}
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <button
+                          onClick={() => { setBakimKayit({ musteri: firma, yetkili: bilet?.manual_customer_name, telefon, adres, ticketId: bilet?.id }); setBakimTip('vinc'); }}
+                          className="py-2.5 rounded-xl text-[10px] font-black bg-teal-600 hover:bg-teal-700 text-white transition flex items-center justify-center gap-1.5 shadow-sm">
+                          🏗️ VİNÇ BAKIM
+                        </button>
+                        <button
+                          onClick={() => { setBakimKayit({ musteri: firma, yetkili: bilet?.manual_customer_name, telefon, adres, ticketId: bilet?.id }); setBakimTip('asansor'); }}
+                          className="py-2.5 rounded-xl text-[10px] font-black bg-cyan-700 hover:bg-cyan-800 text-white transition flex items-center justify-center gap-1.5 shadow-sm">
+                          🏢 ASANSÖR BAKIM
+                        </button>
+                      </div>
                     ) : (
                       <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
                         <p className="text-[10px] text-slate-400 font-bold">Bu randevuya bağlı iş emri yok</p>
@@ -339,6 +357,21 @@ export default function GununPlani({
           )}
         </div>
       </div>
+
+      {/* PERİYODİK BAKIM FORMU */}
+      {bakimTip && bakimKayit && (
+        <BakimFormu
+          tip={bakimTip}
+          musteri={bakimKayit.musteri}
+          yetkili={bakimKayit.yetkili}
+          telefon={bakimKayit.telefon}
+          adres={bakimKayit.adres}
+          personel={aktifPersonel?.full_name}
+          ticketId={bakimKayit.ticketId}
+          onKapat={() => { setBakimTip(null); setBakimKayit(null); }}
+          onKaydedildi={() => { setBakimTip(null); setBakimKayit(null); }}
+        />
+      )}
     </div>
   );
 }
