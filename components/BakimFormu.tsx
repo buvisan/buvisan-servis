@@ -144,6 +144,25 @@ const ASANSOR_GRUPLAR = [
   },
 ];
 
+// VİNÇ MAKİNE BİLGİLERİ
+const VINC_ALANLAR = [
+  { k: "uretici", e: "Üretici Firma" },
+  { k: "imalat_yili", e: "İmalat Yılı" },
+  { k: "vinc_tipi", e: "Vinç Tipi (Köprülü/Portal)" },
+  { k: "kapasite", e: "Kapasite (Ton)" },
+  { k: "kaldirma_grubu", e: "Kaldırma Grubu" },
+  { k: "reduktor_grubu", e: "Redüktör Grubu" },
+  { k: "aciklik", e: "Açıklık (m)" },
+  { k: "kaldirma_yuksekligi", e: "Kaldırma Yüksekliği (m)" },
+  { k: "halat_capi", e: "Halat Çapı" },
+  { k: "halat_boyu", e: "Halat Boyu" },
+  { k: "kw", e: "Motor Gücü (KW)" },
+  { k: "marka", e: "Marka" },
+  { k: "kanca_tipi", e: "Kanca Tipi" },
+  { k: "bulundugu_yer", e: "Bulunduğu Yer" },
+  { k: "seri_no", e: "Vinç Seri No" },
+];
+
 // ASANSÖR MAKİNE BİLGİLERİ
 const ASANSOR_ALANLAR = [
   { k: "uretici", e: "Üretici Firma" },
@@ -244,7 +263,7 @@ export default function BakimFormu({
         p_personel: personel || null,
         p_kontrol_tarihi: tarih,
         p_kontrol_saati: saat,
-        p_makine_bilgileri: tip === "asansor" ? makine : {},
+        p_makine_bilgileri: makine,
         p_maddeler: maddeler,
         p_musteri_puani: puan > 0 ? puan : null,
         p_musteri_yorumu: yorum.trim() || null,
@@ -359,13 +378,13 @@ export default function BakimFormu({
           </div>
 
           {/* MAKİNE BİLGİLERİ — sadece asansör */}
-          {tip === "asansor" && (
-            <div className="bg-cyan-50 border border-cyan-200 rounded-2xl p-3">
+          {(tip === "asansor" || tip === "vinc") && (
+            <div className={tip === "asansor" ? "bg-cyan-50 border border-cyan-200 rounded-2xl p-3" : "bg-teal-50 border border-teal-200 rounded-2xl p-3"}>
               <p className="text-[10px] font-black text-cyan-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Settings2 size={12} /> Makine Bilgileri
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
-                {ASANSOR_ALANLAR.map((a) => (
+                {(tip === "asansor" ? ASANSOR_ALANLAR : VINC_ALANLAR).map((a) => (
                   <input key={a.k} value={makine[a.k] || ""}
                     onChange={(e) => setMakine((m) => ({ ...m, [a.k]: e.target.value }))}
                     placeholder={a.e}
