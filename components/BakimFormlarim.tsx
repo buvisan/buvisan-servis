@@ -58,20 +58,32 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
   };
 
   const yazdir = () => {
-    const icerik = document.getElementById("bf-yazdir")?.innerHTML;
-    if (!icerik) return;
+    const hedefId = detay?._servis ? "bf-yazdir-servis" : "bf-yazdir";
+    const icerik = document.getElementById(hedefId)?.innerHTML;
+    if (!icerik) { alert("Form içeriği bulunamadı."); return; }
     const w = window.open("", "_blank");
-    if (!w) { alert("Pop-up engellendi."); return; }
-    w.document.write(`<html><head><title>${detay?.seri_no || "Form"}</title>
+    if (!w) { alert("Pop-up engellendi. Lütfen izin verin."); return; }
+    // ⭐ SAYFANIN TÜM CSS'İNİ KOPYALA (Tailwind dahil) → tablolar bozulmaz
+    const stiller = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+      .map((el) => el.outerHTML).join("\n");
+    w.document.write(`<!DOCTYPE html><html><head><title>${detay?.seri_no || "Bakım Formu"}</title>
+      ${stiller}
       <style>
-        @page { size: A4; margin: 0; }
-        html, body { margin: 0; padding: 0; background: #fff; }
-        body { font-family: Arial, sans-serif; }
-        img { max-width: 100%; }
-      </style></head><body>${icerik}</body></html>`);
+        @page { size: A4; margin: 10mm; }
+        html, body { margin: 0; padding: 0; background: #fff !important; }
+        body { font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        table { border-collapse: collapse; width: 100%; page-break-inside: auto; }
+        tr, td, th { page-break-inside: avoid; }
+        .srp-form { zoom: 1 !important; box-shadow: none !important; margin: 0 !important; width: 100% !important; min-height: auto !important; }
+        .no-print, button { display: none !important; }
+        img { max-height: 60px; }
+        h1 { font-size: 16px; }
+        h2 { page-break-after: avoid; }
+      </style>
+    </head><body>${icerik}</body></html>`);
     w.document.close();
-    setTimeout(() => w.print(), 400);
-  };
+    setTimeout(() => { w.focus(); w.print(); }, 700);
+  };;
 
   const baslik = mod === "admin" ? "SAHA RAPORLARI" : "BAKIM FORMLARIM";
   const altBaslik = mod === "admin"
@@ -191,7 +203,7 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
                   <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin text-slate-400 mx-auto" /></div>
                 ) : detay ? (
                   detay._servis ? (
-                    <div id="bf-yazdir" className="overflow-x-auto">
+                    <div id="bf-yazdir-servis" className="overflow-x-auto">
                       <ServisRaporuFormu rapor={detay} />
                     </div>
                   ) : (

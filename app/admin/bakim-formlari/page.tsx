@@ -58,25 +58,23 @@ export default function BakimFormlariSayfasi() {
     if (!icerik) return;
     const w = window.open("", "_blank");
     if (!w) { alert("Pop-up engellendi. Lütfen izin verin."); return; }
-    w.document.write(`
-      <html><head><title>${detay?.seri_no || "Bakim Formu"}</title>
+    const stiller = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+      .map((el) => el.outerHTML).join("\n");
+    w.document.write(`<!DOCTYPE html><html><head><title>${detay?.seri_no || "Bakım Formu"}</title>
+      ${stiller}
       <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; padding: 16px; font-size: 11px; color: #000; }
-        h1 { font-size: 16px; margin: 0 0 4px; }
-        h2 { font-size: 12px; margin: 12px 0 4px; background: #eee; padding: 4px 6px; border-left: 3px solid #000; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-        th, td { border: 1px solid #999; padding: 3px 5px; text-align: left; font-size: 10px; }
-        th { background: #f0f0f0; font-weight: bold; }
-        .ret { color: #c00; font-weight: bold; }
-        .onay { color: #060; font-weight: bold; }
-        .imza { border-top: 1px solid #000; padding-top: 4px; margin-top: 24px; display: inline-block; width: 45%; }
-        .no-print { display: none !important; }
+        @page { size: A4; margin: 10mm; }
+        html, body { margin: 0; padding: 0; background: #fff !important; }
+        body { font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        table { border-collapse: collapse; width: 100%; }
+        tr, td, th { page-break-inside: avoid; }
+        .no-print, button { display: none !important; }
         img { max-height: 60px; }
-      </style></head><body>${icerik}</body></html>`);
+      </style>
+    </head><body>${icerik}</body></html>`);
     w.document.close();
-    setTimeout(() => { w.print(); }, 400);
-  };
+    setTimeout(() => { w.focus(); w.print(); }, 700);
+  };;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-16">
