@@ -65,6 +65,7 @@ export default function PersonelEkrani() {
   // --- FORM STATELERİ ---
   const [seciliIs, setSeciliIs] = useState<any>(null);
   const [formAcik, setFormAcik] = useState(false);
+    const [raporDurumu, setRaporDurumu] = useState<'bitti' | 'devam_ediyor'>('bitti');
   const [gonderiliyor, setGonderiliyor] = useState(false);
   const [basarili, setBasarili] = useState(false);
 
@@ -501,7 +502,7 @@ export default function PersonelEkrani() {
 
           if (kayitHatasi) throw kayitHatasi;
 
-          await supabase.from('service_tickets').update({ pipeline_status: 'tamamlandi', status: 'tamamlandi' }).eq('id', seciliIs.id);
+          await supabase.from('service_tickets').update({ pipeline_status: raporDurumu === 'devam_ediyor' ? 'devam_ediyor' : 'tamamlandi', status: raporDurumu === 'devam_ediyor' ? 'devam_ediyor' : 'tamamlandi' }).eq('id', seciliIs.id);
 
           // Planlayıcıdaki randevuyu da otomatik "Yapıldı" yap (hata olsa bile rapor kaydı bozulmaz)
           try {
@@ -1285,9 +1286,22 @@ export default function PersonelEkrani() {
                                 {gonderiliyor && yuklemeMesaji && (
                                     <p className="text-[10px] font-black text-blue-600 text-center mb-2 animate-pulse">{yuklemeMesaji}</p>
                                 )}
+                                <div className="flex gap-2 mb-2">
+                                    <button onClick={() => setRaporDurumu("devam_ediyor")} disabled={gonderiliyor}
+                                        className={`flex-1 font-black py-3.5 rounded-2xl flex justify-center items-center gap-1.5 active:scale-95 transition-all text-xs ${raporDurumu === "devam_ediyor" ? "bg-amber-500 text-white shadow-lg shadow-amber-500/30" : "bg-amber-50 text-amber-700 border-2 border-amber-300"}`}>
+                                        ⏸️ DEVAM EDİYOR
+                                    </button>
+                                    <button onClick={() => setRaporDurumu("bitti")} disabled={gonderiliyor}
+                                        className={`flex-1 font-black py-3.5 rounded-2xl flex justify-center items-center gap-1.5 active:scale-95 transition-all text-xs ${raporDurumu === "bitti" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-2 border-emerald-300"}`}>
+                                        ✅ İŞİ BİTİR
+                                    </button>
+                                </div>
+                                <p className="text-[10px] font-bold text-center mb-2 text-slate-500">
+                                    {raporDurumu === "devam_ediyor" ? "⏸️ DEVAM EDİYOR olarak kaydedilecek — yönetim görecek" : "✅ TAMAMLANDI olarak kaydedilecek"}
+                                </p>
                                 <button onClick={raporuKaydet} disabled={gonderiliyor} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-500/30 flex justify-center items-center gap-2 active:scale-95 transition-all text-base">
                                     {gonderiliyor ? <Loader2 className="animate-spin w-5 h-5"/> : <Send className="w-5 h-5"/>}
-                                    {gonderiliyor ? "SİSTEME KAYDEDİLİYOR..." : "FORMU KAYDET VE İŞİ BİTİR"}
+                                    {gonderiliyor ? "SİSTEME KAYDEDİLİYOR..." : (raporDurumu === "devam_ediyor" ? "FORMU KAYDET (DEVAM EDİYOR)" : "FORMU KAYDET VE İŞİ BİTİR")}
                                 </button>
                             </div>
                         </>
