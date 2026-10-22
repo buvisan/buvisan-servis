@@ -638,7 +638,7 @@ export default function PersonelEkrani() {
       <Gecmisim aktifPersonel={aktifPersonel} />
 
       {/* BEKLEYEN İŞLER LİSTESİ */}
-      <div className="p-4 space-y-4">
+      <div className="hidden" data-eski="aktif-operasyonlar">
           <div className="flex items-center justify-between mb-1 ml-1">
               <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></div> Aktif Operasyonlar ({isler.length})
