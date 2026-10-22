@@ -64,12 +64,10 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
     if (!w) { alert("Pop-up engellendi."); return; }
     w.document.write(`<html><head><title>${detay?.seri_no || "Form"}</title>
       <style>
-        body { font-family: Arial, sans-serif; padding: 14px; font-size: 11px; }
-        h2 { font-size: 12px; background: #eee; padding: 4px 6px; border-left: 3px solid #000; margin: 12px 0 4px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-        th, td { border: 1px solid #999; padding: 3px 5px; font-size: 10px; text-align: left; }
-        th { background: #f0f0f0; }
-        img { max-height: 55px; }
+        @page { size: A4; margin: 0; }
+        html, body { margin: 0; padding: 0; background: #fff; }
+        body { font-family: Arial, sans-serif; }
+        img { max-width: 100%; }
       </style></head><body>${icerik}</body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 400);
@@ -172,7 +170,7 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[999] flex items-center justify-center p-2 md:p-4 overflow-y-auto">
             <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }}
-              className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden max-h-[95vh] flex flex-col">
+              className={`bg-white rounded-3xl w-full overflow-hidden max-h-[95vh] flex flex-col ${detay?._servis ? "max-w-[230mm]" : "max-w-2xl"}`}>
               <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between shrink-0">
                 <div>
                   <h3 className="font-black text-sm">{detay?.seri_no || "..."}</h3>
