@@ -202,6 +202,7 @@ export default function BakimFormu({
   const [mesaj, setMesaj] = useState("");
   const [acikGrup, setAcikGrup] = useState<Record<number, boolean>>({ 0: true });
   const [formEkleAcik, setFormEkleAcik] = useState(false);
+  const [kaydedilenFormlar, setKaydedilenFormlar] = useState<string[]>([]);
 
   const toplamMadde = gruplar.reduce((t, g) => t + g.maddeler.length, 0);
   const onaySayisi = Object.values(sonuclar).filter((v) => v === "onay").length;
@@ -262,6 +263,8 @@ export default function BakimFormu({
       }
 
       setMesaj("✅ " + ((data as any).mesaj || "Form kaydedildi."));
+      const yeniSeri = (data as any).seri_no;
+      if (yeniSeri) setKaydedilenFormlar((o) => [...o, yeniSeri]);
       if (kapat) onKaydedildi?.();
         if (kapat) setTimeout(() => { onKapat(); }, 1800);
         return true;
@@ -280,7 +283,7 @@ export default function BakimFormu({
             <div>
               <h2 className="font-black text-sm leading-tight">{baslik}</h2>
               <p className="text-[10px] text-teal-100 font-bold mt-0.5">
-                {toplamMadde} madde · {onaySayisi} onay · {retSayisi} ret
+                {toplamMadde} madde · {onaySayisi} onay · {retSayisi} ret{kaydedilenFormlar.length > 0 ? ` · ✅ ${kaydedilenFormlar.length} form kaydedildi` : ""}
               </p>
             </div>
           </div>
@@ -455,6 +458,14 @@ export default function BakimFormu({
           {/* MAKİNE SEÇİCİ — form eklenecekse */}
           {formEkleAcik && (
             <div className="bg-white border-2 border-teal-300 rounded-2xl p-3">
+              {kaydedilenFormlar.length > 0 && (
+                <div className="mb-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <p className="text-[9px] font-black text-emerald-700">✅ KAYDEDİLEN FORMLAR:</p>
+                  {kaydedilenFormlar.map((s, i) => (
+                    <p key={i} className="text-[10px] font-bold text-emerald-800">• {s}</p>
+                  ))}
+                </div>
+              )}
               <p className="text-[10px] font-black text-teal-700 uppercase mb-2">
                 Hangi makine için form ekleyeceksiniz?
               </p>
