@@ -8,6 +8,7 @@
 // ----------------------------------------------------------------------------
 
 import { forwardRef } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 const CSS = `
 .srp-form {
@@ -77,6 +78,24 @@ const ServisRaporuFormu = forwardRef<HTMLDivElement, { rapor: any }>(
       if (typeof p === "string") { try { p = JSON.parse(p); } catch { p = []; } }
       if (!Array.isArray(p)) p = [];
       return p.filter((x: any) => x && String(x.parca_adi || "").trim());
+    })();
+
+    // ✍️ İMZA ÇÖZÜCÜ — farklı alan adları + storage path desteği
+    const imzaHam =
+      rapor.imza_url || rapor.musteri_imza || rapor.imza ||
+      rapor.musteri_imzasi || rapor.signature || rapor.imza_path || null;
+
+    const imzaSrc = (() => {
+      if (!imzaHam) return null;
+      const s = String(imzaHam).trim();
+      if (!s) return null;
+      // Zaten tam URL veya data URL
+      if (/^(https?:|data:)/i.test(s)) return s;
+      // Storage path → public URL
+      try {
+        const { data } = supabase.storage.from("imzalar").getPublicUrl(s.replace(/^\/+/, ""));
+        return data?.publicUrl || null;
+      } catch { return null; }
     })();
 
     const puan = Number(rapor.musteri_puani || 0);
@@ -239,8 +258,8 @@ const ServisRaporuFormu = forwardRef<HTMLDivElement, { rapor: any }>(
             </div>
             <div style={{ overflow: "hidden" }}>
               <span className="t">MÜŞTERİ YETKİLİSİ</span>
-              {rapor.imza_url
-                ? <img src={rapor.imza_url} alt="Müşteri imzası" />
+              {imzaSrc
+                ? <img src={imzaSrc} alt="Müşteri imzası" />
                 : <span style={{ position: "absolute", top: 34, left: 0, width: "100%", textAlign: "center", fontSize: 8, color: "#cbd5e1", fontWeight: 700 }}>İMZA ALINMAMIŞ</span>}
               <div className="n">{rapor.imza_atan || ""}</div>
             </div>
