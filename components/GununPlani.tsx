@@ -51,6 +51,7 @@ export default function GununPlani({
   const [biletler, setBiletler] = useState<Record<string, any>>({});
   const [bakimTip, setBakimTip] = useState<'vinc'|'asansor'|null>(null);
   const [bakimKayit, setBakimKayit] = useState<any>(null);
+  const [bakimSayaci, setBakimSayaci] = useState(0);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [benimAdim, setBenimAdim] = useState('');
   const [acikGun, setAcikGun] = useState<'bugun' | 'yarin'>('bugun');
@@ -363,6 +364,7 @@ export default function GununPlani({
       {/* PERİYODİK BAKIM FORMU */}
       {bakimTip && bakimKayit && (
         <BakimFormu
+          key={bakimSayaci}
           tip={bakimTip}
           musteri={bakimKayit.musteri}
           yetkili={bakimKayit.yetkili}
@@ -372,6 +374,7 @@ export default function GununPlani({
           ticketId={bakimKayit.ticketId}
           onKapat={() => { setBakimTip(null); setBakimKayit(null); }}
           onKaydedildi={() => { setBakimTip(null); setBakimKayit(null); }}
+          onFormEkle={(yeniTip) => { setBakimTip(yeniTip); setBakimSayaci((s) => s + 1); }}
         />
       )}
     </div>
