@@ -323,6 +323,7 @@ export default function GununPlani({
                         <p className="text-[11px] font-bold text-emerald-700">Bu iş tamamlandı 👍</p>
                       </div>
                     ) : bilet ? (
+                      <>
                       <button
                         onClick={() => onRaporAc(bilet)}
                         className={`w-full py-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 shadow-sm ${
@@ -335,16 +336,17 @@ export default function GununPlani({
                       {/* PERİYODİK BAKIM FORMLARI */}
                       <div className="grid grid-cols-2 gap-2 mt-2">
                         <button
-                          onClick={() => { setBakimKayit({ musteri: firma, yetkili: bilet?.manual_customer_name, telefon, adres, ticketId: bilet?.id }); setBakimTip('vinc'); }}
+                          onClick={() => { setBakimKayit({ musteri: r.musteri_adi, yetkili: r.yetkili, telefon: r.telefon, adres: r.adres, ticketId: r.ticket_id }); setBakimTip('vinc'); }}
                           className="py-2.5 rounded-xl text-[10px] font-black bg-teal-600 hover:bg-teal-700 text-white transition flex items-center justify-center gap-1.5 shadow-sm">
                           🏗️ VİNÇ BAKIM
                         </button>
                         <button
-                          onClick={() => { setBakimKayit({ musteri: firma, yetkili: bilet?.manual_customer_name, telefon, adres, ticketId: bilet?.id }); setBakimTip('asansor'); }}
+                          onClick={() => { setBakimKayit({ musteri: r.musteri_adi, yetkili: r.yetkili, telefon: r.telefon, adres: r.adres, ticketId: r.ticket_id }); setBakimTip('asansor'); }}
                           className="py-2.5 rounded-xl text-[10px] font-black bg-cyan-700 hover:bg-cyan-800 text-white transition flex items-center justify-center gap-1.5 shadow-sm">
                           🏢 ASANSÖR BAKIM
                         </button>
                       </div>
+                      </>
                     ) : (
                       <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
                         <p className="text-[10px] text-slate-400 font-bold">Bu randevuya bağlı iş emri yok</p>
