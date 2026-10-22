@@ -262,7 +262,7 @@ export default function BakimFormu({
       }
 
       setMesaj("✅ " + ((data as any).mesaj || "Form kaydedildi."));
-      onKaydedildi?.();
+      if (kapat) onKaydedildi?.();
         if (kapat) setTimeout(() => { onKapat(); }, 1800);
         return true;
     } catch { return false; } finally { setKaydediliyor(false); }
