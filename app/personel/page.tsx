@@ -505,11 +505,18 @@ export default function PersonelEkrani() {
 
           await supabase.from('service_tickets').update({ pipeline_status: raporDurumu === 'devam_ediyor' ? 'devam_ediyor' : 'tamamlandi', status: raporDurumu === 'devam_ediyor' ? 'devam_ediyor' : 'tamamlandi' }).eq('id', seciliIs.id);
 
-          // Planlayıcıdaki randevuyu da otomatik "Yapıldı" yap (hata olsa bile rapor kaydı bozulmaz)
-          try {
-              await supabase.rpc('randevu_tamamla', { p_ticket_id: seciliIs.id });
-          } catch (senkronHata) {
-              console.warn('Randevu senkronu yapılamadı:', senkronHata);
+          // Planlayıcıdaki randevuyu 'Yapıldı' yap — SADECE iş bittiyse
+          if (raporDurumu === 'bitti') {
+              try {
+                  await supabase.rpc('randevu_tamamla', { p_ticket_id: seciliIs.id });
+              } catch (senkronHata) {
+                  console.warn('Randevu senkronu yapılamadı:', senkronHata);
+              }
+          } else {
+              // ⏸️ DEVAM EDİYOR: randevuyu açık tut (rotada kalsın)
+              try {
+                  await supabase.from('randevular').update({ durum: 'planlandi' }).eq('ticket_id', seciliIs.id);
+              } catch { /* yoksay */ }
           }
 
           // Kayıt başarılı → taslağı ve ekleri temizle

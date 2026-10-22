@@ -85,7 +85,7 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
     setTimeout(() => { w.focus(); w.print(); }, 700);
   };;
 
-  const baslik = mod === "admin" ? "SAHA RAPORLARI" : "BAKIM FORMLARIM";
+  const baslik = mod === "admin" ? "SAHA RAPORLARI" : "SERVİS FORMLARIM";
   const altBaslik = mod === "admin"
     ? `${liste.length} kayıt · servis + bakım formları`
     : `${liste.length} form · doldurduğun bakım formları`;
