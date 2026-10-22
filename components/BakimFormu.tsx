@@ -15,7 +15,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, X, Loader2, Check, AlertTriangle, Star,
-  PenLine, CheckCircle2, PauseCircle, ChevronDown, Settings2,
+  PenLine, CheckCircle2, ChevronDown, Settings2, PlusCircle,
 } from "lucide-react";
 import ImzaPad from "@/components/ImzaPad";
 
@@ -165,7 +165,7 @@ const ASANSOR_ALANLAR = [
 
 export default function BakimFormu({
   tip, musteri, yetkili, telefon, adres, personel, craneId, randevuId, ticketId,
-  onKapat, onKaydedildi,
+  onKapat, onKaydedildi, onFormEkle,
 }: {
   tip: Tip;
   musteri?: string;
@@ -178,6 +178,7 @@ export default function BakimFormu({
   ticketId?: string;
   onKapat: () => void;
   onKaydedildi?: () => void;
+  onFormEkle?: (tip: Tip) => void;
 }) {
   const gruplar = tip === "asansor" ? ASANSOR_GRUPLAR : VINC_GRUPLAR;
   const baslik = tip === "asansor" ? "YÜK PLATFORMU PERİYODİK BAKIM FORMU" : "VİNÇ PERİYODİK BAKIM FORMU";
@@ -200,6 +201,7 @@ export default function BakimFormu({
   const [kaydediliyor, setKaydediliyor] = useState(false);
   const [mesaj, setMesaj] = useState("");
   const [acikGrup, setAcikGrup] = useState<Record<number, boolean>>({ 0: true });
+  const [formEkleAcik, setFormEkleAcik] = useState(false);
 
   const toplamMadde = gruplar.reduce((t, g) => t + g.maddeler.length, 0);
   const onaySayisi = Object.values(sonuclar).filter((v) => v === "onay").length;
@@ -215,8 +217,8 @@ export default function BakimFormu({
     });
   };
 
-  const kaydet = async (durum: "bitti" | "devam_ediyor") => {
-    if (!musteriAd.trim()) { setMesaj("⚠️ Müşteri adı zorunludur."); return; }
+  const kaydet = async (durum: "bitti" | "devam_ediyor", kapat: boolean = true): Promise<boolean> => {
+    if (!musteriAd.trim()) { setMesaj("⚠️ Müşteri adı zorunludur."); return false; }
     setKaydediliyor(true);
     setMesaj("");
     try {
@@ -256,13 +258,14 @@ export default function BakimFormu({
 
       if (error || !(data as any)?.ok) {
         setMesaj("❌ " + (error?.message || (data as any)?.mesaj || "Kaydedilemedi."));
-        return;
+        return false;
       }
 
       setMesaj("✅ " + ((data as any).mesaj || "Form kaydedildi."));
       onKaydedildi?.();
-      setTimeout(() => { onKapat(); }, 1800);
-    } finally { setKaydediliyor(false); }
+        if (kapat) setTimeout(() => { onKapat(); }, 1800);
+        return true;
+    } catch { return false; } finally { setKaydediliyor(false); }
   };
 
   return (
@@ -448,17 +451,45 @@ export default function BakimFormu({
         </div>
 
         {/* ALT BUTONLAR */}
-        <div className="border-t border-slate-200 p-3 bg-slate-50 flex gap-2 shrink-0">
-          <button onClick={() => kaydet("devam_ediyor")} disabled={kaydediliyor}
-            className="flex-1 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-3.5 rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition">
-            {kaydediliyor ? <Loader2 size={15} className="animate-spin" /> : <PauseCircle size={15} />}
-            DEVAM EDİYOR
-          </button>
-          <button onClick={() => kaydet("bitti")} disabled={kaydediliyor}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white py-3.5 rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition">
-            {kaydediliyor ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-            İŞİ BİTİR
-          </button>
+        <div className="border-t border-slate-200 p-3 bg-slate-50 space-y-2 shrink-0">
+          {/* MAKİNE SEÇİCİ — form eklenecekse */}
+          {formEkleAcik && (
+            <div className="bg-white border-2 border-teal-300 rounded-2xl p-3">
+              <p className="text-[10px] font-black text-teal-700 uppercase mb-2">
+                Hangi makine için form ekleyeceksiniz?
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => { setFormEkleAcik(false); onFormEkle?.("vinc"); }}
+                  className="py-3 rounded-xl text-[11px] font-black bg-teal-600 hover:bg-teal-700 text-white transition">
+                  🏗️ VİNÇ
+                </button>
+                <button onClick={() => { setFormEkleAcik(false); onFormEkle?.("asansor"); }}
+                  className="py-3 rounded-xl text-[11px] font-black bg-cyan-700 hover:bg-cyan-800 text-white transition">
+                  🏢 ASANSÖR
+                </button>
+              </div>
+              <button onClick={() => setFormEkleAcik(false)}
+                className="w-full mt-2 py-2 text-[10px] font-bold text-slate-500">İptal</button>
+            </div>
+          )}
+
+          {!formEkleAcik && (
+            <div className="flex gap-2">
+              <button onClick={() => {
+                  // Önce mevcut formu kaydet, sonra yeni form ekle
+                  if (!musteriAd.trim()) { setMesaj("⚠️ Müşteri adı zorunludur."); return false; }
+                  setFormEkleAcik(true);
+                }}
+                className="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-3.5 rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition">
+                <PlusCircle size={15} /> FORM EKLE
+              </button>
+              <button onClick={() => kaydet("bitti")} disabled={kaydediliyor}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white py-3.5 rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition">
+                {kaydediliyor ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+                BİTİR
+              </button>
+            </div>
+          )}
         </div>
       </motion.div>
 
