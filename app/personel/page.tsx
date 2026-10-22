@@ -637,6 +637,7 @@ export default function PersonelEkrani() {
       <TaleplerimKarti />
 
       {/* 🕘 GEÇMİŞİM - tamamladığım işler, süreler, performans */}
+      <BakimFormlarim mod="personel" />
       <Gecmisim aktifPersonel={aktifPersonel} />
 
       {/* BEKLEYEN İŞLER LİSTESİ */}
