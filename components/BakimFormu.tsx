@@ -520,10 +520,12 @@ export default function BakimFormu({
 
           {!formEkleAcik && (
             <div className="flex gap-2">
-              <button onClick={() => {
-                  // Önce mevcut formu kaydet, sonra yeni form ekle
-                  if (!musteriAd.trim()) { setMesaj("⚠️ Müşteri adı zorunludur."); return false; }
-                  setFormEkleAcik(true);
+              <button onClick={async () => {
+                  // ⭐ ÖNCE mevcut formu KAYDET, sonra seçiciyi aç
+                  if (!musteriAd.trim()) { setMesaj("⚠️ Müşteri adı zorunludur."); return; }
+                  setMesaj("⏳ Form kaydediliyor...");
+                  const ok = await kaydet("bitti", false);
+                  if (ok) setFormEkleAcik(true);
                 }}
                 className="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-3.5 rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition">
                 <PlusCircle size={15} /> FORM EKLE
