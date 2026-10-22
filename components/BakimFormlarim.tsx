@@ -147,7 +147,7 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
                           <p className="text-[9px] font-bold text-slate-400 truncate">
                             {mod === "admin"
                               ? `${f.tip} · ${f.personel} · ${f.ozet}`
-                              : `${f.seri_no} · ${f.kontrol_tarihi} · ${f.onay_sayisi}✅ ${f.ret_sayisi}⚠️`}
+                              : `${f.seri_no} · ${f.kontrol_tarihi}${f.kim && f.kim !== "—" ? " · " + f.kim : ""} · ${f.onay_sayisi}✅ ${f.ret_sayisi}⚠️`}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
