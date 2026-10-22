@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import ServisRaporuFormu from "@/components/ServisRaporuFormu";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, Loader2, RefreshCw, ChevronDown, X, Printer,
@@ -191,7 +192,12 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
                 {detayYuk && !detay ? (
                   <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin text-slate-400 mx-auto" /></div>
                 ) : detay ? (
-                  <div id="bf-yazdir" className="space-y-3">
+                  detay._servis ? (
+                    <div id="bf-yazdir" className="overflow-x-auto">
+                      <ServisRaporuFormu rapor={detay} />
+                    </div>
+                  ) : (
+<div id="bf-yazdir" className="space-y-3">
                     <div className="text-center border-b-2 border-slate-800 pb-2">
                       <h1 className="text-base font-black">
                         {detay._servis ? "SERVİS RAPORU"
@@ -308,6 +314,7 @@ export default function BakimFormlarim({ mod = "personel" }: { mod?: "personel" 
                       </div>
                     </div>
                   </div>
+                )
                 ) : null}
               </div>
             </motion.div>
