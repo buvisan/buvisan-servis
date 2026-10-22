@@ -258,7 +258,41 @@ export default function BakimFormu({
       });
 
       if (error || !(data as any)?.ok) {
-        setMesaj("❌ " + (error?.message || (data as any)?.mesaj || "Kaydedilemedi."));
+        const ilkHata = error?.message || (data as any)?.mesaj || "Kaydedilemedi";
+        const temelPaket = {
+          p_tip: tip, p_musteri: musteriAd.trim(),
+          p_yetkili: yetkiliAd.trim() || null, p_telefon: telefon || null,
+          p_adres: adres || null, p_crane_id: craneId || null,
+          p_randevu_id: randevuId || null, p_ticket_id: ticketId || null,
+          p_personel: personel || null, p_kontrol_tarihi: tarih,
+          p_kontrol_saati: saat, p_maddeler: maddeler,
+          p_musteri_adi: musteriAd.trim(), p_is_durumu: durum,
+        };
+        // 🔄 RETRY 1: İmzasız dene
+        setMesaj("⏳ İmzasız tekrar deneniyor...");
+        const r2 = await supabase.rpc("bakim_formu_kaydet", { ...temelPaket, p_musteri_imza: null, p_personel_imza: null });
+        if (!r2.error && (r2.data as any)?.ok) {
+          const s2 = (r2.data as any).seri_no;
+          setMesaj("⚠️ Kaydedildi ama İMZALAR hariç: " + ((r2.data as any).mesaj || ""));
+          if (s2) setKaydedilenFormlar((o) => [...o, s2 + " (imzasız)"]);
+          if (kapat) { onKaydedildi?.(); setTimeout(() => { onKapat(); }, 1800); }
+          return true;
+        }
+        // 🔄 RETRY 2: Tamamen sade dene
+        setMesaj("⏳ Sade formla tekrar deneniyor...");
+        const r3 = await supabase.rpc("bakim_formu_kaydet", {
+          p_tip: tip, p_musteri: musteriAd.trim(), p_ticket_id: ticketId || null,
+          p_personel: personel || null, p_kontrol_tarihi: tarih,
+          p_maddeler: maddeler, p_musteri_adi: musteriAd.trim(), p_is_durumu: durum,
+        });
+        if (!r3.error && (r3.data as any)?.ok) {
+          const s3 = (r3.data as any).seri_no;
+          setMesaj("⚠️ Sade form kaydedildi: " + ((r3.data as any).mesaj || ""));
+          if (s3) setKaydedilenFormlar((o) => [...o, s3 + " (sade)"]);
+          if (kapat) { onKaydedildi?.(); setTimeout(() => { onKapat(); }, 1800); }
+          return true;
+        }
+        setMesaj("❌ KAYIT HATASI: " + ilkHata);
         return false;
       }
 
