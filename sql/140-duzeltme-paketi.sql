@@ -240,7 +240,7 @@ begin
     if v_firma = '' then return NEW; end if;
 
     -- Önce işaretsiz SERVİS raporu ara
-    select sr.id, sr.created_at,
+    select sr.id,
            public.firma_benzerlik(v_firma,
              coalesce(public.jalan(to_jsonb(sr),'firma_adi','musteri_adi','customer_name'),''))
       into v_hedef_id, v_skor
@@ -258,7 +258,7 @@ begin
       v_hedef_tip := 'servis';
     else
       -- Servis yoksa BAKIM formu ara
-      select f.id, f.created_at,
+      select f.id,
              public.firma_benzerlik(v_firma, coalesce(f.musteri,''))
         into v_hedef_id, v_skor
       from public.bakim_formlari f
