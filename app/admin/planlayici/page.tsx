@@ -656,7 +656,7 @@ export default function PlanlayiciSayfasi() {
                       {!kapali && (
                         <div className="flex flex-col gap-1">
                           <div className="flex gap-[3px]">
-                            {Array.from({ length: kapasite }).map((_, k) => {
+                            {Array.from({ length: Math.max(kapasite, (gunHaritasi[iso] || []).filter((r) => r.durum !== "iptal").length) }).map((_, k) => {
                               const kayit = (gunHaritasi[iso] || []).find((r) => Number(r.slot) === k + 1 && r.durum !== 'iptal');
                               const renk = kayit
                                 ? (kayit.durum === 'yapildi' ? 'bg-emerald-500' : kayit.is_tipi === 'ariza' ? 'bg-rose-500' : kayit.is_tipi === 'kesif' ? 'bg-indigo-500' : 'bg-blue-500')
@@ -666,7 +666,7 @@ export default function PlanlayiciSayfasi() {
                           </div>
                           {dolu > 0 && (
                             <span className={`text-[8px] font-bold leading-none ${secili ? 'text-white/80' : tamDolu ? 'text-rose-600' : 'text-slate-500'}`}>
-                              {tamDolu ? 'DOLU' : `${dolu}/${kapasite}`}
+                              {tamDolu ? 'DOLU' : `${dolu}/${Math.max(kapasite, dolu)}`}
                             </span>
                           )}
                         </div>
