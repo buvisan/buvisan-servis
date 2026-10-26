@@ -147,16 +147,6 @@ begin
     from public.service_reports sr
     cross join lateral jsonb_array_elements(coalesce(sr.degisen_parcalar,'[]'::jsonb)) as p
     group by 1
-  ),
-  personel_s as (
-    select coalesce(sum(coalesce(nullif(trim(coalesce(to_jsonb(pm)->>'maas','')),'')::numeric,0)),0) as personel
-    from public.personel_maas pm
-    where coalesce(to_jsonb(pm)->>'aktif','false')::boolean
-  ),
-  sabit_s as (
-    select coalesce(sum(coalesce(nullif(trim(coalesce(to_jsonb(fg)->>'tutar','')),'')::numeric,0)),0) as sabit
-    from public.fixed_expenses fg
-    where coalesce(to_jsonb(fg)->>'aktif','true')::boolean
   )
   select
     a.ay,
