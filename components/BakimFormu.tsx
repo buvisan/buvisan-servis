@@ -573,7 +573,7 @@ export default function BakimFormu({
           <div className="flex-1 overflow-hidden">
             <ImzaPad
               onChange={(blob: Blob | null) => {
-                if (!blob) { setImzaTip(null); return; }
+                if (!blob) return;   // TEMİZLE → pad açık kalsın
                 const reader = new FileReader();
                 reader.onloadend = () => {
                   const b64 = String(reader.result || "");
