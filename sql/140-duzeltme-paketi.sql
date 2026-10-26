@@ -129,7 +129,7 @@ begin
              ) * coalesce(nullif(p ->> 'adet','')::numeric, 0)
            ),0) as malzeme
     from public.service_reports sr
-    cross join lateral jsonb_array_elements(coalesce(sr.degishen_parcalar,'[]'::jsonb)) as p
+    cross join lateral jsonb_array_elements(coalesce(sr.degisen_parcalar,'[]'::jsonb)) as p
     group by 1
   ),
   personel_s as (
