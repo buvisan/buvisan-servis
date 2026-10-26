@@ -106,7 +106,23 @@ set search_path = public
 as $$
 declare
   v_adet integer := greatest(1, least(coalesce(p_adet,6), 24));
+  v_personel numeric := 0;
+  v_sabit numeric := 0;
 begin
+  -- Personel gideri (tablo yoksa 0)
+  begin
+    select coalesce(sum(coalesce(nullif(trim(coalesce(to_jsonb(pm)->>'maas','')),'')::numeric,0)),0)
+      into v_personel
+    from public.personel_maas pm
+    where coalesce(to_jsonb(pm)->>'aktif','false')::boolean;
+  exception when others then v_personel := 0; end;
+  -- Sabit giderler (tablo yoksa 0)
+  begin
+    select coalesce(sum(coalesce(nullif(trim(coalesce(to_jsonb(fg)->>'tutar','')),'')::numeric,0)),0)
+      into v_sabit
+    from public.fixed_expenses fg
+    where coalesce(to_jsonb(fg)->>'aktif','true')::boolean;
+  exception when others then v_sabit := 0; end;
   return query
   with aylar as (
     select to_char((date_trunc('month', current_date) - (n || ' months')::interval), 'YYYY-MM') as ay
@@ -147,11 +163,11 @@ begin
     coalesce(c.ciro,0)::numeric,
     coalesce(c.adet,0)::integer,
     coalesce(m.malzeme,0)::numeric,
-    (select personel from personel_s)::numeric,
-    (coalesce(m.malzeme,0) + (select personel from personel_s) + (select sabit from sabit_s))::numeric,
-    (coalesce(c.ciro,0) - (coalesce(m.malzeme,0) + (select personel from personel_s) + (select sabit from sabit_s)))::numeric,
+    v_personel,
+    (coalesce(m.malzeme,0) + v_personel + v_sabit)::numeric,
+    (coalesce(c.ciro,0) - (coalesce(m.malzeme,0) + v_personel + v_sabit))::numeric,
     (case when coalesce(c.ciro,0) > 0
-          then round(((coalesce(c.ciro,0) - (coalesce(m.malzeme,0) + (select personel from personel_s) + (select sabit from sabit_s))) / c.ciro) * 100, 1)
+          then round(((coalesce(c.ciro,0) - (coalesce(m.malzeme,0) + v_personel + v_sabit)) / c.ciro) * 100, 1)
           else 0 end)::numeric
   from aylar a
   left join ciro_s c on c.ay = a.ay
