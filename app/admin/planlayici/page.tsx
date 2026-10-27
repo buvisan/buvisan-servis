@@ -697,7 +697,7 @@ export default function PlanlayiciSayfasi() {
                     <p className="text-[11px] text-slate-400 font-medium mt-0.5">
                       {gunKapaliMi(new Date(seciliTarih + 'T12:00:00'))
                         ? 'Hizmete kapalı gün'
-                        : `${doluSayisi(seciliTarih)} / ${kapasite} randevu dolu`}
+                        : `${doluSayisi(seciliTarih)} / ${Math.max(kapasite, doluSayisi(seciliTarih))} randevu dolu`}
                     </p>
                   </div>
                   <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black border ${doluSayisi(seciliTarih) >= kapasite ? 'bg-rose-50 text-rose-600 border-rose-200'
