@@ -21,6 +21,7 @@ export default function RaporlarListesi() {
   
   // YENİ: Arama State'i
   const [aramaMetni, setAramaMetni] = useState("");
+  const [finansFiltre, setFinansFiltre] = useState<"hepsi" | "finansta" | "finanssiz">("hepsi");
 
   // PDF / Önizleme Modalı
   const [seciliRapor, setSeciliRapor] = useState<any | null>(null);
@@ -39,6 +40,9 @@ export default function RaporlarListesi() {
 
   // YENİ: Dinamik Arama Filtresi
   const filtrelenmisRaporlar = raporlar.filter(rapor => {
+    // 💰 FİNANS FİLTRESİ
+    if (finansFiltre === "finansta" && !rapor.finans_kaydedildi) return false;
+    if (finansFiltre === "finanssiz" && rapor.finans_kaydedildi) return false;
     const aramaKriteri = aramaMetni.toLowerCase();
     const firmaAd = (rapor.firma_adi || "").toLowerCase();
     const personel = (rapor.personel_adi || "").toLowerCase();
@@ -114,6 +118,27 @@ export default function RaporlarListesi() {
              />
           </div>
         </div>
+
+            {/* 💰 FİNANS FİLTRESİ */}
+            <div className="w-full flex flex-wrap gap-2 mt-4">
+              {(["hepsi", "finansta", "finanssiz"] as const).map((f) => {
+                const etiket = f === "hepsi" ? `Tümü (${raporlar.length})`
+                  : f === "finansta" ? `💰 Finansta (${raporlar.filter((r) => r.finans_kaydedildi).length})`
+                  : `⏳ Finansta Değil (${raporlar.filter((r) => !r.finans_kaydedildi).length})`;
+                return (
+                  <button key={f} onClick={() => setFinansFiltre(f)}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-black transition ${
+                      finansFiltre === f
+                        ? f === "finansta" ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                          : f === "finanssiz" ? "bg-amber-500 text-white shadow-lg shadow-amber-500/30"
+                          : "bg-white text-slate-900"
+                        : "bg-white/10 text-white/70 hover:bg-white/20 border border-white/20"
+                    }`}>
+                    {etiket}
+                  </button>
+                );
+              })}
+            </div>
 
         {/* RAPOR KARTLARI LİSTESİ */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
