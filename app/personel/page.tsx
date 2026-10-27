@@ -18,6 +18,7 @@ import TaleplerimKarti from '@/components/TaleplerimKarti';
 import MesaiGirisimKarti from '@/components/MesaiGirisimKarti';
 import GununRotasi from '@/components/GununRotasi';
 import BakimFormlarim from '@/components/BakimFormlarim';
+import TeklifIsteKarti from '@/components/TeklifIsteKarti';
 import KuyrukBandi from '@/components/KuyrukBandi';
 import { PERSONEL_LISTESI, listedenIsimBul } from '@/lib/personel';
 import { kuyrugaEkle, agHatasiMi, parcalariStoktanDus } from '@/lib/kuyruk';
@@ -645,6 +646,7 @@ export default function PersonelEkrani() {
 
       {/* 🕘 GEÇMİŞİM - tamamladığım işler, süreler, performans */}
       <BakimFormlarim mod="personel" />
+      <TeklifIsteKarti personelAdi={aktifPersonel?.full_name} />
       <Gecmisim aktifPersonel={aktifPersonel} />
 
       {/* BEKLEYEN İŞLER LİSTESİ */}
