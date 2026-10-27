@@ -201,7 +201,7 @@ exception when others then
 end $$;
 
 revoke all on function public.formlari_arizaya_bagla() from public;
-grant execute on function public.formlari_arizaya_bagla() from authenticated;
+grant execute on function public.formlari_arizaya_bagla() to authenticated;
 
 
 -- ============================================================================
