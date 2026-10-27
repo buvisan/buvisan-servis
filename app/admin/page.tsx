@@ -11,6 +11,7 @@ import AsansorKarti from '@/components/AsansorKarti';
 import VincKarti from '@/components/VincKarti';
 import DevamEdenIsler from '@/components/DevamEdenIsler';
 import BakimFormlarim from '@/components/BakimFormlarim';
+import { useBildirimler, gorulduIsaretle } from '@/lib/bildirimler';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -38,6 +39,7 @@ export default function AdminPanel() {
 
   // İŞ EMRİ FİLTRELEME STATE'İ
   const [aktifSekme, setAktifSekme] = useState<'hepsi' | 'bekliyor' | 'tamamlandi'>('bekliyor');
+  const { sayilar: bildirimSayilari } = useBildirimler();
   const [aramaMetni, setAramaMetni] = useState("");
 
   const [manuelFormAcik, setManuelFormAcik] = useState(false);
@@ -310,6 +312,7 @@ export default function AdminPanel() {
                     <div className="absolute -right-4 -bottom-4 opacity-[0.03]"><ClipboardList size={80}/></div>
                     <div className="bg-emerald-50 text-emerald-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors relative z-10"><ClipboardList size={20}/></div>
                     <div className="relative z-10"><h3 className="font-bold text-slate-700 text-sm">Saha Raporları</h3><p className="text-[10px] text-slate-400">Personel formları</p></div>
+                    {bildirimSayilari.sahaRaporlari > 0 && (<span className="absolute top-2 right-2 bg-red-500 text-white text-[11px] font-black min-w-[22px] h-[22px] rounded-full flex items-center justify-center shadow-lg shadow-red-500/40 z-20">{bildirimSayilari.sahaRaporlari > 99 ? "99+" : bildirimSayilari.sahaRaporlari}</span>)}
                 </motion.button>
 
                 {/* PERİYODİK BAKIM FORMLARI BUTONU */}
@@ -317,6 +320,7 @@ export default function AdminPanel() {
                     <div className="absolute -right-4 -bottom-4 opacity-[0.03]"><ClipboardList size={80}/></div>
                     <div className="bg-teal-50 text-teal-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors relative z-10"><FileText size={20}/></div>
                     <div className="relative z-10"><h3 className="font-bold text-slate-700 text-sm">Bakım Formları</h3><p className="text-[10px] text-slate-400">Periyodik bakım kayıtları</p></div>
+                    {bildirimSayilari.bakimFormlari > 0 && (<span className="absolute top-2 right-2 bg-red-500 text-white text-[11px] font-black min-w-[22px] h-[22px] rounded-full flex items-center justify-center shadow-lg shadow-red-500/40 z-20">{bildirimSayilari.bakimFormlari > 99 ? "99+" : bildirimSayilari.bakimFormlari}</span>)}
                 </motion.button>
 
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/yeni-vinc')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32"><div className="bg-blue-50 text-blue-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors"><Plus size={20}/></div><div><h3 className="font-bold text-slate-700 text-sm">Yeni Vinç</h3><p className="text-[10px] text-slate-400">Envantere ekle</p></div></motion.button>
@@ -361,6 +365,7 @@ export default function AdminPanel() {
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/teklif-bekleyenler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-fuchsia-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
                     <div className="bg-fuchsia-50 text-fuchsia-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-fuchsia-600 group-hover:text-white transition-colors"><ClipboardList size={20}/></div>
                     <div><h3 className="font-bold text-slate-700 text-sm">Teklif Bekleyenler</h3><p className="text-[10px] text-slate-400">Arıza → teklif takibi</p></div>
+                    {bildirimSayilari.teklifBekleyen > 0 && (<span className="absolute top-2 right-2 bg-red-500 text-white text-[11px] font-black min-w-[22px] h-[22px] rounded-full flex items-center justify-center shadow-lg shadow-red-500/40 z-20">{bildirimSayilari.teklifBekleyen > 99 ? "99+" : bildirimSayilari.teklifBekleyen}</span>)}
                 </motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/kokpit')} className="bg-gradient-to-br from-blue-600 to-indigo-700 p-5 rounded-2xl shadow-md border border-blue-500 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
                     <div className="absolute -right-4 -bottom-4 opacity-10"><LayoutDashboard size={80}/></div>
