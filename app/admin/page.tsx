@@ -472,6 +472,8 @@ export default function AdminPanel() {
                             
                             {kayit.ticket_type === 'kesif' ? (
                                 <span className="bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1"><Eye size={12}/> KEŞİF TALEBİ</span>
+                            ) : (kayit.ticket_type === "bakim" || /bak[ıi]m/i.test(String(kayit.description || ""))) ? (
+                                <span className="bg-amber-50 text-amber-700 border border-amber-300 text-[10px] font-black px-3 py-1 rounded-full flex items-center gap-1"><Wrench size={12}/> BAKIM İŞİ</span>
                             ) : (
                                 <span className="bg-slate-50 text-slate-600 border border-slate-200 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1"><Wrench size={12}/> ARIZA BİLDİRİMİ</span>
                             )}
