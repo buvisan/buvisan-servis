@@ -70,7 +70,13 @@ export default function AdminPanel() {
 
         setErisimIzni(true);
 
-        const { data: biletData } = await supabase.from('service_tickets').select('*, cranes(*)').order('created_at', { ascending: false });
+        // 📅 Son 60 günün işleri (güncel operasyon)
+            const son60 = new Date(Date.now() - 60 * 86400000).toISOString();
+            const { data: biletData } = await supabase
+                .from('service_tickets')
+                .select('*, cranes(*)')
+                .gte('created_at', son60)
+                .order('created_at', { ascending: false });
         const { data: teklifData } = await supabase.from('offers').select('*'); 
 
         if (biletData) {
@@ -275,9 +281,9 @@ export default function AdminPanel() {
                 <div className="relative z-10">
                     <h2 className="text-sm font-bold opacity-90 uppercase tracking-wider flex items-center gap-2 mb-2"><Activity size={16}/> Sistem Durumu</h2>
                     <div className="text-5xl md:text-6xl font-black mb-1">{istatistikler.bekleyen > 0 ? istatistikler.bekleyen : "Temiz"}</div>
-                    <div className="text-sm md:text-base font-medium opacity-90">{istatistikler.bekleyen > 0 ? "Adet Bekleyen Kayıt Var!" : "Müdahale bekleyen işlem yok."}</div>
+                    <div className="text-sm md:text-base font-medium opacity-90">{istatistikler.bekleyen > 0 ? "Aktif İş Var!" : "Müdahale bekleyen işlem yok."}</div>
                 </div>
-                <div className="relative z-10 mt-4"><span className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-xl text-xs font-bold transition cursor-default">Toplam {istatistikler.toplam} Kayıt</span></div>
+                <div className="relative z-10 mt-4"><span className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-xl text-xs font-bold transition cursor-default">Son 60 Gün · Toplam {istatistikler.toplam} Kayıt</span></div>
             </motion.div>
 
             <div className="hidden md:flex bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex-col justify-center items-center text-center">
