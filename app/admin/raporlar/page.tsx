@@ -134,6 +134,11 @@ export default function RaporlarListesi() {
                                 <span className={`border px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm ${rapor.islem_turu === 'Per.Bakım' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : rapor.islem_turu === 'Garanti' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                                     <CheckCircle2 size={12}/> {rapor.islem_turu || 'SERVİS'}
                                 </span>
+                                {rapor.finans_kaydedildi && (
+                                    <span className="border-2 border-emerald-500 bg-emerald-500 text-white px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-md shadow-emerald-500/30">
+                                        <CheckCircle2 size={12}/> FİNANSTA
+                                    </span>
+                                )}
                                 <span className="text-[10px] font-bold text-slate-400 font-mono bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 flex items-center gap-1">
                                     <Calendar size={12}/> {new Date(rapor.created_at).toLocaleDateString('tr-TR')}
                                 </span>
