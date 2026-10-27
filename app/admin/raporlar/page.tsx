@@ -6,6 +6,7 @@
 // --------------------------------------------------------
 
 import { useEffect, useState, useRef } from 'react';
+import { gorulduIsaretle } from '@/lib/bildirimler';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,6 +18,7 @@ import {
 export default function RaporlarListesi() {
   const router = useRouter();
   const [raporlar, setRaporlar] = useState<any[]>([]);
+  useEffect(() => { gorulduIsaretle('saha'); }, []);
   const [yukleniyor, setYukleniyor] = useState(true);
   
   // YENİ: Arama State'i

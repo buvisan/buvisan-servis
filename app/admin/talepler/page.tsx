@@ -7,6 +7,7 @@
 // ----------------------------------------------------------------------------
 
 import { useCallback, useEffect, useState } from 'react';
+import { gorulduIsaretle } from '@/lib/bildirimler';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import {

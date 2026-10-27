@@ -8,6 +8,7 @@
 // ----------------------------------------------------------------------------
 
 import { useCallback, useEffect, useState } from "react";
+import { gorulduIsaretle } from "@/lib/bildirimler";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,6 +25,7 @@ const TIP_RENK: Record<string, string> = {
 
 export default function BakimFormlariSayfasi() {
   const [liste, setListe] = useState<any[]>([]);
+  useEffect(() => { gorulduIsaretle('bakim'); }, []);
   const [filtre, setFiltre] = useState<"hepsi" | "vinc" | "asansor">("hepsi");
   const [yukleniyor, setYukleniyor] = useState(true);
   const [detay, setDetay] = useState<any>(null);
