@@ -298,6 +298,22 @@ export default function GununPlani({
                           <Wrench size={12} className="text-slate-400" /> {r.vinc_bilgisi}
                         </p>
                       )}
+
+                        {/* 🔴 ARIZA / İŞ AÇIKLAMASI */}
+                        {(() => {
+                          const ariza = bilet?.description || bilet?.arizanin_cinsi || r?.aciklama || "";
+                          if (!String(ariza).trim()) return null;
+                          return (
+                            <div className="bg-rose-50 border-2 border-rose-200 rounded-xl p-3">
+                              <p className="text-[10px] font-black text-rose-600 uppercase tracking-wide mb-1 flex items-center gap-1">
+                                <Wrench size={11} /> ARIZA / YAPILACAK İŞ
+                              </p>
+                              <p className="text-xs font-bold text-rose-900 leading-snug whitespace-pre-line">
+                                {String(ariza)}
+                              </p>
+                            </div>
+                          );
+                        })()}
                       {personeller.length > 0 && (
                         <p className="text-xs font-medium flex items-center gap-2 flex-wrap">
                           <Users size={12} className="text-slate-400" />
