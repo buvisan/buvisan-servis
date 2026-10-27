@@ -470,9 +470,9 @@ export default function AdminPanel() {
                             
                             <span className="text-slate-400 text-[10px] font-bold font-mono bg-slate-100 px-3 py-1 rounded-full flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(kayit.created_at).toLocaleString('tr-TR', { day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' })}</span>
                             
-                            {kayit.ticket_type === 'kesif' ? (
+                            {(kayit.ticket_type === 'kesif' || kayit.is_tipi === 'kesif' || /ke[sş][ıi]f/i.test(String(kayit.description || ""))) ? (
                                 <span className="bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1"><Eye size={12}/> KEŞİF TALEBİ</span>
-                            ) : (kayit.ticket_type === "bakim" || /bak[ıi]m/i.test(String(kayit.description || ""))) ? (
+                            ) : (kayit.ticket_type === "bakim" || kayit.is_tipi === "bakim" || /bak[ıi]m/i.test(String(kayit.description || ""))) ? (
                                 <span className="bg-amber-50 text-amber-700 border border-amber-300 text-[10px] font-black px-3 py-1 rounded-full flex items-center gap-1"><Wrench size={12}/> BAKIM İŞİ</span>
                             ) : (
                                 <span className="bg-slate-50 text-slate-600 border border-slate-200 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1"><Wrench size={12}/> ARIZA BİLDİRİMİ</span>
