@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Loader2, FileText, Calendar, User, MapPin, 
-  Printer, CheckCircle2, Wrench, Search, X, ClipboardList, Package
+  Printer, CheckCircle2, Wrench, Search, X, ClipboardList, Package, Banknote
 } from 'lucide-react';
 
 export default function RaporlarListesi() {
@@ -24,6 +24,11 @@ export default function RaporlarListesi() {
   // YENİ: Arama State'i
   const [aramaMetni, setAramaMetni] = useState("");
   const [finansFiltre, setFinansFiltre] = useState<"hepsi" | "finansta" | "finanssiz">("hepsi");
+  const [finansFormAcik, setFinansFormAcik] = useState(false);
+  const [finansTutar, setFinansTutar] = useState('');
+  const [finansSaat, setFinansSaat] = useState('');
+  const [finansKaydediliyor, setFinansKaydediliyor] = useState(false);
+  const [finansMesaj, setFinansMesaj] = useState('');
 
   // PDF / Önizleme Modalı
   const [seciliRapor, setSeciliRapor] = useState<any | null>(null);
@@ -40,7 +45,61 @@ export default function RaporlarListesi() {
     setRaporlar((o: any[]) => o.map((r) => r.id === raporId ? { ...r, finans_kaydedildi: !mevcut } : r));
   }
 
-  async function verileriGetir() {
+    // 💰 FORMDAN FİNANSA KAYDET
+  async function finansaKaydet(rapor: any) {
+    const tutar = Number(String(finansTutar).replace(',', '.'));
+    const saat = Number(String(finansSaat).replace(',', '.'));
+    if (!tutar || tutar <= 0) { setFinansMesaj('⚠️ Geçerli bir tutar girin.'); return; }
+    setFinansKaydediliyor(true);
+    setFinansMesaj('');
+    try {
+      let malzemeMetni = '';
+      try {
+        let p: any = rapor.degisen_parcalar;
+        if (typeof p === 'string') p = JSON.parse(p);
+        if (Array.isArray(p) && p.length > 0) {
+          malzemeMetni = p.filter((x: any) => x?.parca_adi)
+            .map((x: any) => `${x.parca_adi} x${x.adet || 1}`).join(', ');
+        }
+      } catch { /* yoksay */ }
+
+      const aciklama = [
+        rapor.arizanin_cinsi ? `ARIZANIN CİNSİ: ${rapor.arizanin_cinsi}` : '',
+        rapor.yapilan_isler ? `YAPILAN İŞLER: ${rapor.yapilan_isler}` : '',
+      ].filter(Boolean).join(' | ').slice(0, 2000);
+
+      const { data, error } = await supabase.from('completed_services').insert([{
+        customer_text: rapor.firma_adi || null,
+        service_date: rapor.created_at ? String(rapor.created_at).slice(0, 10) : new Date().toISOString().slice(0, 10),
+        description: aciklama || null,
+        price: tutar,
+        currency: 'TRY',
+        technician: rapor.personel_adi || null,
+        service_type: rapor.islem_turu || 'Servis',
+        work_hours: saat > 0 ? saat : null,
+        materials_text: malzemeMetni || null,
+        company_address: rapor.firma_adresi || null,
+        customer_rep: rapor.imza_atan || null,
+        makine_tipi: rapor.vinc_modeli || null,
+      }]).select('id').single();
+
+      if (error) { setFinansMesaj('❌ ' + error.message); return; }
+
+      await supabase.from('service_reports')
+        .update({ finans_kaydedildi: true, finans_kayit_id: data?.id })
+        .eq('id', rapor.id);
+
+      setRaporlar((o: any[]) => o.map((r) => r.id === rapor.id
+        ? { ...r, finans_kaydedildi: true, finans_kayit_id: data?.id } : r));
+
+      setFinansMesaj('✅ Finansa kaydedildi! ' + tutar.toLocaleString('tr-TR') + ' ₺');
+      setFinansTutar(''); setFinansSaat('');
+      setTimeout(() => { setFinansFormAcik(false); setFinansMesaj(''); }, 2000);
+    } catch (e: any) {
+      setFinansMesaj('❌ ' + (e?.message || 'Kaydedilemedi'));
+    } finally { setFinansKaydediliyor(false); }
+  }
+async function verileriGetir() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/login'); return; }
 
@@ -471,14 +530,59 @@ export default function RaporlarListesi() {
                         </div>
                     </div>
 
-                    <div className="bg-slate-900 border-t border-slate-700 p-4 flex justify-center gap-4 shrink-0 z-50 shadow-[0_-5px_25px_rgba(0,0,0,0.5)]">
-                        <button onClick={raporYazdir} className="bg-emerald-500 text-white px-8 py-4 rounded-xl font-black shadow-lg hover:bg-emerald-600 flex items-center gap-2 transform active:scale-95 transition">
-                            <Printer size={20}/> RAPORU YAZDIR VEYA PDF KAYDET
-                        </button>
-                        <button onClick={() => setSeciliRapor(null)} className="bg-white/10 text-white px-8 py-4 rounded-xl font-bold hover:bg-white/20 transition-colors">
-                            Kapat
-                        </button>
-                    </div>
+                            {/* 💰 FİNANSA KAYDET PANELİ */}
+                            {finansFormAcik && (
+                                <div className="bg-emerald-950 border-t-2 border-emerald-500 p-4 shrink-0 z-50">
+                                    <p className="text-emerald-300 text-[10px] font-black uppercase mb-3 flex items-center gap-2">
+                                        💰 FİNANSA KAYDET — Sadece tutar ve saat gir
+                                    </p>
+                                    <div className="flex flex-wrap gap-3 items-end">
+                                        <div className="flex-1 min-w-[140px]">
+                                            <label className="text-[9px] font-black text-emerald-400 uppercase block mb-1">TUTAR (₺) *</label>
+                                            <input type="number" value={finansTutar} onChange={(e) => setFinansTutar(e.target.value)}
+                                                placeholder="0" autoFocus
+                                                className="w-full px-4 py-3 bg-emerald-900 border-2 border-emerald-600 rounded-xl text-white font-black text-lg outline-none focus:border-emerald-400" />
+                                        </div>
+                                        <div className="flex-1 min-w-[140px]">
+                                            <label className="text-[9px] font-black text-emerald-400 uppercase block mb-1">ÇALIŞMA SAATİ</label>
+                                            <input type="number" step="0.5" value={finansSaat} onChange={(e) => setFinansSaat(e.target.value)}
+                                                placeholder="1.5"
+                                                className="w-full px-4 py-3 bg-emerald-900 border-2 border-emerald-600 rounded-xl text-white font-black text-lg outline-none focus:border-emerald-400" />
+                                        </div>
+                                        <button onClick={() => finansaKaydet(seciliRapor)} disabled={finansKaydediliyor}
+                                            className="bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-600 text-white px-6 py-3.5 rounded-xl font-black text-sm flex items-center gap-2 shadow-lg">
+                                            {finansKaydediliyor ? <Loader2 size={16} className="animate-spin" /> : <Banknote size={16} />}
+                                            {finansKaydediliyor ? "KAYDEDİLİYOR..." : "KAYDET"}
+                                        </button>
+                                        <button onClick={() => { setFinansFormAcik(false); setFinansMesaj(""); }}
+                                            className="bg-slate-700 hover:bg-slate-600 text-white px-5 py-3.5 rounded-xl font-bold text-sm">
+                                            İptal
+                                        </button>
+                                    </div>
+                                    {finansMesaj && (
+                                        <p className={`mt-2 text-xs font-black ${finansMesaj.startsWith("✅") ? "text-emerald-400" : "text-rose-400"}`}>
+                                            {finansMesaj}
+                                        </p>
+                                    )}
+                                    <p className="text-[9px] text-emerald-600 mt-2">
+                                        Firma, tarih, personel, arıza, yapılan işler, malzemeler otomatik aktarılacak.
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="bg-slate-900 border-t border-slate-700 p-4 flex justify-center gap-3 shrink-0 z-50 shadow-[0_-5px_25px_rgba(0,0,0,0.3)] flex-wrap">
+                                <button onClick={() => { setFinansFormAcik(true); setFinansMesaj(""); setFinansTutar(""); setFinansSaat(""); }}
+                                    disabled={seciliRapor?.finans_kaydedildi}
+                                    className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white px-6 py-4 rounded-xl font-black shadow-lg flex items-center gap-2">
+                                    <Banknote size={18}/> {seciliRapor?.finans_kaydedildi ? "✅ FİNANSTA" : "FİNANSA KAYDET"}
+                                </button>
+                                <button onClick={raporYazdir} className="bg-emerald-500 text-white px-8 py-4 rounded-xl font-black shadow-lg hover:bg-emerald-400 flex items-center gap-2">
+                                    <Printer size={20}/> RAPORU YAZDIR VEYA PDF KAYDET
+                                </button>
+                                <button onClick={() => setSeciliRapor(null)} className="bg-white/10 text-white px-8 py-4 rounded-xl font-bold hover:bg-white/20">
+                                    Kapat
+                                </button>
+                            </div>
 
                 </motion.div>
             </motion.div>
