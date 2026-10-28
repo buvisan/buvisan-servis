@@ -196,12 +196,13 @@ export default function RaporlarListesi() {
                         {/* 💰 MANUEL FİNANS İŞARETLEME */}
                         <button
                             onClick={(e) => { e.stopPropagation(); finansToggle(rapor.id, !!rapor.finans_kaydedildi); }}
-                            className={`w-full mt-2 py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-[10px] font-black active:scale-95 relative z-10 ${
+                            className={`w-full mt-2 py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-[10px] font-black active:scale-95 relative z-10 whitespace-nowrap ${
                                 rapor.finans_kaydedildi
                                     ? "bg-emerald-50 text-emerald-700 border-2 border-emerald-300 hover:bg-emerald-100"
                                     : "bg-slate-50 text-slate-500 border-2 border-slate-200 hover:bg-slate-100"
                             }`}>
-                            {rapor.finans_kaydedildi ? "✅ FİNANSTA — İŞARETİ KALDIR" : "💰 FİNANSA GİRİLDİ OLARAK İŞARETLE"}
+                            {rapor.finans_kaydedildi ? "✅ FİNANSTA" : "💰 FİNANSTA"}
+                            
                         </button>
                                     <div className="bg-white p-1 rounded shadow-sm border border-slate-100 shrink-0"><Wrench size={12} className="text-amber-500"/></div>
                                     <span className="line-clamp-2 mt-0.5">{rapor.arizanin_cinsi || 'Sorun belirtilmemiş.'}</span>
