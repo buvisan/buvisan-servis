@@ -80,6 +80,7 @@ export default function RaporlarListesi() {
         materials_text: malzemeMetni || null,
         company_address: rapor.firma_adresi || null,
         customer_rep: rapor.imza_atan ? String(rapor.imza_atan).toLocaleUpperCase('tr-TR') : null,
+        form_number: rapor.id ? String(rapor.id).slice(0,6).toUpperCase() : null,
         crane_capacity: rapor.vinc_modeli ? String(rapor.vinc_modeli) : null,
         makine_tipi: rapor.islem_turu || null,
       }]).select('id').single();
