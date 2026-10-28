@@ -49,7 +49,7 @@ export default function RaporlarListesi() {
   async function finansaKaydet(rapor: any) {
     const tutar = Number(String(finansTutar).replace(',', '.'));
     const saat = Number(String(finansSaat).replace(',', '.'));
-    if (!tutar || tutar <= 0) { setFinansMesaj('⚠️ Geçerli bir tutar girin.'); return; }
+    if (isNaN(tutar)) { setFinansMesaj('⚠️ Geçerli bir tutar girin (0 olabilir).'); return; }
     setFinansKaydediliyor(true);
     setFinansMesaj('');
     try {
@@ -74,13 +74,14 @@ export default function RaporlarListesi() {
         description: aciklama || null,
         price: tutar,
         currency: 'TRY',
-        technician: rapor.personel_adi || null,
+        technician: rapor.personel_adi ? String(rapor.personel_adi).toLocaleUpperCase('tr-TR') : null,
         service_type: rapor.islem_turu || 'Servis',
         work_hours: saat > 0 ? saat : null,
         materials_text: malzemeMetni || null,
         company_address: rapor.firma_adresi || null,
-        customer_rep: rapor.imza_atan || null,
-        makine_tipi: rapor.vinc_modeli || null,
+        customer_rep: rapor.imza_atan ? String(rapor.imza_atan).toLocaleUpperCase('tr-TR') : null,
+        crane_capacity: rapor.vinc_modeli ? String(rapor.vinc_modeli) : null,
+        makine_tipi: rapor.islem_turu || null,
       }]).select('id').single();
 
       if (error) { setFinansMesaj('❌ ' + error.message); return; }
