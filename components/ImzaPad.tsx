@@ -1,15 +1,24 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVISAN - MÜŞTERİ İMZA PANELİ ✍️  (v2)
-// ✅ Parmak kaldırınca OTOMATİK kaydetmez — "İMZAYI KAYDET" ile onaylanır
-// ✅ Çizim sırasında form kapanmaz, müşteri rahatça imzalar
+// BUVİSAN - MÜŞTERİ İMZA PANELİ ✍️  (v3 — HİBRİT)
+// ✅ Parmak kalkınca OTOMATİK kaydeder (veri kaybolmaz — hata çözümü)
+// ✅ Pad AÇIK kalır — müşteri yeniden çizebilir
+// ✅ "İMZAYI KAYDET VE KAPAT" → onaylar (onKaydet)
 // ----------------------------------------------------------------------------
 
 import { useEffect, useRef, useState } from 'react';
 import { Eraser, PenLine, CheckCircle2, RotateCcw } from 'lucide-react';
 
-export default function ImzaPad({ onChange }: { onChange: (blob: Blob | null) => void }) {
+export default function ImzaPad({
+  onChange,
+  onKaydet,
+  baslik = 'Müşteri İmzası',
+}: {
+  onChange: (blob: Blob | null) => void;
+  onKaydet?: () => void;
+  baslik?: string;
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const ciziyor = useRef(false);
   const sonNokta = useRef<{ x: number; y: number } | null>(null);
@@ -38,7 +47,7 @@ export default function ImzaPad({ onChange }: { onChange: (blob: Blob | null) =>
   };
 
   const basla = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (kaydedildi) return;                    // kaydedildiyse çizim kapalı
+    if (kaydedildi) return;
     e.preventDefault();
     try { canvasRef.current?.setPointerCapture(e.pointerId); } catch { /* yoksay */ }
     ciziyor.current = true;
@@ -59,20 +68,26 @@ export default function ImzaPad({ onChange }: { onChange: (blob: Blob | null) =>
     if (bos) setBos(false);
   };
 
-  // 🚫 ARTIK KAYDETMİYOR — sadece çizimi bitiriyor
+  // ⭐ HİBRİT: parmak kalkınca OTOMATİK kaydet (veri KAYBOLMAZ)
   const bitir = () => {
+    if (!ciziyor.current) return;
     ciziyor.current = false;
     sonNokta.current = null;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.toBlob((blob) => {
+      if (blob) onChange(blob);   // ⚡ hemen gönder
+    }, 'image/png');
   };
 
-  // ✅ KAYDET butonuna basılınca çağrılır
   const kaydet = () => {
     const canvas = canvasRef.current;
     if (!canvas || bos) return;
     canvas.toBlob((blob) => {
       if (blob) {
-        setKaydedildi(true);
         onChange(blob);
+        setKaydedildi(true);
+        onKaydet?.();
       }
     }, 'image/png');
   };
@@ -87,23 +102,19 @@ export default function ImzaPad({ onChange }: { onChange: (blob: Blob | null) =>
     onChange(null);
   };
 
-  const tekrarCiz = () => {
-    temizle();
-  };
-
   return (
     <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-          <PenLine className="w-4 h-4 text-purple-500" /> Müşteri İmzası
+          <PenLine className="w-4 h-4 text-purple-500" /> {baslik}
         </h3>
         {kaydedildi ? (
           <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1">
-            <CheckCircle2 size={11} /> İMZA KAYDEDİLDİ
+            <CheckCircle2 size={11} /> KAYDEDİLDİ
           </span>
         ) : !bos ? (
-          <span className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
-            ✍️ İMZA HAZIR — KAYDET
+          <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+            ✓ OTOMATİK KAYDEDİLDİ
           </span>
         ) : null}
       </div>
@@ -111,7 +122,7 @@ export default function ImzaPad({ onChange }: { onChange: (blob: Blob | null) =>
       <p className="text-[10px] text-slate-500 font-medium mb-3 ml-1">
         {kaydedildi
           ? 'İmza kaydedildi. Farklı imza için "Tekrar İmzala" butonunu kullanın.'
-          : 'Lütfen işi teslim aldığınıza dair imzalayın. İşiniz bitince "İMZAYI KAYDET" butonuna basın.'}
+          : 'Lütfen imzalayın. Parmağınızı kaldırdığınızda OTOMATİK kaydedilir.'}
       </p>
 
       <div className="relative">
@@ -134,11 +145,10 @@ export default function ImzaPad({ onChange }: { onChange: (blob: Blob | null) =>
         <div className="absolute bottom-3 left-4 right-4 border-b border-dashed border-slate-300 pointer-events-none"></div>
       </div>
 
-      {/* BUTONLAR */}
       {kaydedildi ? (
         <button
           type="button"
-          onClick={tekrarCiz}
+          onClick={temizle}
           className="w-full mt-3 py-3 bg-slate-100 text-slate-700 rounded-xl text-[11px] font-black hover:bg-slate-200 active:scale-95 transition flex items-center justify-center gap-2"
         >
           <RotateCcw size={13} /> TEKRAR İMZALA
@@ -159,7 +169,7 @@ export default function ImzaPad({ onChange }: { onChange: (blob: Blob | null) =>
             disabled={bos}
             className="flex-[2] py-3 bg-emerald-600 text-white rounded-xl text-[11px] font-black hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 active:scale-95 transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
           >
-            <CheckCircle2 size={14} /> İMZAYI KAYDET
+            <CheckCircle2 size={14} /> İMZAYI KAYDET VE KAPAT
           </button>
         </div>
       )}

@@ -579,10 +579,10 @@ export default function BakimFormu({
                   const b64 = String(reader.result || "");
                   if (imzaTip === "musteri") setMusteriImza(b64);
                   else setPersonelImza(b64);
-                  setImzaTip(null);
                 };
                 reader.readAsDataURL(blob);
               }}
+              onKaydet={() => setImzaTip(null)}
             />
           </div>
         </div>
