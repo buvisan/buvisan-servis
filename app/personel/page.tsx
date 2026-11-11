@@ -69,6 +69,7 @@ export default function PersonelEkrani() {
   const [seciliIs, setSeciliIs] = useState<any>(null);
   const [formAcik, setFormAcik] = useState(false);
     const [raporDurumu, setRaporDurumu] = useState<'bitti' | 'devam_ediyor'>('bitti');
+    const [devamTarihi, setDevamTarihi] = useState<string>('');
   const [gonderiliyor, setGonderiliyor] = useState(false);
   const [basarili, setBasarili] = useState(false);
 
@@ -517,7 +518,8 @@ export default function PersonelEkrani() {
           } else {
               // ⏸️ DEVAM EDİYOR: randevuyu açık tut (rotada kalsın)
               try {
-                  await supabase.from('randevular').update({ durum: 'planlandi' }).eq('ticket_id', seciliIs.id);
+                  const yeniTarih = devamTarihi || new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+                  await supabase.from('randevular').update({ durum: 'planlandi', randevu_tarihi: yeniTarih }).eq('ticket_id', seciliIs.id);
               } catch { /* yoksay */ }
           }
 
@@ -1309,6 +1311,19 @@ export default function PersonelEkrani() {
                                         ✅ İŞİ BİTİR
                                     </button>
                                 </div>
+                                {raporDurumu === 'devam_ediyor' && (
+                                    <div className="mb-2 bg-amber-50 border-2 border-amber-300 rounded-xl p-3">
+                                        <label className="text-[9px] font-black text-amber-700 uppercase block mb-1">
+                                            📅 HANGİ TARİHTE DEVAM EDİLECEK?
+                                        </label>
+                                        <input type="date" value={devamTarihi} onChange={(e) => setDevamTarihi(e.target.value)}
+                                            min={new Date().toISOString().slice(0,10)}
+                                            className="w-full p-2.5 bg-white border-2 border-amber-300 rounded-lg text-xs font-bold outline-none focus:border-amber-500" />
+                                        <p className="text-[9px] text-amber-600 font-bold mt-1">
+                                            İş bu tarihe taşınacak · planlayıcıda görünecek
+                                        </p>
+                                    </div>
+                                )}
                                 <p className="text-[10px] font-bold text-center mb-2 text-slate-500">
                                     {raporDurumu === "devam_ediyor" ? "⏸️ DEVAM EDİYOR olarak kaydedilecek — yönetim görecek" : "✅ TAMAMLANDI olarak kaydedilecek"}
                                 </p>
