@@ -70,6 +70,8 @@ export default function PersonelEkrani() {
   const [formAcik, setFormAcik] = useState(false);
     const [raporDurumu, setRaporDurumu] = useState<'bitti' | 'devam_ediyor'>('bitti');
     const [devamTarihi, setDevamTarihi] = useState<string>('');
+    const [teklifGerekli, setTeklifGerekli] = useState(false);
+    const [teklifMalzemeler, setTeklifMalzemeler] = useState('');
   const [gonderiliyor, setGonderiliyor] = useState(false);
   const [basarili, setBasarili] = useState(false);
 
@@ -507,6 +509,19 @@ export default function PersonelEkrani() {
           if (kayitHatasi) throw kayitHatasi;
 
           await supabase.from('service_tickets').update({ pipeline_status: raporDurumu === 'devam_ediyor' ? 'devam_ediyor' : 'tamamlandi', status: raporDurumu === 'devam_ediyor' ? 'devam_ediyor' : 'tamamlandi' }).eq('id', seciliIs.id);
+
+          // 💰 TEKLİF GEREKLİ İSE ADMIN'E GÖNDER
+          if (teklifGerekli && teklifMalzemeler.trim()) {
+              try {
+                  await supabase.rpc('teklif_gerekli_isaretle', {
+                      p_musteri: firma_adi || 'Bilinmeyen',
+                      p_ariza: 'MALZEMELER:\n' + teklifMalzemeler.trim() + '\n\n' +
+                               (raporForm.arizanin_cinsi ? 'ARIZA: ' + raporForm.arizanin_cinsi + '\n\n' : '') +
+                               'PERSONEL: ' + (aktifPersonel?.full_name || '-'),
+                      p_is_emri_no: seciliIs?.id ? String(seciliIs.id).slice(0,6).toUpperCase() : null,
+                  });
+              } catch { /* yoksay */ }
+          }
 
           // Planlayıcıdaki randevuyu 'Yapıldı' yap — SADECE iş bittiyse
           if (raporDurumu === 'bitti') {
@@ -1202,6 +1217,40 @@ export default function PersonelEkrani() {
                                         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between mt-2">
                                             <span className="text-[11px] font-black text-emerald-700 uppercase tracking-wider">Parça Toplamı</span>
                                             <span className="text-lg font-black text-emerald-700">{malzemeTutari.toLocaleString('tr-TR')} ₺</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 💰 TEKLİF GEREKLİ Mİ? */}
+                                <div className="bg-purple-50 border-2 border-purple-300 rounded-[2rem] p-5">
+                                    <button type="button" onClick={() => setTeklifGerekli(o => !o)}
+                                        className="w-full flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2.5 text-left">
+                                            <div className={`p-2 rounded-xl ${teklifGerekli ? 'bg-purple-600 text-white' : 'bg-white text-purple-600 border border-purple-200'}`}>
+                                                <FileText size={16} />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-black text-purple-900 uppercase">TEKLİF GEREKLİ Mİ?</p>
+                                                <p className="text-[9px] font-bold text-purple-600">Malzeme lazımsa işaretle — admin teklif hazırlasın</p>
+                                            </div>
+                                        </div>
+                                        <div className={`w-12 h-6 rounded-full transition relative ${teklifGerekli ? 'bg-purple-600' : 'bg-slate-300'}`}>
+                                            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all ${teklifGerekli ? 'left-6' : 'left-0.5'}`}></div>
+                                        </div>
+                                    </button>
+
+                                    {teklifGerekli && (
+                                        <div className="mt-3">
+                                            <label className="text-[9px] font-black text-purple-700 uppercase block mb-1">
+                                                Hangi malzemeler gerekli?
+                                            </label>
+                                            <textarea rows={3} value={teklifMalzemeler}
+                                                onChange={(e) => setTeklifMalzemeler(e.target.value)}
+                                                placeholder={"• 14mm Halat — 20 metre\n• Fren balatası — 4 adet"}
+                                                className="w-full p-3 bg-white border-2 border-purple-300 rounded-xl text-xs resize-none outline-none focus:border-purple-500" />
+                                            <p className="text-[9px] text-purple-600 font-bold mt-1">
+                                                Her malzemeyi yeni satıra yaz · admin "Teklif Bekleyenler"de görecek
+                                            </p>
                                         </div>
                                     )}
                                 </div>
