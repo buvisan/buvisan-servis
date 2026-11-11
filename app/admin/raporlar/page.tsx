@@ -148,7 +148,14 @@ async function verileriGetir() {
         + 'table { border-collapse: collapse; width: 100%; }'
         + 'tr, td, th { page-break-inside: avoid; }'
         + 'img { max-height: 60px; }'
-        + '</style></head><body>' + printContent.innerHTML + '</body></html>');
+        + '</style></head><body>'
+        + '<div id="kapat-bar" class="no-print" style="position:fixed;top:0;left:0;right:0;background:#0f172a;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:99999;font-family:Arial;box-shadow:0 2px 10px rgba(0,0,0,.3)">'
+        + '<span style="font-size:13px;font-weight:bold">BUVISAN - Servis Raporu</span>'
+        + '<button onclick="window.print()" style="background:#10b981;color:#fff;border:0;padding:8px 16px;border-radius:8px;font-weight:bold;font-size:12px;margin-right:8px;cursor:pointer">YAZDIR / PDF</button>'
+        + '<button onclick="window.close()" style="background:#ef4444;color:#fff;border:0;padding:8px 16px;border-radius:8px;font-weight:bold;font-size:12px;cursor:pointer">KAPAT</button>'
+        + '</div>'
+        + '<div style="padding-top:60px">' + printContent.innerHTML + '</div>'
+        + '</body></html>');
       win.document.close();
 
       let basildi = false;
