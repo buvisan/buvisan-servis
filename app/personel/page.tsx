@@ -651,6 +651,7 @@ export default function PersonelEkrani() {
       <KuyrukBandi />
 
       {/* 📅 SERVİS PLANI (BUGÜN / YARIN) - Tüm ekip + kendi işlerin vurgulu */}
+      <PushAbonelik kullanici={aktifPersonel?.full_name} rol="personel" />
       <GununRotasi />
             <GununPlani aktifPersonel={aktifPersonel} onRaporAc={formuAc} />
 
@@ -666,7 +667,6 @@ export default function PersonelEkrani() {
       {/* 🕘 GEÇMİŞİM - tamamladığım işler, süreler, performans */}
       <BakimFormlarim mod="personel" />
       <TeklifIsteKarti personelAdi={aktifPersonel?.full_name} />
-      <PushAbonelik kullanici={aktifPersonel?.full_name} rol="personel" />
       <PersonelTalepFormu personelAdi={aktifPersonel?.full_name} />
       <Gecmisim aktifPersonel={aktifPersonel} />
 
