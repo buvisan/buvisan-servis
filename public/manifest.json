@@ -1,0 +1,47 @@
+{
+  "name": "BUVİSAN Servis Yönetimi",
+  "short_name": "BUVİSAN",
+  "description": "Vinç ve asansör servis yönetim sistemi — personel, müşteri takibi, bakım formları",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "scope": "/",
+  "lang": "tr",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Personel Ekranı",
+      "short_name": "Personel",
+      "url": "/personel",
+      "description": "Günün rotası ve formlar"
+    },
+    {
+      "name": "Admin Panel",
+      "short_name": "Admin",
+      "url": "/admin",
+      "description": "Yönetim paneli"
+    },
+    {
+      "name": "Servis Çağır",
+      "short_name": "Talep",
+      "url": "/talep",
+      "description": "Yeni servis talebi"
+    }
+  ]
+}
