@@ -125,28 +125,41 @@ async function verileriGetir() {
 
   const raporYazdir = () => {
       const printContent = printRef.current;
-      if (!printContent) return;
-      
-      const win = window.open('', '', 'width=900,height=650');
-      win?.document.write(`
-        <html>
-          <head>
-            <title>Servis Raporu - ${seciliRapor.firma_adi}</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <style>
-                @media print {
-                    body { -webkit-print-color-adjust: exact; margin: 0; padding: 0; }
-                    @page { size: A4 portrait; margin: 0; }
-                }
-            </style>
-          </head>
-          <body class="bg-white m-0 p-0">${printContent.innerHTML}</body>
-        </html>
-      `);
-      win?.document.close();
-      win?.focus();
-      setTimeout(() => { win?.print(); win?.close(); }, 500);
-  };
+      if (!printContent) { alert("Form icerigi bulunamadi."); return; }
+
+      const win = window.open("", "_blank");
+      if (!win) {
+          alert("Pop-up engellendi. Tarayici adres cubugundaki engelleyiciyi kapatip tekrar deneyin.");
+          return;
+      }
+
+      const stiller = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+          .map((el) => el.outerHTML).join("\n");
+
+      win.document.open();
+      win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8">'
+        + '<title>Servis Raporu</title>'
+        + stiller
+        + '<style>'
+        + '@page { size: A4 portrait; margin: 10mm; }'
+        + 'html, body { margin: 0; padding: 0; background: #fff !important; }'
+        + 'body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: Arial, sans-serif; }'
+        + '.no-print, button { display: none !important; }'
+        + 'table { border-collapse: collapse; width: 100%; }'
+        + 'tr, td, th { page-break-inside: avoid; }'
+        + 'img { max-height: 60px; }'
+        + '</style></head><body>' + printContent.innerHTML + '</body></html>');
+      win.document.close();
+
+      let basildi = false;
+      const bas = () => {
+          if (basildi) return;
+          basildi = true;
+          try { win.focus(); win.print(); } catch (e) {}
+      };
+      setTimeout(bas, 900);
+      setTimeout(bas, 2500);
+  };;
 
   if (yukleniyor) return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
