@@ -21,7 +21,7 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, CalendarDays, Play, ClipboardList, Wallet, BookOpen, Inbox, Trophy, Sparkles
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, CalendarDays, Play, ClipboardList, Wallet, BookOpen, Inbox, Trophy, Sparkles, Users
 } from 'lucide-react';
 
 const PERSONEL_LISTESI = [
@@ -366,6 +366,11 @@ export default function AdminPanel() {
                     <div className="bg-fuchsia-50 text-fuchsia-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-fuchsia-600 group-hover:text-white transition-colors"><ClipboardList size={20}/></div>
                     <div><h3 className="font-bold text-slate-700 text-sm">Teklif Bekleyenler</h3><p className="text-[10px] text-slate-400">Arıza → teklif takibi</p></div>
                     {bildirimSayilari.teklifBekleyen > 0 && (<span className="absolute top-2 right-2 bg-red-500 text-white text-[11px] font-black min-w-[22px] h-[22px] rounded-full flex items-center justify-center shadow-lg shadow-red-500/40 z-20">{bildirimSayilari.teklifBekleyen > 99 ? "99+" : bildirimSayilari.teklifBekleyen}</span>)}
+                </motion.button>
+                {/* MÜŞTERİ HESAPLARI */}
+                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/musteri-hesaplari')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
+                    <div className="bg-indigo-50 text-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors"><Users size={20}/></div>
+                    <div><h3 className="font-bold text-slate-700 text-sm">Müşteri Hesapları</h3><p className="text-[10px] text-slate-400">Portal kayıt onayları</p></div>
                 </motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/kokpit')} className="bg-gradient-to-br from-blue-600 to-indigo-700 p-5 rounded-2xl shadow-md border border-blue-500 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
                     <div className="absolute -right-4 -bottom-4 opacity-10"><LayoutDashboard size={80}/></div>
