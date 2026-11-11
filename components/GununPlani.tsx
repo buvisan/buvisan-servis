@@ -115,8 +115,18 @@ export default function GununPlani({
     return kisiler.some((k) => isimEslesiyor(k, benimAdim));
   }, [benimAdim]);
 
-  const bugunListe = useMemo(() => kayitlar.filter((r) => String(r.randevu_tarihi).slice(0, 10) === bugun), [kayitlar, bugun]);
-  const yarinListe = useMemo(() => kayitlar.filter((r) => String(r.randevu_tarihi).slice(0, 10) === yarin), [kayitlar, yarin]);
+  // ✅ BİTEN İŞLER LİSTEDEN KALKAR (personel kafası karışmasın)
+  const bitenMi = useCallback((r: any) => {
+    const t = r.ticket_id ? (biletler[r.ticket_id] || {}) : {};
+    const devam = t.pipeline_status === 'devam_ediyor' || t.status === 'devam_ediyor';
+    if (devam) return false;   // DEVAM EDİYOR ise listede kalır
+    if (r.durum === 'yapildi') return true;
+    if (t.pipeline_status === 'tamamlandi' || t.status === 'tamamlandi') return true;
+    return false;
+  }, [biletler]);
+
+  const bugunListe = useMemo(() => kayitlar.filter((r) => String(r.randevu_tarihi).slice(0, 10) === bugun && !bitenMi(r)), [kayitlar, bugun, bitenMi]);
+  const yarinListe = useMemo(() => kayitlar.filter((r) => String(r.randevu_tarihi).slice(0, 10) === yarin && !bitenMi(r)), [kayitlar, yarin, bitenMi]);
   const gosterilecek = acikGun === 'bugun' ? bugunListe : yarinListe;
 
   const benimBugun = bugunListe.filter(benimMi).length;
