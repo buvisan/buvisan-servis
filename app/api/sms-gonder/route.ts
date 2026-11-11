@@ -79,7 +79,15 @@ async function iletimerkeziGonder(telefon: string, mesaj: string): Promise<{ ok:
   }
 }
 
+function yetkiliMi(req: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET || "";
+  if (!secret) return true;
+  const header = req.headers.get("authorization") || "";
+  const q = req.nextUrl.searchParams.get("secret") || "";
+  return header === `Bearer ${secret}` || q === secret;
+}
 export async function POST(req: NextRequest) {
+  if (!yetkiliMi(req)) return NextResponse.json({ ok: false, mesaj: "Yetkisiz" }, { status: 401 });
   try {
     const body = await req.json().catch(() => ({}));
     const limit = Math.min(Number(body.limit) || 20, 50);
