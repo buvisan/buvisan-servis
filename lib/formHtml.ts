@@ -611,3 +611,108 @@ export function teklifHtml(t: any, kalemler: any[]): string {
   ${altBlok}
 </div></body></html>`;
 }
+
+// ═══════════════════════════════════════════════════════════
+// SATIŞ FORMU / İRSALİYE
+// ═══════════════════════════════════════════════════════════
+export function satisHtml(s: any): string {
+  const kalemler = jsonDizi(s?.kalemler);
+  const toplam = kalemler.reduce((t: number, k: any) => t + (Number(k?.toplam) || 0), 0);
+  const ara = Number(s?.ara_toplam) || toplam;
+  const iskonto = Number(s?.iskonto) || 0;
+  const kdvOrani = Number(s?.kdv_orani) ?? 20;
+  const kdv = Number(s?.kdv_tutar) || Math.round((ara - iskonto) * kdvOrani) / 100;
+  const genel = Number(s?.genel_toplam) || (ara - iskonto + kdv);
+  const irsaliye = s?.belge_tipi === "irsaliye";
+  const baslik = irsaliye ? "SEVK İRSALİYESİ" : "SATIŞ FORMU";
+
+  return `<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8">
+<title>${baslik} ${esc(s?.satis_no || "")}</title><style>${css}</style></head>
+<body><div class="sayfa">
+  ${ustBlok}
+
+  <div class="baslik">
+    <h1>${baslik}</h1>
+    <div class="alt">
+      Belge No: <b>${esc(s?.satis_no || "—")}</b>
+      &nbsp;·&nbsp; Tarih: ${esc(s?.tarih_tr || tarih(s?.satis_tarihi))}
+      ${s?.irsaliye_no ? ` &nbsp;·&nbsp; İrsaliye: ${esc(s.irsaliye_no)}` : ""}
+    </div>
+  </div>
+
+  <div class="bilgi-kutu"><table>
+    <tr><td class="e">Müşteri</td><td class="d"><b>${esc(s?.musteri || "—")}</b></td></tr>
+    <tr><td class="e">Yetkili</td><td class="d">${esc(s?.yetkili || "—")}</td></tr>
+    <tr><td class="e">Telefon</td><td class="d">${esc(s?.telefon || "—")}</td></tr>
+    <tr><td class="e">Adres</td><td class="d">${esc(s?.adres || "—")}</td></tr>
+    ${s?.odeme_tipi ? `<tr><td class="e">Ödeme</td><td class="d">${esc(String(s.odeme_tipi).toUpperCase())}</td></tr>` : ""}
+  </table></div>
+
+  <div class="tbl-cerceve"><table class="tbl">
+    <thead><tr>
+      <th style="width:44px;text-align:center">No</th>
+      <th>Malzeme / Ürün</th>
+      <th style="width:70px;text-align:center">Miktar</th>
+      <th style="width:64px;text-align:center">Birim</th>
+      <th style="width:112px;text-align:right">Birim Fiyat</th>
+      <th style="width:112px;text-align:right">Tutar</th>
+    </tr></thead>
+    <tbody>
+      ${kalemler.length > 0
+        ? kalemler.map((k: any, i: number) => `<tr>
+            <td class="orta">${i + 1}</td>
+            <td><b>${esc(k?.parca_adi || "—")}</b>${k?.parca_kodu ? `<div style="font-size:9px;color:#64748b;margin-top:2px">${esc(k.parca_kodu)}</div>` : ""}</td>
+            <td class="orta">${esc(k?.adet ?? 1)}</td>
+            <td class="orta">${esc(k?.birim || "Adet")}</td>
+            <td class="sag">${para(k?.birim_fiyat)}</td>
+            <td class="sag"><b>${para(k?.toplam)}</b></td>
+          </tr>`).join("")
+        : `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:16px">Kalem bulunmuyor</td></tr>`}
+      <tr class="toplam">
+        <td colspan="5" class="sag">ARA TOPLAM</td>
+        <td class="sag">${para(ara)}</td>
+      </tr>
+      ${iskonto > 0 ? `<tr><td colspan="5" class="sag" style="font-weight:700">İSKONTO</td><td class="sag" style="color:#dc2626;font-weight:800">− ${para(iskonto)}</td></tr>` : ""}
+      <tr>
+        <td colspan="5" class="sag" style="font-weight:700;background:#f8fafc">KDV (%${esc(kdvOrani)})</td>
+        <td class="sag" style="font-weight:800;background:#f8fafc">${para(kdv)}</td>
+      </tr>
+      <tr class="toplam">
+        <td colspan="5" class="sag">GENEL TOPLAM</td>
+        <td class="sag">${para(genel)}</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  ${s?.notlar ? `<div class="bolum">
+    <div class="bolum-baslik">Notlar</div>
+    <div class="bolum-icerik">${esc(s.notlar)}</div>
+  </div>` : ""}
+
+  ${irsaliye ? `
+  <div class="bolum">
+    <div class="bolum-baslik">Teslim Beyanı</div>
+    <div class="bolum-icerik">Yukarıda belirtilen malzemeleri eksiksiz ve hasarsız olarak teslim aldım.</div>
+  </div>` : ""}
+
+  <div class="imza-alan">
+    <div class="imza-kutu">
+      <div class="et">Teslim Eden</div>
+      <div class="ad">BUVİSAN</div>
+      <div class="imza-cizgi"></div>
+    </div>
+    <div class="imza-kutu">
+      <div class="et">Teslim Alan</div>
+      <div class="ad">${esc(String(s?.yetkili || s?.musteri || "—").toUpperCase())}</div>
+      <div class="imza-cizgi"></div>
+    </div>
+    <div class="imza-kutu">
+      <div class="et">Tarih</div>
+      <div class="ad">${esc(s?.tarih_tr || tarih(s?.satis_tarihi))}</div>
+      <div class="imza-cizgi"></div>
+    </div>
+  </div>
+
+  ${altBlok}
+</div></body></html>`;
+}

@@ -343,6 +343,11 @@ const aylikPerformansHesapla = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-6 pb-24 font-sans">
+        {/* MALZEME SATIŞI */}
+        <Link href="/admin/satis" className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/25 transition mb-4">
+          🛒 MALZEME SATIŞI YAP
+        </Link>
+
       
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
