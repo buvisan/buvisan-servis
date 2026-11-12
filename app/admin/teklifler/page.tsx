@@ -7,7 +7,8 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { pdfIndir, yazdirPencereAc } from '@/lib/yazdirPaylas';
+import { yazdirVeyaPaylas } from '@/lib/yazdirPaylas';
+import { teklifHtml } from '@/lib/formHtml';
 import { 
   Loader2, Plus, FileText, Calendar, DollarSign, User, MapPin, 
   Box, Printer, Trash2, CheckCircle, XCircle, Search, FileCheck, Clock,
@@ -277,13 +278,11 @@ export default function TekliflerSayfasi() {
   };
 
   const yazdir = async () => {
-    const el = printRef.current;
-    if (!el) { alert("Teklif icerigi bulunamadi."); return; }
-    const r = await pdfIndir(el.innerHTML, {
+    const html = teklifHtml(yeniTeklif, kalemler);
+    await yazdirVeyaPaylas(html, {
       baslik: "Fiyat Teklif Formu",
       dosyaAdi: "teklif-" + String(yeniTeklif?.customer_name || "musteri"),
     });
-    if (r === "hata") await yazdirPencereAc(el.innerHTML, { baslik: "Fiyat Teklif Formu" });
   };;
 
   const filtrelenmis = teklifler.filter(t => {

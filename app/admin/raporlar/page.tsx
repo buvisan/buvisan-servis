@@ -8,7 +8,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { gorulduIsaretle } from '@/lib/bildirimler';
 import { supabase } from '@/lib/supabaseClient';
-import { pdfIndir, yazdirPencereAc } from '@/lib/yazdirPaylas';
+import { yazdirVeyaPaylas } from '@/lib/yazdirPaylas';
+import { servisRaporuHtml } from '@/lib/formHtml';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -125,15 +126,12 @@ async function verileriGetir() {
   });
 
   const raporYazdir = async () => {
-      const el = printRef.current;
-      if (!el) { alert("Form icerigi bulunamadi."); return; }
-      const r = await pdfIndir(el.innerHTML, {
+      if (!seciliRapor) { alert("Rapor bulunamadi."); return; }
+      const html = servisRaporuHtml(seciliRapor);
+      await yazdirVeyaPaylas(html, {
           baslik: "Servis Raporu - " + (seciliRapor?.firma_adi || ""),
           dosyaAdi: "servis-raporu-" + String(seciliRapor?.id || "").slice(0,6),
       });
-      if (r === "hata") {
-          await yazdirPencereAc(el.innerHTML, { baslik: "Servis Raporu" });
-      }
   };;;;
 
   if (yukleniyor) return (

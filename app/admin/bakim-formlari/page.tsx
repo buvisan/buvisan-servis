@@ -11,7 +11,8 @@ import { useCallback, useEffect, useState } from "react";
 import { gorulduIsaretle } from "@/lib/bildirimler";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import { pdfIndir, yazdirPencereAc } from "@/lib/yazdirPaylas";
+import { yazdirVeyaPaylas } from "@/lib/yazdirPaylas";
+import { bakimFormuHtml } from "@/lib/formHtml";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, Loader2, RefreshCw, ArrowLeft, X, Printer,
@@ -57,13 +58,12 @@ export default function BakimFormlariSayfasi() {
   };
 
   const yazdir = async () => {
-    const el = document.getElementById("form-yazdir") || document.getElementById("bakim-yazdir");
-    if (!el) { alert("Form icerigi bulunamadi."); return; }
-    const r = await pdfIndir(el.innerHTML, {
+    if (!detay) { alert("Form bulunamadi."); return; }
+    const html = bakimFormuHtml(detay);
+    await yazdirVeyaPaylas(html, {
       baslik: "Bakim Formu - " + (detay?.musteri || ""),
       dosyaAdi: "bakim-formu-" + String(detay?.id || "").slice(0,6),
     });
-    if (r === "hata") await yazdirPencereAc(el.innerHTML, { baslik: "Bakim Formu" });
   };;;;
 
   return (
