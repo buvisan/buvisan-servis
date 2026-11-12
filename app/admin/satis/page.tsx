@@ -49,7 +49,7 @@ export default function SatisSayfasi() {
     setYukleniyor(true);
     try {
       const [s, l] = await Promise.all([
-        supabase.from("stok").select("*").order("parca_adi").limit(2000),
+        supabase.from("materials").select("*").order("name", { ascending: true }).limit(2000),
         supabase.rpc("satis_listesi", { p_limit: 100 }),
       ]);
       setStok(s.data || []);
@@ -63,15 +63,15 @@ export default function SatisSayfasi() {
     const a = arama.toLowerCase().trim();
     if (!a) return stok.slice(0, 40);
     return stok.filter((s: any) => {
-      const ad = String(s.parca_adi || s.ad || "").toLowerCase();
-      const kod = String(s.parca_kodu || s.kod || s.stok_kodu || "").toLowerCase();
+      const ad = String(s.name || s.parca_adi || s.ad || "").toLowerCase();
+      const kod = String(s.code || s.kod || s.parca_kodu || s.stok_kodu || "").toLowerCase();
       return ad.includes(a) || kod.includes(a);
     }).slice(0, 60);
   }, [stok, arama]);
 
   const ekle = (s: any) => {
-    const ad = s.parca_adi || s.ad || "Malzeme";
-    const fiyat = Number(s.satis_fiyati || s.birim_fiyat || s.fiyat || 0);
+    const ad = s.name || s.parca_adi || s.ad || "Malzeme";
+    const fiyat = Number(s.price || s.satis_fiyati || s.birim_fiyat || s.fiyat || 0);
     const mevcut = kalemler.findIndex((k) => k.parca_adi === ad);
     if (mevcut >= 0) {
       const k = [...kalemler];
@@ -80,8 +80,8 @@ export default function SatisSayfasi() {
     } else {
       setKalemler([...kalemler, {
         stok_id: s.id, parca_adi: ad,
-        parca_kodu: s.parca_kodu || s.kod || s.stok_kodu || "",
-        birim: s.birim || "Adet", adet: 1, birim_fiyat: fiyat,
+        parca_kodu: s.code || s.kod || s.parca_kodu || s.stok_kodu || "",
+        birim: s.unit || s.birim || "Adet", adet: 1, birim_fiyat: fiyat,
       }]);
     }
   };
@@ -256,9 +256,9 @@ export default function SatisSayfasi() {
                 ) : stokFiltre.length === 0 ? (
                   <p className="py-10 text-center text-[11px] font-bold text-slate-400">Malzeme bulunamadı</p>
                 ) : stokFiltre.map((s: any) => {
-                  const ad = s.parca_adi || s.ad || "Malzeme";
-                  const fiyat = Number(s.satis_fiyati || s.birim_fiyat || s.fiyat || 0);
-                  const stokAdet = Number(s.adet ?? s.stok ?? s.miktar ?? 0);
+                  const ad = s.name || s.parca_adi || s.ad || "Malzeme";
+                  const fiyat = Number(s.price || s.satis_fiyati || s.birim_fiyat || s.fiyat || 0);
+                  const stokAdet = Number(s.stock ?? s.adet ?? s.stok ?? s.miktar ?? 0);
                   return (
                     <button key={s.id} onClick={() => ekle(s)}
                       className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-indigo-50 transition text-left">
