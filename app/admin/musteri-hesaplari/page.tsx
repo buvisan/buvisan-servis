@@ -31,6 +31,7 @@ export default function MusteriHesaplari() {
   const [tYetkili, setTYetkili] = useState('');
   const [tNot, setTNot] = useState('');
   const [telYuk, setTelYuk] = useState(false);
+  const [telArama, setTelArama] = useState('');
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -193,10 +194,25 @@ export default function MusteriHesaplari() {
               <div className="bg-indigo-600 px-4 py-2.5">
                 <h3 className="text-white font-black text-xs">TANIMLI NUMARALAR ({telListe.length})</h3>
               </div>
+              <div className="p-3 pb-0">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-3 text-slate-400" />
+                  <input value={telArama} onChange={(e) => setTelArama(e.target.value)}
+                    placeholder="İsim veya numara ara..."
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold outline-none focus:border-indigo-500" />
+                </div>
+              </div>
               <div className="p-3 space-y-1.5">
                 {telListe.length === 0 ? (
                   <p className="text-center text-slate-400 text-[11px] font-bold py-6">Henüz numara tanımlanmamış</p>
-                ) : telListe.map((t: any) => (
+                ) : telListe.filter((t: any) => {
+                  const a = telArama.toLowerCase().replace(/[^a-z0-9]/g, '');
+                  if (!a) return true;
+                  const tel = String(t.telefon || '').replace(/[^0-9]/g, '');
+                  const isim = String(t.yetkili || '').toLowerCase();
+                  const firma = String(t.firma_adi || '').toLowerCase();
+                  return tel.includes(a) || isim.includes(a) || firma.includes(a);
+                }).map((t: any) => (
                   <div key={t.id} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 ${t.kullanildi ? "bg-emerald-50 border border-emerald-200" : "bg-slate-50 border border-slate-200"}`}>
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-black text-slate-800">{t.telefon}</p>

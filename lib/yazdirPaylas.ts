@@ -12,29 +12,13 @@ export type PdfSecenek = {
 /** Sayfadaki tüm CSS'i topla (link + style) */
 async function cssTopla(): Promise<string> {
   const parcalar: string[] = [];
+
+  // ⚠️ SADECE <style> etiketleri — Tailwind <link> HARİÇ (oklch/lab hatası)
   try {
     document.querySelectorAll("style").forEach((el) => {
-      if (el.textContent) parcalar.push(el.textContent);
+      const t = el.textContent || "";
+      if (t && t.length > 20) parcalar.push(t);
     });
-  } catch { /* yoksay */ }
-
-  try {
-    const linkler = Array.from(
-      document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')
-    );
-    for (const link of linkler) {
-      const href = link.href;
-      if (!href) continue;
-      try {
-        const res = await fetch(href, { cache: "force-cache" });
-        if (res.ok) {
-          const metin = await res.text();
-          if (metin && metin.length > 100) parcalar.push(metin);
-        }
-      } catch {
-        parcalar.push(`@import url("${href}");`);
-      }
-    }
   } catch { /* yoksay */ }
 
   return parcalar.join("\n\n");
@@ -134,6 +118,15 @@ export async function pdfIndir(
         .pdf-sayfa table th { background:#f1f5f9; font-weight:700; text-align:left; }
         .pdf-sayfa img { max-height: 80px; width:auto; }
         .pdf-sayfa .srp-form { zoom: 1 !important; transform:none !important; max-width:100% !important; }
+        /* düz renk zorlaması — oklch/lab kalıntılarını ez */
+        .pdf-sayfa, .pdf-sayfa * {
+          color: #0f172a !important;
+          background-color: transparent !important;
+          border-color: #94a3b8 !important;
+        }
+        .pdf-sayfa table th { background-color: #f1f5f9 !important; }
+        .pdf-sayfa .bg-yellow-400, .pdf-sayfa [class*="bg-yellow"] { background-color: #facc15 !important; }
+        .pdf-sayfa .text-red-600, .pdf-sayfa [class*="text-red"] { color: #dc2626 !important; }
       </style>
       </head><body><div class="pdf-sayfa" id="pdf-hedef">${icerikHtml}</div></body></html>`);
     doc.close();

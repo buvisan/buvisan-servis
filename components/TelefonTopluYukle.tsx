@@ -11,6 +11,36 @@ import { Phone, Loader2, Upload, FileUp, X } from "lucide-react";
 
 type Kisi = { isim: string; telefon: string };
 
+// Quoted-Printable çöz (=44=53=C4=B0... → UTF-8 metin)
+function qpCoz(metin: string): string {
+  if (!metin) return metin;
+  try {
+    // =XX hex dizilerini byte'a çevir
+    let s = metin.replace(/=\r?\n/g, "");   // satır birleştirme
+    const baytlar: number[] = [];
+    let i = 0;
+    while (i < s.length) {
+      if (s[i] === "=" && /^[0-9A-Fa-f]{2}$/.test(s.substr(i + 1, 2))) {
+        baytlar.push(parseInt(s.substr(i + 1, 2), 16));
+        i += 3;
+      } else {
+        // normal karakter → UTF-8 byte
+        const kod = s.charCodeAt(i);
+        if (kod < 128) baytlar.push(kod);
+        else {
+          const enc = encodeURIComponent(s[i]);
+          for (let k = 1; k < enc.length; k += 3) baytlar.push(parseInt(enc.substr(k, 2), 16));
+        }
+        i += 1;
+      }
+    }
+    const cozulen = new TextDecoder("utf-8", { fatal: false }).decode(new Uint8Array(baytlar));
+    return cozulen || metin;
+  } catch {
+    return metin;
+  }
+}
+
 // vCard (.vcf) dosyasını ayrıştır
 function vcfAyikla(metin: string): Kisi[] {
   const kisiler: Kisi[] = [];
@@ -20,11 +50,13 @@ function vcfAyikla(metin: string): Kisi[] {
     let isim = "";
     const fn = kart.match(/^FN[^:]*:(.+)$/im);
     const n = kart.match(/^N[^:]*:(.+)$/im);
-    if (fn) isim = fn[1].trim();
+    if (fn) isim = qpCoz(fn[1].trim());
     else if (n) {
-      const p = n[1].split(";").map((x) => x.trim()).filter(Boolean);
+      const p = n[1].split(";").map((x) => qpCoz(x.trim())).filter(Boolean);
       isim = [...p.slice(1), p[0]].filter(Boolean).join(" ").trim();
     }
+    // temizle
+    isim = isim.replace(/\s+/g, " ").trim();
     // Telefon(lar)
     const teller = [...kart.matchAll(/^TEL[^:]*:(.+)$/gim)].map((m) => m[1].trim());
     for (const tel of teller) {
