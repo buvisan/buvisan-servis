@@ -23,6 +23,13 @@ export default function MusteriHesaplari() {
   const [arama, setArama] = useState("");
   const [redModal, setRedModal] = useState<string | null>(null);
   const [redSebep, setRedSebep] = useState("");
+  const [aktifSekme, setAktifSekme] = useState<'hesaplar'|'telefonlar'>('hesaplar');
+  const [telListe, setTelListe] = useState<any[]>([]);
+  const [tTel, setTTel] = useState('');
+  const [tFirma, setTFirma] = useState('');
+  const [tYetkili, setTYetkili] = useState('');
+  const [tNot, setTNot] = useState('');
+  const [telYuk, setTelYuk] = useState(false);
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -34,6 +41,36 @@ export default function MusteriHesaplari() {
   }, [durum]);
 
   useEffect(() => { getir(); }, [getir]);
+
+  const telGetir = useCallback(async () => {
+    try {
+      const { data } = await supabase.rpc('telefon_izin_listesi');
+      setTelListe(data || []);
+    } catch { setTelListe([]); }
+  }, []);
+
+  useEffect(() => { if (aktifSekme === 'telefonlar') telGetir(); }, [aktifSekme, telGetir]);
+
+  const telEkle = async () => {
+    if (tTel.replace(/[^0-9]/g,'').length < 10) { setMesaj('⚠️ Geçerli telefon girin.'); return; }
+    setTelYuk(true); setMesaj('');
+    try {
+      const { data, error } = await supabase.rpc('telefon_izni_ekle', {
+        p_telefon: tTel.trim(), p_firma: tFirma.trim() || null,
+        p_yetkili: tYetkili.trim() || null, p_notlar: tNot.trim() || null, p_ekleyen: 'ADMIN',
+      });
+      if (error || !(data as any)?.ok) { setMesaj('❌ ' + (error?.message || (data as any)?.mesaj)); return; }
+      setMesaj('✅ ' + (data as any).mesaj);
+      setTTel(''); setTFirma(''); setTYetkili(''); setTNot('');
+      await telGetir();
+    } finally { setTelYuk(false); }
+  };
+
+  const telSil = async (id: string) => {
+    if (!confirm('Bu numarayı silmek istiyor musunuz?')) return;
+    const { data } = await supabase.rpc('telefon_izni_sil', { p_id: id });
+    if ((data as any)?.ok) { setMesaj('✅ Silindi'); await telGetir(); }
+  };
 
   const onayla = async (id: string) => {
     setIslemde(id);
@@ -97,7 +134,87 @@ export default function MusteriHesaplari() {
       </div>
 
       <div className="max-w-4xl mx-auto p-4 space-y-3">
-        {/* SEKMELER */}
+        {/* ANA SEKMELER */}
+        <div className="flex gap-2">
+          <button onClick={() => setAktifSekme('hesaplar')}
+            className={`flex-1 py-3 rounded-xl text-[11px] font-black transition ${aktifSekme === 'hesaplar' ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-600"}`}>
+            👥 HESAP TALEPLERİ
+          </button>
+          <button onClick={() => setAktifSekme('telefonlar')}
+            className={`flex-1 py-3 rounded-xl text-[11px] font-black transition ${aktifSekme === 'telefonlar' ? "bg-indigo-600 text-white" : "bg-white border border-slate-200 text-slate-600"}`}>
+            📞 TELEFON TANIMLA
+          </button>
+        </div>
+
+        {aktifSekme === 'telefonlar' && (
+          <div className="space-y-3">
+            <div className="bg-white border-2 border-indigo-200 rounded-2xl p-4">
+              <h3 className="text-xs font-black text-indigo-800 uppercase mb-2">📞 YENİ NUMARA TANIMLA</h3>
+              <p className="text-[10px] text-slate-500 font-medium mb-3">
+                Müşteri henüz servis çağırmamışsa buradan numarasını tanımlayın — kayıt olabilsin.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase">Telefon *</label>
+                  <input value={tTel} onChange={(e) => setTTel(e.target.value)}
+                    placeholder="0532 123 45 67" type="tel"
+                    className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase">Firma Adı</label>
+                  <input value={tFirma} onChange={(e) => setTFirma(e.target.value)}
+                    placeholder="ABC Makina"
+                    className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase">Yetkili</label>
+                  <input value={tYetkili} onChange={(e) => setTYetkili(e.target.value)}
+                    placeholder="Ahmet Yılmaz"
+                    className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase">Not</label>
+                  <input value={tNot} onChange={(e) => setTNot(e.target.value)}
+                    placeholder="Telefonla aradı..."
+                    className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-500" />
+                </div>
+              </div>
+              <button onClick={telEkle} disabled={telYuk}
+                className="w-full mt-3 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl text-[11px] font-black flex items-center justify-center gap-2">
+                {telYuk ? <Loader2 size={13} className="animate-spin" /> : <Phone size={13} />}
+                {telYuk ? "EKLENİYOR..." : "NUMARAYI TANIMLA"}
+              </button>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="bg-indigo-600 px-4 py-2.5">
+                <h3 className="text-white font-black text-xs">TANIMLI NUMARALAR ({telListe.length})</h3>
+              </div>
+              <div className="p-3 space-y-1.5">
+                {telListe.length === 0 ? (
+                  <p className="text-center text-slate-400 text-[11px] font-bold py-6">Henüz numara tanımlanmamış</p>
+                ) : telListe.map((t: any) => (
+                  <div key={t.id} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 ${t.kullanildi ? "bg-emerald-50 border border-emerald-200" : "bg-slate-50 border border-slate-200"}`}>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-black text-slate-800">{t.telefon}</p>
+                      <p className="text-[9px] font-bold text-slate-500">
+                        {[t.firma_adi, t.yetkili].filter(Boolean).join(' · ') || '—'}
+                      </p>
+                      {t.notlar && <p className="text-[9px] text-slate-400">{t.notlar}</p>}
+                    </div>
+                    {t.kullanildi && <span className="text-[8px] font-black text-emerald-600 bg-white px-1.5 py-0.5 rounded shrink-0">KAYIT OLDU</span>}
+                    <button onClick={() => telSil(t.id)} className="text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg shrink-0">
+                      <XCircle size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {aktifSekme === 'hesaplar' && (
+        <>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {([["bekliyor","⏳ BEKLEYEN"],["onaylandi","✅ ONAYLI"],["reddedildi","❌ REDDEDİLEN"],["hepsi","TÜMÜ"]] as const).map(([k, a]) => (
             <button key={k} onClick={() => setDurum(k)}
@@ -192,6 +309,8 @@ export default function MusteriHesaplari() {
               </div>
             ))}
           </div>
+        )}
+        </>
         )}
       </div>
 
