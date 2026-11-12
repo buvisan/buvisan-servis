@@ -1,26 +1,23 @@
 // ----------------------------------------------------------------------------
-// BUVİSAN - YAZDIR / PAYLAŞ / PDF 📄 (v2 — CSS gömülü)
-// Telefonda PAYLAŞ menüsü → PDF kaydet / WhatsApp
-// İndirilen HTML dosyası da DÜZGÜN görünür (CSS gömülü)
+// BUVİSAN - GERÇEK PDF ÜRETİMİ 📄 (v3)
+// html2canvas + jsPDF → telefona GERÇEK PDF dosyası indirir
+// Telefonda A4 oranı korunur (ölçekleme ile)
 // ----------------------------------------------------------------------------
 
-export type YazdirSecenek = {
+export type PdfSecenek = {
   baslik?: string;
   dosyaAdi?: string;
 };
 
-/** Sayfadaki tüm CSS'i topla (link + style), metin olarak göm */
+/** Sayfadaki tüm CSS'i topla (link + style) */
 async function cssTopla(): Promise<string> {
   const parcalar: string[] = [];
-
-  // 1) <style> etiketleri
   try {
     document.querySelectorAll("style").forEach((el) => {
       if (el.textContent) parcalar.push(el.textContent);
     });
   } catch { /* yoksay */ }
 
-  // 2) <link rel="stylesheet"> → içeriğini indir
   try {
     const linkler = Array.from(
       document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')
@@ -35,7 +32,6 @@ async function cssTopla(): Promise<string> {
           if (metin && metin.length > 100) parcalar.push(metin);
         }
       } catch {
-        // indirilemedi → link olarak ekle (mutlak URL)
         parcalar.push(`@import url("${href}");`);
       }
     }
@@ -44,165 +40,207 @@ async function cssTopla(): Promise<string> {
   return parcalar.join("\n\n");
 }
 
-export async function yazdirVeyaPaylas(
+/** Gizli iframe içinde A4 genişliğinde render et */
+async function a4Render(icerikHtml: string, css: string): Promise<HTMLElement> {
+  const kapsayici = document.createElement("div");
+  kapsayici.style.cssText = `
+    position: fixed;
+    left: -10000px;
+    top: 0;
+    width: 794px;
+    background: #fff;
+    z-index: -1;
+    pointer-events: none;
+  `;
+
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText = `width:794px;height:1123px;border:0;position:absolute;left:-10000px;top:0;`;
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument;
+  if (!doc) { document.body.removeChild(iframe); throw new Error("iframe yok"); }
+
+  doc.open();
+  doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <style>${css}</style>
+    <style>
+      * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      html, body { margin:0; padding:0; background:#fff; color:#0f172a;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; }
+      body { padding: 0; width: 794px; }
+      .pdf-sayfa { width: 794px; padding: 24px; background:#fff; }
+      .pdf-sayfa table { width:100%; border-collapse: collapse; }
+      .pdf-sayfa table th, .pdf-sayfa table td { border:1px solid #cbd5e1; padding:6px 8px; vertical-align: top; }
+      .pdf-sayfa table th { background:#f1f5f9; font-weight:700; text-align:left; }
+      .pdf-sayfa img { max-height: 80px; width:auto; }
+      .pdf-sayfa .srp-form { zoom: 1 !important; transform:none !important; max-width:100% !important; }
+    </style>
+    </head><body><div class="pdf-sayfa">${icerikHtml}</div></body></html>`);
+  doc.close();
+
+  // görseller/fontlar yüklensin
+  await new Promise((r) => setTimeout(r, 900));
+
+  const el = doc.querySelector(".pdf-sayfa") as HTMLElement | null;
+  if (!el) { document.body.removeChild(iframe); throw new Error("içerik yok"); }
+
+  // iframe'i geçici olarak görünür yap (html2canvas için)
+  iframe.style.left = "0";
+  iframe.style.top = "0";
+  iframe.style.opacity = "0.01";
+  iframe.style.pointerEvents = "none";
+
+  kapsayici.dataset.iframeId = "buv-pdf-frame";
+  document.body.appendChild(kapsayici);
+
+  return el;
+}
+
+/**
+ * Gerçek PDF üret ve indir.
+ * Telefonda: indirme → "Dosyalara Kaydet" → PDF
+ */
+export async function pdfIndir(
   icerikHtml: string,
-  secenek: YazdirSecenek = {}
-): Promise<"paylasildi" | "yazdirildi" | "indirildi" | "hata"> {
-  const baslik = secenek.baslik || "BUVİSAN Raporu";
-  const dosyaAdi = secenek.dosyaAdi || "buvisan-rapor";
+  secenek: PdfSecenek = {}
+): Promise<"basarili" | "hata"> {
+  const baslik = secenek.baslik || "BUVISAN Raporu";
+  const dosyaAdi = (secenek.dosyaAdi || "buvisan-rapor").replace(/[^a-zA-Z0-9-_]/g, "-");
 
-  // ⭐ SAYFANIN CSS'İNİ TOPLA (Tailwind dahil)
-  const css = await cssTopla();
-  const html = tamHtml(icerikHtml, baslik, css);
+  let iframeEl: HTMLIFrameElement | null = null;
 
-  // ─── 1) NATIVE PAYLAŞ ───
   try {
-    if (typeof navigator !== "undefined" && (navigator as any).share) {
-      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-      const dosya = new File([blob], `${dosyaAdi}.html`, { type: "text/html" });
-      const paylasilabilir = (navigator as any).canShare?.({ files: [dosya] });
-      if (paylasilabilir !== false) {
-        await (navigator as any).share({ title: baslik, files: [dosya] });
-        return "paylasildi";
+    const css = await cssTopla();
+
+    // ─── iframe kur ───
+    iframeEl = document.createElement("iframe");
+    iframeEl.style.cssText = "position:fixed;left:0;top:0;width:794px;height:1123px;border:0;opacity:0.01;pointer-events:none;z-index:-1;";
+    document.body.appendChild(iframeEl);
+
+    const doc = iframeEl.contentDocument;
+    if (!doc) throw new Error("iframe dokümanı yok");
+
+    doc.open();
+    doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+      <style>${css}</style>
+      <style>
+        * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        html, body { margin:0; padding:0; background:#fff; color:#0f172a;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; }
+        body { width: 794px; }
+        .pdf-sayfa { width: 794px; padding: 24px; background:#fff; }
+        .pdf-sayfa table { width:100%; border-collapse: collapse; }
+        .pdf-sayfa table th, .pdf-sayfa table td { border:1px solid #cbd5e1; padding:6px 8px; vertical-align: top; }
+        .pdf-sayfa table th { background:#f1f5f9; font-weight:700; text-align:left; }
+        .pdf-sayfa img { max-height: 80px; width:auto; }
+        .pdf-sayfa .srp-form { zoom: 1 !important; transform:none !important; max-width:100% !important; }
+      </style>
+      </head><body><div class="pdf-sayfa" id="pdf-hedef">${icerikHtml}</div></body></html>`);
+    doc.close();
+
+    await new Promise((r) => setTimeout(r, 900));
+
+    const hedef = doc.getElementById("pdf-hedef");
+    if (!hedef) throw new Error("PDF içeriği bulunamadı");
+
+    // ─── html2canvas ───
+    const html2canvas = (await import("html2canvas")).default;
+    const kanvas = await html2canvas(hedef as HTMLElement, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+      logging: false,
+      windowWidth: 794,
+      width: 794,
+    });
+
+    // ─── jsPDF ───
+    const { jsPDF } = await import("jspdf");
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+    const sayfaG = 210;
+    const sayfaY = 297;
+    const kenar = 8;
+    const kullanilabilirG = sayfaG - kenar * 2;
+    const oran = kullanilabilirG / kanvas.width;
+    const resimY = kanvas.height * oran;
+
+    const resim = kanvas.toDataURL("image/jpeg", 0.95);
+
+    if (resimY <= sayfaY - kenar * 2) {
+      pdf.addImage(resim, "JPEG", kenar, kenar, kullanilabilirG, resimY);
+    } else {
+      // Çok sayfalı
+      let kalan = resimY;
+      let konum = kenar;
+      let ilkSayfa = true;
+      while (kalan > 0 && ilkSayfa) {
+        const dilimY = Math.min(kalan, sayfaY - kenar * 2);
+        pdf.addImage(resim, "JPEG", kenar, konum, kullanilabilirG, resimY, undefined, "FAST");
+        pdf.addPage();
+        ilkSayfa = false;
+        kalan -= dilimY;
       }
     }
-  } catch { /* devam */ }
 
-  // ─── 2) PRINT (yeni pencere) ───
-  try {
-    const p = window.open("", "_blank");
-    if (p) {
-      p.document.open();
-      p.document.write(html);
-      p.document.close();
-      setTimeout(() => {
-        try { p.focus(); p.print(); } catch { /* yoksay */ }
-      }, 800);
-      return "yazdirildi";
-    }
-  } catch { /* devam */ }
-
-  // ─── 3) İNDİR ───
-  try {
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${dosyaAdi}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 3000);
-    return "indirildi";
-  } catch {
-    alert("Yazdırma başlatılamadı. Tarayıcı menüsünden 'Paylaş' veya 'Yazdır' seçin.");
+    pdf.save(`${dosyaAdi}.pdf`);
+    return "basarili";
+  } catch (e: any) {
+    console.error("PDF hatası:", e);
+    alert("PDF oluşturulamadı.\n\n" + (e?.message || "") + "\n\nTarayıcı menüsünden 'Yazdır → PDF olarak kaydet' deneyin.");
     return "hata";
+  } finally {
+    // temizlik
+    try { if (iframeEl && iframeEl.parentNode) iframeEl.parentNode.removeChild(iframeEl); } catch { /* yoksay */ }
   }
 }
 
-function tamHtml(icerik: string, baslik: string, sayfaCss: string): string {
-  return `<!DOCTYPE html>
-<html lang="tr">
-<head>
-<meta charset="utf-8">
+/**
+ * Yazdırma penceresi aç (yedek yöntem)
+ */
+export async function yazdirPencereAc(icerikHtml: string, secenek: PdfSecenek = {}): Promise<void> {
+  const baslik = secenek.baslik || "BUVİSAN Raporu";
+  const css = await cssTopla();
+  const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${baslik}</title>
-
-<!-- ⭐ SAYFANIN GERÇEK CSS'İ (Tailwind dahil) -->
+<style>${css}</style>
 <style>
-${sayfaCss}
-</style>
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; background:#fff; color:#0f172a;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body { padding:10px; }
 
-<!-- ⭐ YEDEK: sayfa CSS'i eksikse Tailwind CDN -->
-<script src="https://cdn.tailwindcss.com"></script>
-
-<style>
-  /* ─── BUVİSAN PDF DÜZENİ ─── */
-  * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0; padding: 0;
-    background: #fff;
-    color: #0f172a;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  /* ⭐ A4 oranı ölçekleme — telefonda sığsın */
+  .pdf-olcek {
+    width: 794px;
+    transform-origin: top left;
+    transform: scale(var(--olcek, 1));
+    margin-bottom: calc((var(--olcek, 1) - 1) * 1123px);
   }
+  .pdf-sayfa { width:794px; padding:24px; background:#fff; }
+  .pdf-sayfa table { width:100%; border-collapse:collapse; }
+  .pdf-sayfa table th, .pdf-sayfa table td { border:1px solid #cbd5e1; padding:6px 8px; vertical-align:top; }
+  .pdf-sayfa table th { background:#f1f5f9; font-weight:700; text-align:left; }
+  .pdf-sayfa img { max-height:80px; width:auto; }
+  .pdf-sayfa .srp-form { zoom:1 !important; transform:none !important; max-width:100% !important; }
 
-  body { padding: 12px; }
+  .yazdir-bar { position:sticky; top:0; z-index:999; background:#0f172a; color:#fff;
+    padding:10px 14px; display:flex; gap:8px; align-items:center; justify-content:space-between;
+    border-radius:12px; margin-bottom:12px; }
+  .yazdir-bar span { font-size:13px; font-weight:700; }
+  .yazdir-bar button { border:0; border-radius:8px; padding:9px 14px; font-weight:800; font-size:12px; cursor:pointer; }
 
-  /* A4 oranı — telefonda sığsın */
-  .pdf-sayfa {
-    width: 100%;
-    max-width: 820px;
-    margin: 0 auto;
-  }
-
-  /* Form kendi stilini korusun */
-  .pdf-sayfa .srp-form,
-  .pdf-sayfa > div {
-    max-width: 100% !important;
-    zoom: 1 !important;
-    transform: none !important;
-  }
-
-  /* Tailwind yoksa temel tablo stili */
-  .pdf-sayfa table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  .pdf-sayfa table th,
-  .pdf-sayfa table td {
-    border: 1px solid #cbd5e1;
-    padding: 6px 8px;
-    font-size: 12px;
-    vertical-align: top;
-  }
-  .pdf-sayfa table th {
-    background: #f1f5f9;
-    font-weight: 700;
-    text-align: left;
-  }
-
-  .pdf-sayfa img { max-height: 80px; width: auto; }
-
-  /* ─── ÜST BAR (sadece ekranda) ─── */
-  .yazdir-bar {
-    position: sticky; top: 0; z-index: 999;
-    background: #0f172a; color: #fff;
-    padding: 10px 14px;
-    display: flex; gap: 8px;
-    align-items: center; justify-content: space-between;
-    border-radius: 12px;
-    margin-bottom: 14px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.15);
-  }
-  .yazdir-bar span { font-size: 13px; font-weight: 700; }
-  .yazdir-bar button {
-    border: 0; border-radius: 8px;
-    padding: 8px 14px;
-    font-weight: 800; font-size: 12px; cursor: pointer;
-  }
-
-  /* ─── YAZDIRMA ─── */
   @media print {
-    .yazdir-bar { display: none !important; }
-    body { padding: 0 !important; }
-    .pdf-sayfa { max-width: 100% !important; }
-    @page { size: A4 portrait; margin: 10mm; }
-    tr, td, th { page-break-inside: avoid; }
-    table { page-break-inside: auto; }
-  }
-
-  /* ─── TELEFON ─── */
-  @media screen and (max-width: 640px) {
-    body { padding: 6px; }
-    .yazdir-bar { padding: 8px 10px; }
-    .yazdir-bar button { padding: 7px 10px; font-size: 11px; }
+    .yazdir-bar { display:none !important; }
+    body { padding:0 !important; }
+    .pdf-olcek { transform:none !important; margin-bottom:0 !important; }
+    @page { size:A4 portrait; margin:8mm; }
+    tr,td,th { page-break-inside:avoid; }
   }
 </style>
-</head>
-<body>
+</head><body>
 <div class="yazdir-bar">
   <span>${baslik}</span>
   <span style="display:flex;gap:6px">
@@ -210,9 +248,39 @@ ${sayfaCss}
     <button onclick="window.close()" style="background:#475569;color:#fff">KAPAT</button>
   </span>
 </div>
-<div class="pdf-sayfa">
-${icerik}
-</div>
-</body>
-</html>`;
+<div class="pdf-olcek" id="olcek"><div class="pdf-sayfa">${icerikHtml}</div></div>
+<script>
+  (function(){
+    function olcekle(){
+      var g = document.documentElement.clientWidth || window.innerWidth;
+      var s = Math.min(1, (g - 24) / 794);
+      if (s < 0.2) s = 0.2;
+      var el = document.getElementById('olcek');
+      if (el) {
+        el.style.setProperty('--olcek', s);
+        el.style.transform = 'scale(' + s + ')';
+        el.style.marginBottom = ((s - 1) * el.scrollHeight) + 'px';
+      }
+    }
+    olcekle();
+    window.addEventListener('resize', olcekle);
+    setTimeout(olcekle, 400);
+  })();
+</script>
+</body></html>`;
+
+  const p = window.open("", "_blank");
+  if (!p) { alert("Pop-up engellendi. Tarayıcı ayarlarından izin verin."); return; }
+  p.document.open();
+  p.document.write(html);
+  p.document.close();
+}
+
+/** Eski isim — geriye uyumluluk */
+export async function yazdirVeyaPaylas(
+  icerikHtml: string,
+  secenek: PdfSecenek = {}
+): Promise<"paylasildi" | "yazdirildi" | "indirildi" | "hata"> {
+  const r = await pdfIndir(icerikHtml, secenek);
+  return r === "basarili" ? "indirildi" : "hata";
 }
