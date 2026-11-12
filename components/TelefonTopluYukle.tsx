@@ -34,7 +34,18 @@ function qpCoz(metin: string): string {
         i += 1;
       }
     }
-    const cozulen = new TextDecoder("utf-8", { fatal: false }).decode(new Uint8Array(baytlar));
+    let cozulen = new TextDecoder("utf-8", { fatal: false }).decode(new Uint8Array(baytlar));
+
+    // ⭐ Kalan = artefaktlarini temizle
+    cozulen = cozulen
+      .replace(/=\\s*$/g, "")          // satir sonu =
+      .replace(/=20/g, " ")              // bosluk kodu
+      .replace(/=\\r?\\n/g, "")         // yumusak satir
+      .replace(/=([^0-9A-F])/gi, "$1")   // gecersiz =
+      .replace(/=+/g, "")                // kalan tum =
+      .replace(/\\s+/g, " ")
+      .trim();
+
     return cozulen || metin;
   } catch {
     return metin;

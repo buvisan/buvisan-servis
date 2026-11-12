@@ -20,7 +20,14 @@ function iframeKur(html: string): { iframe: HTMLIFrameElement; kok: HTMLElement 
   if (!doc) throw new Error("iframe dokumani olusturulamadi");
 
   doc.open();
-  doc.write(html);
+  // ⭐ PDF icin tek sayfa garantisi: min-height'i kaldir
+  const pdfHtml = html.replace(
+    "</style>",
+    ".sayfa{min-height:auto !important;padding-bottom:28px !important}"
+    + "@media print{.sayfa{min-height:auto !important}}"
+    + "</style>"
+  );
+  doc.write(pdfHtml);
   doc.close();
 
   const kok = (doc.querySelector(".sayfa") || doc.body) as HTMLElement;
@@ -72,7 +79,7 @@ export async function pdfIndir(
 
     const resim = kanvas.toDataURL("image/jpeg", 0.92);
 
-    if (yuk <= maxY) {
+    if (yuk <= maxY + 6) {
       pdf.addImage(resim, "JPEG", kenar, kenar, g, yuk);
     } else {
       // 2 sayfaya bol
