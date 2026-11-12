@@ -8,10 +8,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Plus, Minus, Trash2, Search, Loader2, ShoppingCart,
-  Package, Printer, Banknote, CheckCircle2, X, Save, Percent, Building2,
+  Package, Printer, Banknote, CheckCircle2, Save, Percent, Building2,
 } from "lucide-react";
 import { satisHtml } from "@/lib/formHtml";
 import { yazdirVeyaPaylas } from "@/lib/yazdirPaylas";

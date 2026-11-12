@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import PwaKayit from "@/components/PwaKayit";
+import BildirimGonderici from "@/components/BildirimGonderici";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -62,6 +63,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <PwaKayit />
+        <BildirimGonderici />
         {children}
       </body>
     </html>
