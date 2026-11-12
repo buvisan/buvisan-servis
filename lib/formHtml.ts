@@ -21,12 +21,11 @@ const css = `
 
   .sayfa {
     width: 794px;
-    min-height: 1123px;
+    min-height: 0;
     padding: 40px 44px 32px;
     background: #fff;
     margin: 0 auto;
-    display: flex;
-    flex-direction: column;
+    display: block;
   }
 
   /* ─────────── ÜST BLOK ─────────── */
@@ -212,8 +211,8 @@ const css = `
   .imza-alan {
     display: flex;
     gap: 14px;
-    margin-top: auto;
-    padding-top: 26px;
+    margin-top: 24px;
+    padding-top: 0;
   }
   .imza-kutu {
     flex: 1;
