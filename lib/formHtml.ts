@@ -1,96 +1,299 @@
 // ----------------------------------------------------------------------------
-// BUVİSAN - SAF CSS A4 FORM ÜRETİCİ 📄
-// Tailwind YOK · oklch YOK · html2canvas %100 uyumlu
+// BUVİSAN - PROFESYONEL A4 FORM ŞABLONLARI 📄
+// Saf CSS · Tailwind YOK · html2canvas uyumlu
 // ----------------------------------------------------------------------------
 
-export type RaporVeri = any;
-
 const css = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
+
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-    background: #fff; color: #111827;
-    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    background: #fff;
+    color: #111827;
+    font-size: 12px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
+
   .sayfa {
-    width: 794px; min-height: 1123px;
-    padding: 32px 38px;
+    width: 794px;
+    min-height: 1123px;
+    padding: 40px 44px 32px;
     background: #fff;
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
   }
-  .ust { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+
+  /* ─────────── ÜST BLOK ─────────── */
+  .ust { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+
+  .marka { display: flex; flex-direction: column; gap: 8px; }
   .logo {
-    background: #facc15; border-radius: 10px;
-    padding: 14px 22px; display: inline-block;
+    background: linear-gradient(135deg, #facc15 0%, #eab308 100%);
+    border-radius: 6px;
+    padding: 10px 20px;
+    display: inline-block;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
   }
-  .logo b { font-size: 26px; font-weight: 900; letter-spacing: -0.5px; color: #111827; }
-  .firma-bilgi { text-align: right; font-size: 11px; line-height: 1.55; color: #6b7280; }
-  .firma-bilgi b { display: block; font-size: 12.5px; color: #111827; margin-bottom: 2px; }
-  .cizgi { height: 2.5px; background: #111827; margin: 16px 0 20px; }
-  .baslik { text-align: center; margin-bottom: 20px; }
-  .baslik h1 { font-size: 22px; font-weight: 900; letter-spacing: 0.5px; }
-  .baslik p { font-size: 11px; color: #6b7280; margin-top: 4px; }
-
-  table { width: 100%; border-collapse: collapse; }
-  .kutu { border: 2px solid #111827; margin-bottom: 14px; }
-  .kutu table td {
-    border: 1px solid #111827; padding: 8px 10px;
-    font-size: 12px; vertical-align: top;
+  .logo b {
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    color: #0f172a;
   }
-  .kutu table td.etiket { font-weight: 700; white-space: nowrap; width: 1%; background: #f9fafb; }
+  .marka-alt {
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    color: #64748b;
+    text-transform: uppercase;
+  }
 
-  .rapor-no { font-size: 20px; font-weight: 900; color: #dc2626; }
-  .bolum { margin: 16px 0; }
-  .bolum-bas {
-    background: #e5e7eb; padding: 7px 10px;
-    font-size: 11.5px; font-weight: 800; letter-spacing: 0.4px;
-    border: 1px solid #9ca3af; border-bottom: 0;
+  .iletisim { text-align: right; font-size: 9.5px; line-height: 1.75; color: #64748b; font-weight: 500; }
+  .iletisim b {
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: 0.2px;
+    margin-bottom: 3px;
+    max-width: 300px;
+  }
+
+  .serit {
+    height: 3px;
+    background: linear-gradient(90deg, #0f172a 0%, #334155 55%, #facc15 55%, #facc15 100%);
+    margin: 20px 0 26px;
+    border-radius: 2px;
+  }
+
+  /* ─────────── BAŞLIK ─────────── */
+  .baslik { text-align: center; margin-bottom: 26px; }
+  .baslik h1 {
+    font-size: 19px;
+    font-weight: 900;
+    letter-spacing: 2.2px;
+    color: #0f172a;
+    text-transform: uppercase;
+  }
+  .baslik .alt {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+  }
+  .baslik .alt b { color: #dc2626; font-weight: 900; letter-spacing: 0.5px; }
+
+  /* ─────────── BİLGİ KUTUSU ─────────── */
+  .bilgi-kutu {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .bilgi-kutu table { width: 100%; border-collapse: collapse; }
+  .bilgi-kutu td {
+    padding: 8px 14px;
+    font-size: 11px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+  .bilgi-kutu tr:last-child td { border-bottom: 0; }
+  .bilgi-kutu td.e {
+    width: 132px;
+    font-weight: 800;
+    color: #475569;
+    font-size: 9.5px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    background: #f1f5f9;
+    white-space: nowrap;
+  }
+  .bilgi-kutu td.d { font-weight: 600; color: #0f172a; }
+
+  /* ─────────── BÖLÜM ─────────── */
+  .bolum { margin-bottom: 16px; }
+  .bolum-baslik {
+    font-size: 9.5px;
+    font-weight: 900;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: #0f172a;
+    padding: 0 0 6px;
+    border-bottom: 1.5px solid #0f172a;
+    margin-bottom: 8px;
   }
   .bolum-icerik {
-    border: 1px solid #9ca3af; padding: 10px 12px;
-    font-size: 12px; line-height: 1.65; min-height: 54px;
-    white-space: pre-wrap;
-  }
-
-  .tbl th {
-    background: #f3f4f6; border: 1px solid #9ca3af;
-    padding: 7px 9px; font-size: 11px; font-weight: 800; text-align: left;
-  }
-  .tbl td {
-    border: 1px solid #9ca3af; padding: 7px 9px;
     font-size: 11.5px;
+    line-height: 1.75;
+    color: #334155;
+    white-space: pre-wrap;
+    padding: 2px 0;
   }
-  .tbl td.sag { text-align: right; }
-  .tbl td.orta { text-align: center; }
-  .tbl tr.toplam td { font-weight: 900; background: #f9fafb; }
 
-  .imza-alan { display: flex; gap: 18px; margin-top: 26px; }
-  .imza-kutu {
-    flex: 1; border: 1.5px solid #111827;
-    padding: 8px 10px 0; min-height: 105px;
+  /* ─────────── TABLO ─────────── */
+  table.tbl { width: 100%; border-collapse: collapse; }
+  table.tbl th {
+    background: #0f172a;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    padding: 9px 12px;
+    text-align: left;
+    border: 0;
   }
-  .imza-kutu .et { font-size: 9.5px; font-weight: 800; letter-spacing: 0.4px; color: #374151; text-transform: uppercase; }
-  .imza-kutu .ad { font-size: 12px; font-weight: 900; margin-top: 6px; }
-  .imza-kutu img { max-height: 48px; margin-top: 6px; }
-  .imza-cizgi { border-bottom: 1px solid #9ca3af; height: 40px; margin-top: 4px; }
+  table.tbl th:first-child { border-radius: 6px 0 0 0; }
+  table.tbl th:last-child { border-radius: 0 6px 0 0; }
+  table.tbl td {
+    padding: 9px 12px;
+    font-size: 11px;
+    color: #1e293b;
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 500;
+  }
+  table.tbl tbody tr:nth-child(even) td { background: #f8fafc; }
+  table.tbl td.sag { text-align: right; font-variant-numeric: tabular-nums; }
+  table.tbl td.orta { text-align: center; font-variant-numeric: tabular-nums; }
 
+  table.tbl tr.toplam td {
+    background: #f8fafc !important;
+    border-top: 2px solid #0f172a;
+    border-bottom: 0;
+    font-size: 12.5px;
+    font-weight: 900;
+    color: #0f172a;
+    padding: 12px;
+  }
+
+  .tbl-cerceve {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  /* ─────────── MEMNUNİYET ─────────── */
   .memnuniyet {
-    border: 2px solid #34d399; border-radius: 10px;
-    background: #ecfdf5; padding: 10px 14px; margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid #a7f3d0;
+    background: #f0fdf4;
+    border-radius: 8px;
+    padding: 11px 16px;
+    margin: 4px 0 18px;
   }
-  .memnuniyet .et { font-size: 10px; font-weight: 800; color: #065f46; letter-spacing: 0.4px; }
-  .memnuniyet .yildiz { font-size: 18px; letter-spacing: 2px; color: #111827; margin-top: 4px; }
+  .memnuniyet .et {
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: #065f46;
+  }
+  .memnuniyet .yildiz {
+    font-size: 14px;
+    letter-spacing: 2.5px;
+    color: #0f172a;
+  }
+  .memnuniyet .yildiz span { color: #d1d5db; }
 
-  .alt-yazi { text-align: center; font-size: 8.5px; color: #9ca3af; margin-top: 22px; }
+  /* ─────────── İMZA ─────────── */
+  .imza-alan {
+    display: flex;
+    gap: 14px;
+    margin-top: auto;
+    padding-top: 26px;
+  }
+  .imza-kutu {
+    flex: 1;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    min-height: 118px;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+  }
+  .imza-kutu .et {
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: #94a3b8;
+  }
+  .imza-kutu .ad {
+    font-size: 11px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-top: 4px;
+    line-height: 1.35;
+  }
+  .imza-kutu img {
+    max-height: 46px;
+    max-width: 100%;
+    margin-top: auto;
+    align-self: flex-start;
+    object-fit: contain;
+  }
+  .imza-cizgi {
+    margin-top: auto;
+    border-bottom: 1px dashed #cbd5e1;
+    height: 34px;
+  }
 
-  @media print { @page { size: A4 portrait; margin: 0; } body { background: #fff; } }
+  /* ─────────── ALT ─────────── */
+  .alt {
+    margin-top: 18px;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: #94a3b8;
+  }
+
+  @media print {
+    @page { size: A4 portrait; margin: 0; }
+    body { background: #fff; }
+    .sayfa { width: 100%; min-height: auto; padding: 12mm; }
+    table.tbl tbody tr { page-break-inside: avoid; }
+  }
 `;
 
-const firma = `
-  <div class="firma-bilgi">
-    <b>ZM METAL MAKİNA İMALAT SANAYİ VE TİCARET LİMİTED ŞİRKETİ</b>
-    info@zmmetal.com.tr - www.buvisan.com<br>
-    DEMİRCİ MAH. / BURSA - TEL: 0224 374 00 01
+const ustBlok = `
+  <div class="ust">
+    <div class="marka">
+      <div class="logo"><b>BUVİSAN</b></div>
+      <div class="marka-alt">Vinç &amp; Asansör Servis</div>
+    </div>
+    <div class="iletisim">
+      <b>ZM METAL MAKİNA İMALAT SANAYİ VE TİCARET LİMİTED ŞİRKETİ</b>
+      info@zmmetal.com.tr &nbsp;·&nbsp; www.buvisan.com<br>
+      Demirci Mah. / Nilüfer / BURSA<br>
+      Tel: 0224 374 00 01
+    </div>
+  </div>
+  <div class="serit"></div>
+`;
+
+const altBlok = `
+  <div class="alt">
+    <span>BUVİSAN Vinç Servis · www.buvisan.com</span>
+    <span>0224 374 00 01</span>
   </div>
 `;
 
@@ -104,90 +307,93 @@ function esc(s: any): string {
 function tarih(s: any): string {
   if (!s) return "—";
   const d = String(s).slice(0, 10).split("-");
-  if (d.length === 3) return `${d[2]}.${d[1]}.${d[0]}`;
-  return String(s);
+  if (d.length === 3 && d[0].length === 4) return `${d[2]}.${d[1]}.${d[0]}`;
+  try { return new Date(s).toLocaleDateString("tr-TR"); } catch { return String(s); }
+}
+
+function para(n: any): string {
+  const v = Number(n) || 0;
+  return v.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";
+}
+
+function jsonDizi(v: any): any[] {
+  try {
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") { const j = JSON.parse(v); return Array.isArray(j) ? j : []; }
+    return [];
+  } catch { return []; }
 }
 
 // ═══════════════════════════════════════════════════════════
 // SERVİS RAPORU
 // ═══════════════════════════════════════════════════════════
-export function servisRaporuHtml(r: RaporVeri): string {
-  const parcalar = (() => {
-    try {
-      const p = r?.degisen_parcalar;
-      if (!p) return [] as any[];
-      if (Array.isArray(p)) return p;
-      if (typeof p === "string") {
-        try { const j = JSON.parse(p); return Array.isArray(j) ? j : []; } catch { return []; }
-      }
-      return [];
-    } catch { return []; }
-  })();
-
-  const puan = Number(r?.musteri_puani || 0);
+export function servisRaporuHtml(r: any): string {
+  const parcalar = jsonDizi(r?.degisen_parcalar);
+  const puan = Math.max(0, Math.min(5, Number(r?.musteri_puani) || 0));
+  const no = String(r?.id || "").slice(0, 6).toUpperCase();
 
   return `<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8">
-<title>Servis Raporu - ${esc(r?.firma_adi)}</title><style>${css}</style></head>
+<title>Servis Raporu ${esc(no)}</title><style>${css}</style></head>
 <body><div class="sayfa">
-
-  <div class="ust">
-    <div class="logo"><b>BUVİSAN</b></div>
-    ${firma}
-  </div>
-  <div class="cizgi"></div>
+  ${ustBlok}
 
   <div class="baslik">
-    <h1>SERVİS RAPORU</h1>
-    <p>No: <b style="color:#dc2626">${esc(String(r?.id || "").slice(0, 6).toUpperCase())}</b></p>
+    <h1>Servis Raporu</h1>
+    <div class="alt">Rapor No: <b>${esc(no)}</b> &nbsp;·&nbsp; ${tarih(r?.created_at)}</div>
   </div>
 
-  <div class="kutu"><table>
-    <tr><td class="etiket">FİRMA ADI</td><td><b>${esc(r?.firma_adi || "—")}</b></td></tr>
-    <tr><td class="etiket">FİRMA ADRESİ</td><td>${esc(r?.firma_adresi || "—")}</td></tr>
-    <tr><td class="etiket">İŞYERİNE VARIŞ</td><td>${esc(r?.isyerine_varis_tarih_saat || "—")}</td></tr>
-    <tr><td class="etiket">İŞYERİNDEN AYRILIŞ</td><td>${esc(r?.isyerinden_ayrilis_tarih_saat || "—")}</td></tr>
-    <tr><td class="etiket">SÜRE</td><td>${r?.sure_dakika ? esc(r.sure_dakika) + " dakika" : "—"}</td></tr>
+  <div class="bilgi-kutu"><table>
+    <tr><td class="e">Firma Adı</td><td class="d">${esc(r?.firma_adi || "—")}</td></tr>
+    <tr><td class="e">Firma Adresi</td><td class="d">${esc(r?.firma_adresi || "—")}</td></tr>
+    <tr><td class="e">İşyerine Varış</td><td class="d">${esc(r?.isyerine_varis_tarih_saat || "—")}</td></tr>
+    <tr><td class="e">İşyerinden Ayrılış</td><td class="d">${esc(r?.isyerinden_ayrilis_tarih_saat || "—")}</td></tr>
+    <tr><td class="e">Toplam Süre</td><td class="d">${r?.sure_dakika ? esc(r.sure_dakika) + " dakika" : "—"}</td></tr>
   </table></div>
 
-  <table class="tbl" style="margin-bottom:14px">
-    <tr>
-      <th>VİNCİN MODELİ</th><th>SERİ NO</th><th>İŞLEM TÜRÜ</th><th>PERSONEL</th>
-    </tr>
-    <tr>
+  <div class="tbl-cerceve"><table class="tbl">
+    <thead><tr>
+      <th>Vinç Modeli</th><th>Seri No</th><th>İşlem Türü</th><th>Personel</th>
+    </tr></thead>
+    <tbody><tr>
       <td>${esc(r?.vinc_modeli || "—")}</td>
       <td>${esc(r?.vinc_seri_no || "—")}</td>
-      <td>${esc(r?.islem_turu || "SERVİS")}</td>
-      <td>${esc(String(r?.personel_adi || "—").toUpperCase())}</td>
-    </tr>
-  </table>
+      <td>${esc(String(r?.islem_turu || "Servis").toUpperCase())}</td>
+      <td><b>${esc(String(r?.personel_adi || "—").toUpperCase())}</b></td>
+    </tr></tbody>
+  </table></div>
 
   <div class="bolum">
-    <div class="bolum-bas">ARIZANIN CİNSİ</div>
+    <div class="bolum-baslik">Arızanın Cinsi</div>
     <div class="bolum-icerik">${esc(r?.arizanin_cinsi || "—")}</div>
   </div>
 
   <div class="bolum">
-    <div class="bolum-bas">YAPILAN İŞLER</div>
+    <div class="bolum-baslik">Yapılan İşler</div>
     <div class="bolum-icerik">${esc(r?.yapilan_isler || "—")}</div>
   </div>
 
   <div class="bolum">
-    <div class="bolum-bas">DEĞİŞEN PARÇALAR</div>
-    <table class="tbl">
-      <tr><th style="width:90px">PARÇA NO</th><th>PARÇA ADI</th><th style="width:70px;text-align:center">ADET</th></tr>
-      ${parcalar.length > 0
-        ? parcalar.map((p: any, i: number) => `<tr>
-            <td>${esc(p?.parca_no || p?.no || "-")}</td>
-            <td>${esc(p?.ad || p?.parca_adi || p?.name || "-")}</td>
-            <td class="orta">${esc(p?.adet ?? p?.qty ?? 1)}</td>
-          </tr>`).join("")
-        : `<tr><td colspan="3" style="text-align:center;color:#9ca3af">Parça değişimi yapılmadı</td></tr>`}
-    </table>
+    <div class="bolum-baslik">Değişen Parçalar</div>
+    <div class="tbl-cerceve" style="margin-bottom:0"><table class="tbl">
+      <thead><tr>
+        <th style="width:100px">Parça No</th><th>Parça Adı</th><th style="width:70px;text-align:center">Adet</th>
+      </tr></thead>
+      <tbody>
+        ${parcalar.length > 0
+          ? parcalar.map((p: any) => `<tr>
+              <td>${esc(p?.parca_no || p?.no || "—")}</td>
+              <td>${esc(p?.ad || p?.parca_adi || p?.name || "—")}</td>
+              <td class="orta"><b>${esc(p?.adet ?? p?.qty ?? 1)}</b></td>
+            </tr>`).join("")
+          : `<tr><td colspan="3" style="text-align:center;color:#94a3b8;padding:14px">Parça değişimi yapılmadı</td></tr>`}
+      </tbody>
+    </table></div>
   </div>
 
   ${puan > 0 ? `<div class="memnuniyet">
-    <div class="et">⭐ MÜŞTERİ MEMNUNİYETİ</div>
-    <div class="yildiz">${"★".repeat(puan)}${"☆".repeat(5 - puan)} &nbsp; ${puan}/5</div>
+    <span class="et">★ Müşteri Memnuniyeti</span>
+    <span class="yildiz">${"★".repeat(puan)}<span>${"★".repeat(5 - puan)}</span> &nbsp; <b>${puan}/5</b></span>
   </div>` : ""}
 
   <div class="imza-alan">
@@ -208,24 +414,15 @@ export function servisRaporuHtml(r: RaporVeri): string {
     </div>
   </div>
 
-  <div class="alt-yazi">BUVİSAN Vinç Servis · 0224 374 00 01 · www.buvisan.com</div>
+  ${altBlok}
 </div></body></html>`;
 }
 
 // ═══════════════════════════════════════════════════════════
 // BAKIM FORMU
 // ═══════════════════════════════════════════════════════════
-export function bakimFormuHtml(b: RaporVeri): string {
-  const maddeler = (() => {
-    try {
-      const m = b?.maddeler;
-      if (!m) return [] as any[];
-      if (Array.isArray(m)) return m;
-      if (typeof m === "string") { const j = JSON.parse(m); return Array.isArray(j) ? j : []; }
-      return [];
-    } catch { return []; }
-  })();
-
+export function bakimFormuHtml(b: any): string {
+  const maddeler = jsonDizi(b?.maddeler);
   const makine = (() => {
     try {
       const m = b?.makine_bilgileri;
@@ -234,73 +431,79 @@ export function bakimFormuHtml(b: RaporVeri): string {
       return JSON.parse(String(m));
     } catch { return {} as any; }
   })();
-
-  const puan = Number(b?.musteri_puani || 0);
+  const puan = Math.max(0, Math.min(5, Number(b?.musteri_puani) || 0));
+  const tip = b?.form_tipi === "asansor" ? "ASANSÖR" : "VİNÇ";
 
   return `<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8">
-<title>Bakım Formu - ${esc(b?.musteri)}</title><style>${css}</style></head>
+<title>Bakım Formu ${esc(b?.seri_no)}</title><style>${css}</style></head>
 <body><div class="sayfa">
-
-  <div class="ust">
-    <div class="logo"><b>BUVİSAN</b></div>
-    ${firma}
-  </div>
-  <div class="cizgi"></div>
+  ${ustBlok}
 
   <div class="baslik">
-    <h1>${b?.form_tipi === "asansor" ? "ASANSÖR" : "VİNÇ"} PERİYODİK BAKIM FORMU</h1>
-    <p>Seri No: <b style="color:#dc2626">${esc(b?.seri_no || "—")}</b></p>
+    <h1>${tip} Periyodik Bakım Formu</h1>
+    <div class="alt">Form No: <b>${esc(b?.seri_no || "—")}</b> &nbsp;·&nbsp; ${tarih(b?.kontrol_tarihi)}</div>
   </div>
 
-  <div class="kutu"><table>
-    <tr><td class="etiket">MÜŞTERİ</td><td><b>${esc(b?.musteri || "—")}</b></td></tr>
-    <tr><td class="etiket">YETKİLİ</td><td>${esc(b?.yetkili || "—")}</td></tr>
-    <tr><td class="etiket">TELEFON</td><td>${esc(b?.telefon || "—")}</td></tr>
-    <tr><td class="etiket">ADRES</td><td>${esc(b?.adres || "—")}</td></tr>
-    <tr><td class="etiket">PERSONEL</td><td>${esc(String(b?.personel || "—").toUpperCase())}</td></tr>
-    <tr><td class="etiket">KONTROL TARİHİ</td><td>${tarih(b?.kontrol_tarihi)} ${esc(b?.kontrol_saati || "")}</td></tr>
+  <div class="bilgi-kutu"><table>
+    <tr><td class="e">Müşteri</td><td class="d">${esc(b?.musteri || "—")}</td></tr>
+    <tr><td class="e">Yetkili</td><td class="d">${esc(b?.yetkili || "—")}</td></tr>
+    <tr><td class="e">Telefon</td><td class="d">${esc(b?.telefon || "—")}</td></tr>
+    <tr><td class="e">Adres</td><td class="d">${esc(b?.adres || "—")}</td></tr>
+    <tr><td class="e">Bakım Personeli</td><td class="d"><b>${esc(String(b?.personel || "—").toUpperCase())}</b></td></tr>
+    <tr><td class="e">Kontrol Tarihi</td><td class="d">${tarih(b?.kontrol_tarihi)} ${esc(b?.kontrol_saati || "")}</td></tr>
   </table></div>
 
   ${Object.keys(makine).length > 0 ? `
   <div class="bolum">
-    <div class="bolum-bas">MAKİNE BİLGİLERİ</div>
-    <table class="tbl">
-      ${Object.entries(makine).filter(([, v]) => v).map(([k, v]) =>
-        `<tr><td class="etiket" style="width:130px;font-weight:700;background:#f9fafb">${esc(k.replace(/_/g, " ").toUpperCase())}</td><td>${esc(v)}</td></tr>`
-      ).join("")}
-    </table>
+    <div class="bolum-baslik">Makine Bilgileri</div>
+    <div class="tbl-cerceve" style="margin-bottom:0"><table class="tbl">
+      <tbody>
+        ${Object.entries(makine).filter(([, v]) => v).map(([k, v]) =>
+          `<tr><td style="width:150px;font-weight:800;background:#f8fafc;font-size:9.5px;letter-spacing:0.5px;text-transform:uppercase;color:#475569">${esc(k.replace(/_/g, " "))}</td><td><b>${esc(v)}</b></td></tr>`
+        ).join("")}
+      </tbody>
+    </table></div>
   </div>` : ""}
 
-  <table class="tbl" style="margin:14px 0">
-    <tr>
-      <th style="width:70px;text-align:center">ONAY</th>
-      <th style="width:70px;text-align:center">RET</th>
-      <th style="width:130px;text-align:center">MEMNUNİYET</th>
-      <th style="text-align:center">DURUM</th>
-    </tr>
-    <tr>
-      <td class="orta" style="font-weight:900;color:#059669;font-size:15px">${esc(b?.onay_sayisi ?? 0)}</td>
-      <td class="orta" style="font-weight:900;color:#dc2626;font-size:15px">${esc(b?.ret_sayisi ?? 0)}</td>
-      <td class="orta">${puan > 0 ? "★".repeat(puan) + " " + puan + "/5" : "—"}</td>
-      <td class="orta" style="font-weight:900">${b?.is_durumu === "devam_ediyor" ? "DEVAM EDİYOR" : "TAMAMLANDI"}</td>
-    </tr>
-  </table>
+  <div class="tbl-cerceve"><table class="tbl">
+    <thead><tr>
+      <th style="text-align:center">Onay</th>
+      <th style="text-align:center">Ret</th>
+      <th style="text-align:center">Memnuniyet</th>
+      <th style="text-align:center">Durum</th>
+    </tr></thead>
+    <tbody><tr>
+      <td class="orta" style="font-weight:900;color:#059669;font-size:16px">${esc(b?.onay_sayisi ?? 0)}</td>
+      <td class="orta" style="font-weight:900;color:#dc2626;font-size:16px">${esc(b?.ret_sayisi ?? 0)}</td>
+      <td class="orta">${puan > 0 ? "★".repeat(puan) + ` <b>${puan}/5</b>` : "—"}</td>
+      <td class="orta" style="font-weight:900;font-size:10px;letter-spacing:0.5px">${b?.is_durumu === "devam_ediyor" ? "DEVAM EDİYOR" : "TAMAMLANDI"}</td>
+    </tr></tbody>
+  </table></div>
 
   ${maddeler.length > 0 ? `
   <div class="bolum">
-    <div class="bolum-bas">KONTROL MADDELERİ</div>
-    <table class="tbl">
-      <tr><th>Kontrol Maddesi</th><th style="width:60px;text-align:center">RET</th><th style="width:60px;text-align:center">ONAY</th></tr>
-      ${maddeler.map((m: any) => `<tr>
-        <td>${esc(m?.madde || m?.ad || m?.metin || "-")}</td>
-        <td class="orta" style="color:#dc2626;font-weight:900">${m?.durum === "ret" || m?.ret ? "✗" : ""}</td>
-        <td class="orta" style="color:#059669;font-weight:900">${m?.durum === "onay" || m?.onay ? "✓" : (m?.durum ? "" : "✓")}</td>
-      </tr>`).join("")}
-    </table>
+    <div class="bolum-baslik">Kontrol Maddeleri</div>
+    <div class="tbl-cerceve" style="margin-bottom:0"><table class="tbl">
+      <thead><tr>
+        <th>Kontrol Maddesi</th>
+        <th style="width:56px;text-align:center">Ret</th>
+        <th style="width:56px;text-align:center">Onay</th>
+      </tr></thead>
+      <tbody>
+        ${maddeler.map((m: any) => {
+          const ret = m?.durum === "ret" || m?.ret;
+          return `<tr>
+            <td>${esc(m?.madde || m?.ad || m?.metin || "—")}</td>
+            <td class="orta" style="color:#dc2626;font-weight:900">${ret ? "✕" : ""}</td>
+            <td class="orta" style="color:#059669;font-weight:900">${ret ? "" : "✓"}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table></div>
   </div>` : ""}
 
   ${b?.notlar ? `<div class="bolum">
-    <div class="bolum-bas">NOTLAR</div>
+    <div class="bolum-baslik">Notlar</div>
     <div class="bolum-icerik">${esc(b.notlar)}</div>
   </div>` : ""}
 
@@ -322,68 +525,75 @@ export function bakimFormuHtml(b: RaporVeri): string {
     </div>
   </div>
 
-  <div class="alt-yazi">BUVİSAN Vinç Servis · 0224 374 00 01 · www.buvisan.com</div>
+  ${altBlok}
 </div></body></html>`;
 }
 
 // ═══════════════════════════════════════════════════════════
 // FİYAT TEKLİFİ
 // ═══════════════════════════════════════════════════════════
-export function teklifHtml(t: RaporVeri, kalemler: any[]): string {
-  const toplam = (kalemler || []).reduce(
-    (s, k) => s + (Number(k?.toplam) || (Number(k?.adet) || 0) * (Number(k?.birim_fiyat) || 0)), 0
-  );
+export function teklifHtml(t: any, kalemler: any[]): string {
+  const liste = (kalemler || []).length > 0 ? kalemler : jsonDizi(t?.items);
+  const toplam = liste.reduce((s: number, k: any) => {
+    const adet = Number(k?.adet) || 1;
+    const bf = Number(k?.birim_fiyat) || 0;
+    const tt = Number(k?.toplam) || adet * bf;
+    return s + tt;
+  }, 0);
+  const genel = Number(t?.total_price) || toplam;
+
+  const baslik =
+    t?.template_type === "bakim" ? "PERİYODİK BAKIM SÖZLEŞMESİ"
+    : t?.template_type === "siparis" ? "SİPARİŞ FORMU"
+    : "FİYAT TEKLİF FORMU";
 
   return `<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8">
-<title>Fiyat Teklif Formu</title><style>${css}</style></head>
+<title>${baslik}</title><style>${css}</style></head>
 <body><div class="sayfa">
-
-  <div class="ust">
-    <div class="logo"><b>BUVİSAN</b></div>
-    ${firma}
-  </div>
-  <div class="cizgi"></div>
+  ${ustBlok}
 
   <div class="baslik">
-    <h1>FİYAT TEKLİF FORMU</h1>
-    <p>Tarih: ${tarih(t?.created_at || new Date().toISOString())}</p>
+    <h1>${baslik}</h1>
+    <div class="alt">Teklif Tarihi: <b>${tarih(t?.offer_date || t?.created_at)}</b>${t?.valid_until ? ` &nbsp;·&nbsp; Geçerlilik: ${tarih(t.valid_until)}` : ""}</div>
   </div>
 
-  <div class="kutu"><table>
-    <tr><td class="etiket">SAYIN</td><td>${esc(t?.customer_rep || t?.yetkili || "Yetkili")}</td></tr>
-    <tr><td class="etiket">FİRMA</td><td><b>${esc(t?.customer_name || t?.musteri || "—")}</b></td></tr>
-    <tr><td class="etiket">ADRES</td><td>${esc(t?.customer_address || t?.adres || "—")}</td></tr>
+  <div class="bilgi-kutu"><table>
+    <tr><td class="e">Sayın</td><td class="d">${esc(t?.customer_rep || t?.yetkili || "Yetkili")}</td></tr>
+    <tr><td class="e">Firma</td><td class="d"><b>${esc(t?.customer_name || t?.musteri || "—")}</b></td></tr>
+    <tr><td class="e">Adres</td><td class="d">${esc(t?.customer_address || t?.adres || "—")}</td></tr>
   </table></div>
 
-  <table class="tbl" style="margin:16px 0">
-    <tr>
-      <th>AÇIKLAMA / MALZEME</th>
-      <th style="width:70px;text-align:center">MİKTAR</th>
-      <th style="width:110px;text-align:right">BİRİM FİYAT</th>
-      <th style="width:110px;text-align:right">TUTAR</th>
-    </tr>
-    ${(kalemler || []).length > 0
-      ? kalemler.map((k: any) => {
-          const adet = Number(k?.adet) || 1;
-          const bf = Number(k?.birim_fiyat) || 0;
-          const tt = Number(k?.toplam) || adet * bf;
-          return `<tr>
-            <td>${esc(k?.ad || "-")}</td>
-            <td class="orta">${adet}</td>
-            <td class="sag">${bf.toLocaleString("tr-TR")} ₺</td>
-            <td class="sag"><b>${tt.toLocaleString("tr-TR")} ₺</b></td>
-          </tr>`;
-        }).join("")
-      : `<tr><td colspan="4" style="text-align:center;color:#9ca3af">Kalem yok</td></tr>`}
-    <tr class="toplam">
-      <td colspan="3" class="sag">GENEL TOPLAM</td>
-      <td class="sag">${toplam.toLocaleString("tr-TR")} ₺</td>
-    </tr>
-  </table>
+  <div class="tbl-cerceve"><table class="tbl">
+    <thead><tr>
+      <th>Açıklama / Malzeme</th>
+      <th style="width:64px;text-align:center">Miktar</th>
+      <th style="width:118px;text-align:right">Birim Fiyat</th>
+      <th style="width:118px;text-align:right">Tutar</th>
+    </tr></thead>
+    <tbody>
+      ${liste.length > 0
+        ? liste.map((k: any) => {
+            const adet = Number(k?.adet) || 1;
+            const bf = Number(k?.birim_fiyat) || 0;
+            const tt = Number(k?.toplam) || adet * bf;
+            return `<tr>
+              <td><b>${esc(k?.ad || k?.description || "—")}</b>${k?.detay ? `<div style="font-size:9.5px;color:#64748b;margin-top:3px;font-weight:500">${esc(k.detay)}</div>` : ""}</td>
+              <td class="orta">${adet}</td>
+              <td class="sag">${para(bf)}</td>
+              <td class="sag"><b>${para(tt)}</b></td>
+            </tr>`;
+          }).join("")
+        : `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:16px">Kalem bulunmuyor</td></tr>`}
+      <tr class="toplam">
+        <td colspan="3" class="sag">GENEL TOPLAM</td>
+        <td class="sag">${para(genel)}</td>
+      </tr>
+    </tbody>
+  </table></div>
 
   <div class="bolum">
-    <div class="bolum-bas">NOTLAR VE ŞARTLAR</div>
-    <div class="bolum-icerik">Bu teklif 15 gün süreyle geçerlidir. Fiyatlara KDV dahil değildir.</div>
+    <div class="bolum-baslik">Notlar ve Şartlar</div>
+    <div class="bolum-icerik">${esc(t?.description || "Bu teklif 15 gün süreyle geçerlidir. Fiyatlara KDV dahil değildir.")}</div>
   </div>
 
   <div class="imza-alan">
@@ -399,6 +609,6 @@ export function teklifHtml(t: RaporVeri, kalemler: any[]): string {
     </div>
   </div>
 
-  <div class="alt-yazi">BUVİSAN Vinç Servis · 0224 374 00 01 · www.buvisan.com</div>
+  ${altBlok}
 </div></body></html>`;
 }

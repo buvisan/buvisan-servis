@@ -278,10 +278,12 @@ export default function TekliflerSayfasi() {
   };
 
   const yazdir = async () => {
-    const html = teklifHtml(yeniTeklif, kalemler);
+    const t = seciliTeklif;
+    if (!t) { alert("Teklif secili degil."); return; }
+    const html = teklifHtml(t, t.items || []);
     await yazdirVeyaPaylas(html, {
       baslik: "Fiyat Teklif Formu",
-      dosyaAdi: "teklif-" + String(yeniTeklif?.customer_name || "musteri"),
+      dosyaAdi: "teklif-" + String(t.customer_name || "musteri").replace(/\s+/g, "-"),
     });
   };;
 
