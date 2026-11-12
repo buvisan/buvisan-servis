@@ -8,6 +8,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { gorulduIsaretle } from '@/lib/bildirimler';
 import { supabase } from '@/lib/supabaseClient';
+import { yazdirVeyaPaylas } from '@/lib/yazdirPaylas';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -123,10 +124,14 @@ async function verileriGetir() {
     return firmaAd.includes(aramaKriteri) || personel.includes(aramaKriteri) || ariza.includes(aramaKriteri);
   });
 
-  const raporYazdir = () => {
-      // ✅ SAYFA İÇİ YAZDIRMA — popup yok, mobil uyumlu
-      try { window.print(); } catch (e) { alert("Yazdırma başlatılamadı. Tarayıcı menüsünden 'Yazdır' seçin."); }
-  };;;
+  const raporYazdir = async () => {
+      const el = printRef.current;
+      if (!el) { alert("Form icerigi bulunamadi."); return; }
+      await yazdirVeyaPaylas(el.innerHTML, {
+        baslik: "Servis Raporu - " + (seciliRapor?.firma_adi || ""),
+        dosyaAdi: "servis-raporu-" + String(seciliRapor?.id || "").slice(0,6),
+      });
+  };;;;
 
   if (yukleniyor) return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">

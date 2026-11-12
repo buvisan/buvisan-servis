@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 import { gorulduIsaretle } from "@/lib/bildirimler";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { yazdirVeyaPaylas } from "@/lib/yazdirPaylas";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, Loader2, RefreshCw, ArrowLeft, X, Printer,
@@ -55,10 +56,14 @@ export default function BakimFormlariSayfasi() {
     } finally { setDetayYuk(false); }
   };
 
-  const yazdir = () => {
-    // ✅ SAYFA İÇİ YAZDIRMA — popup yok
-    try { window.print(); } catch (e) { alert("Yazdırma başlatılamadı. Tarayıcı menüsünden 'Yazdır' seçin."); }
-  };;;
+  const yazdir = async () => {
+    const el = document.getElementById("form-yazdir") || document.getElementById("bakim-yazdir");
+    if (!el) { alert("Form icerigi bulunamadi."); return; }
+    await yazdirVeyaPaylas(el.innerHTML, {
+      baslik: "Bakim Formu - " + (detay?.musteri || ""),
+      dosyaAdi: "bakim-formu-" + String(detay?.id || "").slice(0,6),
+    });
+  };;;;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-16">

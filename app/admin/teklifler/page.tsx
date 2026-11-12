@@ -7,6 +7,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { yazdirVeyaPaylas } from '@/lib/yazdirPaylas';
 import { 
   Loader2, Plus, FileText, Calendar, DollarSign, User, MapPin, 
   Box, Printer, Trash2, CheckCircle, XCircle, Search, FileCheck, Clock,
@@ -275,23 +276,14 @@ export default function TekliflerSayfasi() {
       window.open(url, '_blank');
   };
 
-  const yazdir = () => {
-      const printContent = printRef.current;
-      if (!printContent) return;
-      const win = window.open('', '', 'width=900,height=650');
-      win?.document.write(`
-        <html>
-          <head>
-            <title>Buvisan Teklif</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <style>@media print { body { -webkit-print-color-adjust: exact; } }</style>
-          </head>
-          <body>${printContent.innerHTML}</body>
-        </html>
-      `);
-      win?.document.close(); win?.focus();
-      setTimeout(() => { win?.print(); win?.close(); }, 500);
-  };
+  const yazdir = async () => {
+    const el = printRef.current;
+    if (!el) { alert("Teklif icerigi bulunamadi."); return; }
+    await yazdirVeyaPaylas(el.innerHTML, {
+      baslik: "Fiyat Teklif Formu - " + (yeniTeklif?.customer_name || ""),
+      dosyaAdi: "teklif-" + String(yeniTeklif?.customer_name || "musteri").replace(/\s+/g, "-").toLowerCase(),
+    });
+  };;
 
   const filtrelenmis = teklifler.filter(t => {
       const aramaUyumu = t.customer_name.toLowerCase().includes(arama.toLowerCase());
