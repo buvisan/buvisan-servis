@@ -48,8 +48,9 @@ function vcfAyikla(metin: string): Kisi[] {
   for (const kart of kartlar) {
     // İsim
     let isim = "";
-    const fn = kart.match(/^FN[^:]*:(.+)$/im);
-    const n = kart.match(/^N[^:]*:(.+)$/im);
+    const temizKart = kart.replace(/=\\r?\\n/g, '');
+    const fn = temizKart.match(/^FN[^:]*:(.+)$/im);
+    const n = temizKart.match(/^N[^:]*:(.+)$/im);
     if (fn) isim = qpCoz(fn[1].trim());
     else if (n) {
       const p = n[1].split(";").map((x) => qpCoz(x.trim())).filter(Boolean);
@@ -58,7 +59,7 @@ function vcfAyikla(metin: string): Kisi[] {
     // temizle
     isim = isim.replace(/\s+/g, " ").trim();
     // Telefon(lar)
-    const teller = [...kart.matchAll(/^TEL[^:]*:(.+)$/gim)].map((m) => m[1].trim());
+    const teller = [...kart.matchAll(/^[A-Za-z0-9._-]*TEL[^:]*:(.+)$/gim)].map((m) => m[1].trim());
     for (const tel of teller) {
       const rakam = tel.replace(/[^0-9]/g, "");
       if (rakam.length >= 10) {

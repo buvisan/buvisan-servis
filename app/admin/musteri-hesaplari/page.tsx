@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import TelefonTopluYukle from "@/components/TelefonTopluYukle";
+import TelefonRehberi from "@/components/TelefonRehberi";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Loader2, RefreshCw, CheckCircle2, XCircle,
@@ -148,89 +148,7 @@ export default function MusteriHesaplari() {
           </button>
         </div>
 
-        {aktifSekme === 'telefonlar' && (
-          <div className="space-y-3">
-            <div className="bg-white border-2 border-indigo-200 rounded-2xl p-4">
-              <h3 className="text-xs font-black text-indigo-800 uppercase mb-2">📞 YENİ NUMARA TANIMLA</h3>
-              <p className="text-[10px] text-slate-500 font-medium mb-3">
-                Müşteri henüz servis çağırmamışsa buradan numarasını tanımlayın — kayıt olabilsin.
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase">Telefon *</label>
-                  <input value={tTel} onChange={(e) => setTTel(e.target.value)}
-                    placeholder="0532 123 45 67" type="tel"
-                    className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase">Firma Adı</label>
-                  <input value={tFirma} onChange={(e) => setTFirma(e.target.value)}
-                    placeholder="ABC Makina"
-                    className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase">Yetkili</label>
-                  <input value={tYetkili} onChange={(e) => setTYetkili(e.target.value)}
-                    placeholder="Ahmet Yılmaz"
-                    className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase">Not</label>
-                  <input value={tNot} onChange={(e) => setTNot(e.target.value)}
-                    placeholder="Telefonla aradı..."
-                    className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-              <button onClick={telEkle} disabled={telYuk}
-                className="w-full mt-3 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl text-[11px] font-black flex items-center justify-center gap-2">
-                {telYuk ? <Loader2 size={13} className="animate-spin" /> : <Phone size={13} />}
-                {telYuk ? "EKLENİYOR..." : "NUMARAYI TANIMLA"}
-              </button>
-            </div>
-
-            <TelefonTopluYukle onBitti={telGetir} />
-
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-              <div className="bg-indigo-600 px-4 py-2.5">
-                <h3 className="text-white font-black text-xs">TANIMLI NUMARALAR ({telListe.length})</h3>
-              </div>
-              <div className="p-3 pb-0">
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-3 text-slate-400" />
-                  <input value={telArama} onChange={(e) => setTelArama(e.target.value)}
-                    placeholder="İsim veya numara ara..."
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-              <div className="p-3 space-y-1.5">
-                {telListe.length === 0 ? (
-                  <p className="text-center text-slate-400 text-[11px] font-bold py-6">Henüz numara tanımlanmamış</p>
-                ) : telListe.filter((t: any) => {
-                  const a = telArama.toLowerCase().replace(/[^a-z0-9]/g, '');
-                  if (!a) return true;
-                  const tel = String(t.telefon || '').replace(/[^0-9]/g, '');
-                  const isim = String(t.yetkili || '').toLowerCase();
-                  const firma = String(t.firma_adi || '').toLowerCase();
-                  return tel.includes(a) || isim.includes(a) || firma.includes(a);
-                }).map((t: any) => (
-                  <div key={t.id} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 ${t.kullanildi ? "bg-emerald-50 border border-emerald-200" : "bg-slate-50 border border-slate-200"}`}>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-black text-slate-800">{t.telefon}</p>
-                      <p className="text-[9px] font-bold text-slate-500">
-                        {[t.firma_adi, t.yetkili].filter(Boolean).join(' · ') || '—'}
-                      </p>
-                      {t.notlar && <p className="text-[9px] text-slate-400">{t.notlar}</p>}
-                    </div>
-                    {t.kullanildi && <span className="text-[8px] font-black text-emerald-600 bg-white px-1.5 py-0.5 rounded shrink-0">KAYIT OLDU</span>}
-                    <button onClick={() => telSil(t.id)} className="text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg shrink-0">
-                      <XCircle size={13} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        {aktifSekme === 'telefonlar' && <TelefonRehberi />}
 
         {aktifSekme === 'hesaplar' && (
         <>
