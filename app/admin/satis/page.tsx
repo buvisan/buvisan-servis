@@ -24,6 +24,27 @@ type Kalem = {
   birim_fiyat: number;
 };
 
+function fiyatCoz(s: any): number {
+  const adaylar = [
+    s?.price, s?.satis_fiyati, s?.birim_fiyat, s?.fiyat,
+    s?.sale_price, s?.unit_price, s?.liste_fiyati, s?.satis_fiyat,
+  ];
+  for (const a of adaylar) {
+    const n = Number(a);
+    if (a !== null && a !== undefined && a !== "" && !isNaN(n) && n > 0) return n;
+  }
+  return 0;
+}
+
+function stokCoz(s: any): number {
+  const adaylar = [s?.stock, s?.adet, s?.stok, s?.miktar, s?.quantity, s?.qty];
+  for (const a of adaylar) {
+    const n = Number(a);
+    if (a !== null && a !== undefined && a !== "" && !isNaN(n)) return n;
+  }
+  return 0;
+}
+
 export default function SatisSayfasi() {
   const [sekme, setSekme] = useState<"yeni" | "gecmis">("yeni");
   const [stok, setStok] = useState<any[]>([]);
@@ -71,7 +92,7 @@ export default function SatisSayfasi() {
 
   const ekle = (s: any) => {
     const ad = s.name || s.parca_adi || s.ad || "Malzeme";
-    const fiyat = Number(s.price || s.satis_fiyati || s.birim_fiyat || s.fiyat || 0);
+    const fiyat = fiyatCoz(s);
     const mevcut = kalemler.findIndex((k) => k.parca_adi === ad);
     if (mevcut >= 0) {
       const k = [...kalemler];
@@ -257,8 +278,8 @@ export default function SatisSayfasi() {
                   <p className="py-10 text-center text-[11px] font-bold text-slate-400">Malzeme bulunamadı</p>
                 ) : stokFiltre.map((s: any) => {
                   const ad = s.name || s.parca_adi || s.ad || "Malzeme";
-                  const fiyat = Number(s.price || s.satis_fiyati || s.birim_fiyat || s.fiyat || 0);
-                  const stokAdet = Number(s.stock ?? s.adet ?? s.stok ?? s.miktar ?? 0);
+                  const fiyat = fiyatCoz(s);
+                  const stokAdet = stokCoz(s);
                   return (
                     <button key={s.id} onClick={() => ekle(s)}
                       className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-indigo-50 transition text-left">
