@@ -56,27 +56,9 @@ export default function BakimFormlariSayfasi() {
   };
 
   const yazdir = () => {
-    const icerik = document.getElementById("form-yazdir")?.innerHTML;
-    if (!icerik) return;
-    const w = window.open("", "_blank");
-    if (!w) { alert("Pop-up engellendi. Lütfen izin verin."); return; }
-    const stiller = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-      .map((el) => el.outerHTML).join("\n");
-    w.document.write(`<!DOCTYPE html><html><head><title>${detay?.seri_no || "Bakım Formu"}</title>
-      ${stiller}
-      <style>
-        @page { size: A4; margin: 10mm; }
-        html, body { margin: 0; padding: 0; background: #fff !important; }
-        body { font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        table { border-collapse: collapse; width: 100%; }
-        tr, td, th { page-break-inside: avoid; }
-        .no-print, button { display: none !important; }
-        img { max-height: 60px; }
-      </style>
-    </head><body>${icerik}</body></html>`);
-    w.document.close();
-    setTimeout(() => { w.focus(); w.print(); }, 700);
-  };;
+    // ✅ SAYFA İÇİ YAZDIRMA — popup yok
+    try { window.print(); } catch (e) { alert("Yazdırma başlatılamadı. Tarayıcı menüsünden 'Yazdır' seçin."); }
+  };;;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-16">

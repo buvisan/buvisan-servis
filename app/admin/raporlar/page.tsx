@@ -124,49 +124,9 @@ async function verileriGetir() {
   });
 
   const raporYazdir = () => {
-      const printContent = printRef.current;
-      if (!printContent) { alert("Form icerigi bulunamadi."); return; }
-
-      const win = window.open("", "_blank");
-      if (!win) {
-          alert("Pop-up engellendi. Tarayici adres cubugundaki engelleyiciyi kapatip tekrar deneyin.");
-          return;
-      }
-
-      const stiller = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-          .map((el) => el.outerHTML).join("\n");
-
-      win.document.open();
-      win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8">'
-        + '<title>Servis Raporu</title>'
-        + stiller
-        + '<style>'
-        + '@page { size: A4 portrait; margin: 10mm; }'
-        + 'html, body { margin: 0; padding: 0; background: #fff !important; }'
-        + 'body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: Arial, sans-serif; }'
-        + '@media print { #kapat-bar, .buv-toolbar { display: none !important; } }'
-        + 'table { border-collapse: collapse; width: 100%; }'
-        + 'tr, td, th { page-break-inside: avoid; }'
-        + 'img { max-height: 60px; }'
-        + '</style></head><body>'
-        + '<div id="kapat-bar" class="buv-toolbar" style="position:fixed;top:0;left:0;right:0;background:#0f172a;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:99999;font-family:Arial;box-shadow:0 2px 10px rgba(0,0,0,.3)">'
-        + '<span style="font-size:13px;font-weight:bold">BUVISAN - Servis Raporu</span>'
-        + '<button onclick="window.print()" style="background:#10b981;color:#fff;border:0;padding:8px 16px;border-radius:8px;font-weight:bold;font-size:12px;margin-right:8px;cursor:pointer">YAZDIR / PDF</button>'
-        + '<button onclick="window.close()" style="background:#ef4444;color:#fff;border:0;padding:8px 16px;border-radius:8px;font-weight:bold;font-size:12px;cursor:pointer">KAPAT</button>'
-        + '</div>'
-        + '<div style="padding-top:60px">' + printContent.innerHTML + '</div>'
-        + '</body></html>');
-      win.document.close();
-
-      let basildi = false;
-      const bas = () => {
-          if (basildi) return;
-          basildi = true;
-          try { win.focus(); win.print(); } catch (e) {}
-      };
-      setTimeout(bas, 900);
-      setTimeout(bas, 2500);
-  };;
+      // ✅ SAYFA İÇİ YAZDIRMA — popup yok, mobil uyumlu
+      try { window.print(); } catch (e) { alert("Yazdırma başlatılamadı. Tarayıcı menüsünden 'Yazdır' seçin."); }
+  };;;
 
   if (yukleniyor) return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
