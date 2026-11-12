@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import TelefonTopluYukle from "@/components/TelefonTopluYukle";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Loader2, RefreshCw, CheckCircle2, XCircle,
@@ -185,6 +186,8 @@ export default function MusteriHesaplari() {
                 {telYuk ? "EKLENİYOR..." : "NUMARAYI TANIMLA"}
               </button>
             </div>
+
+            <TelefonTopluYukle onBitti={telGetir} />
 
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
               <div className="bg-indigo-600 px-4 py-2.5">
