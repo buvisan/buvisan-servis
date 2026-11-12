@@ -36,14 +36,15 @@ function qpCoz(metin: string): string {
     }
     let cozulen = new TextDecoder("utf-8", { fatal: false }).decode(new Uint8Array(baytlar));
 
-    // ⭐ Kalan = artefaktlarini temizle
+    // ⭐ Yarım kalan = ve kontrol karakterlerini temizle
     cozulen = cozulen
-      .replace(/=\\s*$/g, "")          // satir sonu =
-      .replace(/=20/g, " ")              // bosluk kodu
-      .replace(/=\\r?\\n/g, "")         // yumusak satir
-      .replace(/=([^0-9A-F])/gi, "$1")   // gecersiz =
-      .replace(/=+/g, "")                // kalan tum =
-      .replace(/\\s+/g, " ")
+      .replace(/=\\r?\\n/g, "")          // yumusak satir kirilma
+      .replace(/=[0-9A-F]{2}/gi, (m) => {   // cozulemeyen hex
+        try { return String.fromCharCode(parseInt(m.slice(1), 16)); } catch { return ""; }
+      })
+      .replace(/=\\s*$/g, "")             // satir sonu =
+      .replace(/[\u0000-\u001F\u007F]/g, "") // kontrol karakterleri
+      .replace(/[ \t]+/g, " ")
       .trim();
 
     return cozulen || metin;

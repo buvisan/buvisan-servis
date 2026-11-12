@@ -73,32 +73,18 @@ export async function pdfIndir(
 
     const kenar = 6;
     const g = 210 - kenar * 2;
-    const oran = g / kanvas.width;
-    const yuk = kanvas.height * oran;
     const maxY = 297 - kenar * 2;
 
-    const resim = kanvas.toDataURL("image/jpeg", 0.92);
+    // ⭐ HER ZAMAN TEK SAYFA: genislik veya yukseklik — hangisi kisitliyorsa
+    const oranG = g / kanvas.width;
+    const oranY = maxY / kanvas.height;
+    const oran = Math.min(oranG, oranY);
 
-    if (yuk <= maxY + 6) {
-      pdf.addImage(resim, "JPEG", kenar, kenar, g, yuk);
-    } else {
-      // 2 sayfaya bol
-      const kes = Math.floor((kanvas.height * maxY) / yuk);
+    const w = kanvas.width * oran;
+    const h = kanvas.height * oran;
+    const x = kenar + (g - w) / 2;
 
-      const ust = document.createElement("canvas");
-      ust.width = kanvas.width;
-      ust.height = kes;
-      ust.getContext("2d")!.drawImage(kanvas, 0, 0);
-      pdf.addImage(ust.toDataURL("image/jpeg", 0.92), "JPEG", kenar, kenar, g, maxY);
-
-      const alt = document.createElement("canvas");
-      alt.width = kanvas.width;
-      alt.height = Math.max(1, kanvas.height - kes);
-      alt.getContext("2d")!.drawImage(kanvas, 0, -kes);
-      pdf.addPage();
-      const kalanY = (alt.height * g) / kanvas.width;
-      pdf.addImage(alt.toDataURL("image/jpeg", 0.92), "JPEG", kenar, kenar, g, Math.min(kalanY, maxY));
-    }
+    pdf.addImage(kanvas.toDataURL("image/jpeg", 0.95), "JPEG", x, kenar, w, h);
 
     pdf.save(`${dosyaAdi}.pdf`);
     return "basarili";
