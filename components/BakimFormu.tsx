@@ -12,6 +12,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { PERSONEL_LISTESI } from "@/lib/personel";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, X, Loader2, Check, AlertTriangle, Star,
@@ -215,6 +216,8 @@ export default function BakimFormu({
   const [yorum, setYorum] = useState("");
   const [musteriImza, setMusteriImza] = useState<string | null>(null);
   const [personelImza, setPersonelImza] = useState<string | null>(null);
+  const [seciliPersonel, setSeciliPersonel] = useState<string>(personel || "");
+  const aktifPersonel = (personel || seciliPersonel || "").trim();
   const [imzaTip, setImzaTip] = useState<"musteri" | "personel" | null>(null);
 
   const [kaydediliyor, setKaydediliyor] = useState(false);
@@ -260,7 +263,7 @@ export default function BakimFormu({
         p_crane_id: craneId || null,
         p_randevu_id: randevuId || null,
         p_ticket_id: ticketId || null,
-        p_personel: personel || null,
+        p_personel: aktifPersonel || null,
         p_kontrol_tarihi: tarih,
         p_kontrol_saati: saat,
         p_makine_bilgileri: makine,
@@ -283,7 +286,7 @@ export default function BakimFormu({
           p_yetkili: yetkiliAd.trim() || null, p_telefon: telefon || null,
           p_adres: adres || null, p_crane_id: craneId || null,
           p_randevu_id: randevuId || null, p_ticket_id: ticketId || null,
-          p_personel: personel || null, p_kontrol_tarihi: tarih,
+          p_personel: aktifPersonel || null, p_kontrol_tarihi: tarih,
           p_kontrol_saati: saat, p_maddeler: maddeler,
           p_musteri_adi: musteriAd.trim(), p_is_durumu: durum,
         };
@@ -301,7 +304,7 @@ export default function BakimFormu({
         setMesaj("⏳ Sade formla tekrar deneniyor...");
         const r3 = await supabase.rpc("bakim_formu_kaydet", {
           p_tip: tip, p_musteri: musteriAd.trim(), p_ticket_id: ticketId || null,
-          p_personel: personel || null, p_kontrol_tarihi: tarih,
+          p_personel: aktifPersonel || null, p_kontrol_tarihi: tarih,
           p_maddeler: maddeler, p_musteri_adi: musteriAd.trim(), p_is_durumu: durum,
         });
         if (!r3.error && (r3.data as any)?.ok) {

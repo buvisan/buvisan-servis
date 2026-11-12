@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/push-gonder",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/sms-gonder",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
