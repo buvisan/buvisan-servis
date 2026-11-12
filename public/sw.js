@@ -1,56 +1,75 @@
 // ============================================================================
-// BUVİSAN - SERVICE WORKER (PWA) 🔧
-// Çevrimdışı destek + push bildirim + hızlı yükleme
+// BUVİSAN - SERVICE WORKER (PWA) 🔧 v2
+// ✅ Safari Lockdown Mode uyumlu (caches yoksa sayfa normal çalışır)
+// ✅ Push bildirim + çevrimdışı destek
 // ============================================================================
 
 const CACHE_ADI = 'buvisan-v1';
-const ONBELLEK_DOSYALARI = [
-  '/',
-  '/manifest.json',
-];
+
+// cache API güvenli erişim (Lockdown Mode / gizli mod)
+function cacheVar() {
+  try { return typeof caches !== 'undefined' && !!caches; } catch { return false; }
+}
 
 // ─── KURULUM ───
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_ADI).then((cache) => cache.addAll(ONBELLEK_DOSYALARI))
-      .catch(() => {})
-  );
-  self.skipWaiting();
+  try { self.skipWaiting(); } catch {}
+  try {
+    if (cacheVar()) {
+      event.waitUntil(
+        caches.open(CACHE_ADI).then((c) => c.addAll(['/'])).catch(() => {})
+      );
+    }
+  } catch {}
 });
 
 // ─── AKTİVASYON ───
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_ADI).map((k) => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
+  try { self.clients.claim(); } catch {}
+  try {
+    if (cacheVar()) {
+      event.waitUntil(
+        caches.keys()
+          .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_ADI).map((k) => caches.delete(k))))
+          .catch(() => {})
+      );
+    }
+  } catch {}
 });
 
-// ─── FETCH (ağ öncelikli, çevrimdışıysa önbellek) ───
+// ─── FETCH ───
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  try {
+    const url = new URL(event.request.url);
+    if (event.request.method !== 'GET') return;
+    if (url.origin !== self.location.origin) return;
+    if (url.pathname.startsWith('/api/')) return;
 
-  // Sadece GET + kendi domainimiz
-  if (event.request.method !== 'GET') return;
-  if (url.origin !== self.location.origin) return;
+    // ⭐ Lockdown Mode → cache yok, tarayıcı normal devam etsin
+    if (!cacheVar()) return;
 
-  // API ve Supabase isteklerini önbelleğe alma
-  if (url.pathname.startsWith('/api/') || url.hostname.includes('supabase')) return;
-
-  event.respondWith(
-    fetch(event.request)
-      .then((res) => {
-        // Başarılıysa önbelleğe kopyala
-        if (res && res.status === 200 && res.type === 'basic') {
-          const kopya = res.clone();
-          caches.open(CACHE_ADI).then((cache) => cache.put(event.request, kopya)).catch(() => {});
-        }
-        return res;
-      })
-      .catch(() => caches.match(event.request).then((c) => c || caches.match('/')))
-  );
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          try {
+            if (res && res.status === 200 && res.type === 'basic') {
+              const kopya = res.clone();
+              caches.open(CACHE_ADI).then((c) => c.put(event.request, kopya)).catch(() => {});
+            }
+          } catch {}
+          return res;
+        })
+        .catch(() => {
+          try {
+            return caches.match(event.request).then((c) => c || caches.match('/')).catch(() => fetch(event.request));
+          } catch {
+            return fetch(event.request);
+          }
+        })
+    );
+  } catch {
+    // Hiçbir şey yapma — tarayıcı normal devam etsin
+  }
 });
 
 // ─── PUSH BİLDİRİM ───
@@ -63,40 +82,38 @@ self.addEventListener('push', (event) => {
         baslik: gelen.baslik || gelen.title || 'BUVİSAN',
         mesaj: gelen.mesaj || gelen.body || 'Yeni bildirim',
         url: gelen.url || gelen.link || '/',
-        ikon: gelen.ikon || gelen.icon || '/icon-192.png',
       };
     }
-  } catch { /* yoksay */ }
+  } catch {}
 
   event.waitUntil(
     self.registration.showNotification(veri.baslik, {
       body: veri.mesaj,
-      icon: veri.ikon,
+      icon: '/icon-192.png',
       badge: '/icon-192.png',
       vibrate: [200, 100, 200],
-      tag: 'buvisan-bildirim',
+      tag: 'buvisan',
       renotify: true,
       data: { url: veri.url },
-    })
+    }).catch(() => {})
   );
 });
 
 // ─── BİLDİRİME TIKLAMA ───
 self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const hedef = event.notification.data?.url || '/';
+  try { event.notification.close(); } catch {}
+  const hedef = (event.notification && event.notification.data && event.notification.data.url) || '/';
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((liste) => {
-      // Açık sekme varsa odakla
-      for (const c of liste) {
-        if (c.url.includes(self.location.origin)) {
-          c.focus();
-          return c.navigate(hedef);
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((liste) => {
+        for (const c of liste) {
+          if (c.url && c.url.indexOf(self.location.origin) === 0) {
+            return c.focus().then(() => c.navigate(hedef)).catch(() => c.focus());
+          }
         }
-      }
-      // Yoksa yeni aç
-      return clients.openWindow(hedef);
-    })
+        return clients.openWindow(hedef);
+      })
+      .catch(() => clients.openWindow(hedef))
   );
 });
