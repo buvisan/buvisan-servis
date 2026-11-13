@@ -21,6 +21,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   const [veri, setVeri] = useState<any>(null);
   const [teklifler, setTeklifler] = useState<any[]>([]);
   const [sohbet, setSohbet] = useState<any[]>([]);
+  const [pazarliklar, setPazarliklar] = useState<any[]>([]);
   const [sekme, setSekme] = useState<Sekme>("ozet");
   const [yukleniyor, setYukleniyor] = useState(false);
   const [mesaj, setMesaj] = useState("");
@@ -45,10 +46,11 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   const veriGetir = useCallback(async (tk: string) => {
     setYukleniyor(true);
     try {
-      const [p, t, s] = await Promise.all([
+      const [p, t, s, pz] = await Promise.all([
         supabase.rpc("musteri_portal_v6", { p_token: tk }),
         supabase.rpc("musteri_teklifleri", { p_token: tk }),
         supabase.rpc("musteri_sohbet_getir", { p_token: tk }),
+        supabase.rpc("musteri_pazarliklarim", { p_token: tk }),
       ]);
       if (!(p.data as any)?.ok) {
         setMesaj((p.data as any)?.mesaj || "Oturum geçersiz");
@@ -60,6 +62,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
       const anaTeklif = (p.data as any)?.teklifler || [];
       setTeklifler(anaTeklif.length > 0 ? anaTeklif : ayriTeklif);
       setSohbet((s.data as any[]) || []);
+      setPazarliklar((pz.data as any[]) || []);
     } finally { setYukleniyor(false); }
   }, []);
 
@@ -410,6 +413,57 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
           </div>
         ) : sekme === "teklif" ? (
           <div className="space-y-2">
+            {pazarliklar.length > 0 && (
+              <div className="bg-white rounded-3xl border-2 border-amber-200 shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3">
+                  <h3 className="text-white font-black text-sm">💰 PAZARLIKLARIM ({pazarliklar.length})</h3>
+                </div>
+                <div className="p-3 space-y-2">
+                  {pazarliklar.map((p: any) => {
+                    const dn = String(p.durum || "").toLowerCase();
+                    const renk = dn === "kabul" ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                      : dn === "red" ? "bg-rose-100 text-rose-700 border-rose-300"
+                      : dn === "revize" ? "bg-blue-100 text-blue-700 border-blue-300"
+                      : "bg-amber-100 text-amber-700 border-amber-300";
+                    const etiket = dn === "kabul" ? "✅ KABUL EDİLDİ"
+                      : dn === "red" ? "❌ REDDEDİLDİ"
+                      : dn === "revize" ? "📝 REVİZE EDİLDİ"
+                      : "⏳ CEVAP BEKLİYOR";
+                    return (
+                      <div key={p.id} className={"rounded-xl p-3 border-2 " + renk}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[9px] font-black uppercase opacity-80">{p.tarih}</span>
+                          <span className="text-[9px] font-black">{etiket}</span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-2">
+                          <div>
+                            <p className="text-[8px] font-black opacity-70">TEKLİF</p>
+                            <p className="text-[12px] font-black">{Number(p.teklif_tutar || 0).toLocaleString("tr-TR")} ₺</p>
+                          </div>
+                          <span className="opacity-50">→</span>
+                          <div>
+                            <p className="text-[8px] font-black opacity-70">TEKLİFİNİZ</p>
+                            <p className="text-[12px] font-black">{Number(p.istenen_tutar || 0).toLocaleString("tr-TR")} ₺</p>
+                          </div>
+                          <div className="ml-auto text-right">
+                            <p className="text-[8px] font-black opacity-70">FARK</p>
+                            <p className="text-[12px] font-black">−{Number(p.fark || 0).toLocaleString("tr-TR")} ₺</p>
+                          </div>
+                        </div>
+                        {p.mesaj && <p className="text-[10px] mt-2 opacity-80 italic">"{p.mesaj}"</p>}
+                        {p.admin_notu && (
+                          <div className="mt-2 bg-white/70 rounded-lg px-2.5 py-2">
+                            <p className="text-[8px] font-black opacity-60 uppercase">BUVİSAN CEVABI</p>
+                            <p className="text-[10px] font-bold mt-0.5">{p.admin_notu}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {teklifler.length === 0 ? (
               <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
                 <Star className="w-10 h-10 text-slate-200 mx-auto mb-2" />
