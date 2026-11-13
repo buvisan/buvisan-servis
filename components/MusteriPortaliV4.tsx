@@ -358,6 +358,56 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
               </div>
             </div>
 
+            {/* HESABIM / EKSTRE */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="bg-gradient-to-r from-slate-700 to-slate-900 px-4 py-3 flex items-center justify-between">
+                <h3 className="text-white font-black text-sm">💳 HESABIM</h3>
+                <span className="text-[9px] font-bold text-slate-400">{veri?.firma || ""}</span>
+              </div>
+              <div className="p-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">TOPLAM HİZMET</p>
+                    <p className="text-lg font-black text-slate-800 mt-0.5">{servisler.length}</p>
+                  </div>
+                  <div className="bg-emerald-50 rounded-xl p-3">
+                    <p className="text-[8px] font-black text-emerald-600 uppercase">TOPLAM TUTAR</p>
+                    <p className="text-lg font-black text-emerald-700 mt-0.5">
+                      {servisler.reduce((t: number, s: any) => t + (Number(s.tutar) || 0), 0).toLocaleString("tr-TR")} ₺
+                    </p>
+                  </div>
+                </div>
+                {(() => {
+                  const buYil = new Date().getFullYear().toString();
+                  const yilToplam = servisler
+                    .filter((s: any) => String(s.tarih || "").endsWith(buYil))
+                    .reduce((t: number, s: any) => t + (Number(s.tutar) || 0), 0);
+                  return yilToplam > 0 ? (
+                    <div className="bg-indigo-50 rounded-xl p-3">
+                      <p className="text-[8px] font-black text-indigo-600 uppercase">{buYil} YILI TOPLAMI</p>
+                      <p className="text-lg font-black text-indigo-700 mt-0.5">{yilToplam.toLocaleString("tr-TR")} ₺</p>
+                    </div>
+                  ) : null;
+                })()}
+                {servisler.filter((s: any) => Number(s.tutar) > 0).slice(0, 5).length > 0 && (
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase mb-1.5">SON İŞLEMLER</p>
+                    <div className="space-y-1">
+                      {servisler.filter((s: any) => Number(s.tutar) > 0).slice(0, 5).map((s: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-2.5 py-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] font-bold text-slate-600 truncate">{s.aciklama}</p>
+                            <p className="text-[8px] text-slate-400">{s.tarih}</p>
+                          </div>
+                          <p className="text-[10px] font-black text-slate-800 shrink-0">{Number(s.tutar).toLocaleString("tr-TR")} ₺</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3">
                 <h3 className="text-white font-black text-sm">🔧 AKTİF SERVİSLERİM ({aktif.length})</h3>
