@@ -24,6 +24,11 @@ export default function MusteriDetay({ hesapId, onKapat }: { hesapId: string; on
   const [pzModal, setPzModal] = useState<any | null>(null);
   const [pzNot, setPzNot] = useState("");
   const [pzTutar, setPzTutar] = useState(0);
+  const [mkDuz, setMkDuz] = useState<any | null>(null);
+  const [mkEkle, setMkEkle] = useState(false);
+  const [mkModel, setMkModel] = useState("");
+  const [mkSeri, setMkSeri] = useState("");
+  const [mkKapasite, setMkKapasite] = useState("");
   const sonRef = useRef<HTMLDivElement | null>(null);
 
   const getir = useCallback(async () => {
@@ -90,6 +95,38 @@ export default function MusteriDetay({ hesapId, onKapat }: { hesapId: string; on
       if ((data as any)?.ok) { setYeniMesaj(""); setMesaj(""); await getir(); }
       else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
     } finally { setGonderiyor(false); }
+  };
+
+  const makineSilAdmin = async (id: string) => {
+    if (!confirm("Bu makineyi silmek istiyor musunuz?")) return;
+    const { data } = await supabase.rpc("admin_makine_sil", { p_id: id });
+    if ((data as any)?.ok) { setMesaj("✅ Silindi"); await getir(); }
+    else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+  };
+
+  const makineDuzAc = (m: any) => {
+    setMkDuz(m);
+    setMkModel(m.model || ""); setMkSeri(m.seri_no || ""); setMkKapasite(m.kapasite || "");
+  };
+
+  const makineDuzKaydet = async () => {
+    if (!mkDuz) return;
+    const { data } = await supabase.rpc("admin_makine_guncelle", {
+      p_id: mkDuz.id, p_model: mkModel.trim(),
+      p_seri_no: mkSeri.trim() || null, p_kapasite: mkKapasite.trim() || null,
+    });
+    if ((data as any)?.ok) { setMesaj("✅ Güncellendi"); setMkDuz(null); await getir(); }
+    else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+  };
+
+  const makineEkleAdmin = async () => {
+    if (!mkModel.trim()) { setMesaj("⚠️ Model zorunludur."); return; }
+    const { data } = await supabase.rpc("admin_makine_ekle", {
+      p_hesap_id: hesapId, p_model: mkModel.trim(),
+      p_seri_no: mkSeri.trim() || null, p_kapasite: mkKapasite.trim() || null,
+    });
+    if ((data as any)?.ok) { setMesaj("✅ Eklendi"); setMkEkle(false); setMkModel(""); setMkSeri(""); setMkKapasite(""); await getir(); }
+    else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
   };
 
   const pazarlikCevap = async (durum: string) => {
@@ -262,18 +299,45 @@ export default function MusteriDetay({ hesapId, onKapat }: { hesapId: string; on
             <div className="space-y-1.5">
               {makineler.length === 0 ? (
                 <p className="text-center text-slate-400 text-[11px] font-bold py-10">Makine yok</p>
-              ) : makineler.map((m: any, i: number) => (
-                <div key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
-                  <Package size={14} className="text-slate-400 shrink-0" />
-                  <p className="text-[11px] font-black text-slate-800 flex-1 truncate">{m.model}</p>
-                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded shrink-0 ${
-                    m.kaynak === "kendi" ? "bg-indigo-100 text-indigo-700"
-                    : m.kaynak === "talep" ? "bg-blue-100 text-blue-700"
-                    : "bg-slate-200 text-slate-600"}`}>
-                    {String(m.kaynak).toUpperCase()}
-                  </span>
-                </div>
-              ))}
+              ) : (
+                <>
+                  <button onClick={() => { setMkEkle(o => !o); setMkModel(""); setMkSeri(""); setMkKapasite(""); }}
+                    className="w-full py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 mb-1.5">
+                    {mkEkle ? <X size={12} /> : <Package size={12} />} {mkEkle ? "İPTAL" : "MAKİNE EKLE"}
+                  </button>
+
+                  {mkEkle && (
+                    <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-3 mb-1.5 space-y-2">
+                      <input value={mkModel} onChange={(e) => setMkModel(e.target.value)} placeholder="Model *"
+                        className="w-full p-2 bg-white border border-emerald-300 rounded-lg text-[11px] font-bold outline-none" />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input value={mkSeri} onChange={(e) => setMkSeri(e.target.value)} placeholder="Seri No"
+                          className="p-2 bg-white border border-emerald-300 rounded-lg text-[11px] outline-none" />
+                        <input value={mkKapasite} onChange={(e) => setMkKapasite(e.target.value)} placeholder="Kapasite"
+                          className="p-2 bg-white border border-emerald-300 rounded-lg text-[11px] outline-none" />
+                      </div>
+                      <button onClick={makineEkleAdmin} className="w-full py-2 bg-emerald-600 text-white rounded-lg text-[10px] font-black">KAYDET</button>
+                    </div>
+                  )}
+
+                  {makineler.map((m: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+                      <Package size={14} className="text-slate-400 shrink-0" />
+                      <p className="text-[11px] font-black text-slate-800 flex-1 truncate">{m.model}</p>
+                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded shrink-0 ${
+                        m.kaynak === "kendi" ? "bg-indigo-100 text-indigo-700" : "bg-slate-200 text-slate-600"}`}>
+                        {String(m.kaynak).toUpperCase()}
+                      </span>
+                      {m.kaynak === "kendi" && (
+                        <>
+                          <button onClick={() => makineDuzAc(m)} className="text-indigo-500 p-1 shrink-0"><Pencil size={12} /></button>
+                          <button onClick={() => makineSilAdmin(m.id)} className="text-rose-500 p-1 shrink-0"><XCircle size={12} /></button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
@@ -323,6 +387,26 @@ export default function MusteriDetay({ hesapId, onKapat }: { hesapId: string; on
           </div>
         )}
       </div>
+
+      {mkDuz && (
+        <div className="fixed inset-0 bg-slate-900/80 z-[1000] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-4">
+            <h3 className="font-black text-xs text-slate-800 uppercase mb-3">🔧 MAKİNE DÜZENLE</h3>
+            <input value={mkModel} onChange={(e) => setMkModel(e.target.value)} placeholder="Model *"
+              className="w-full p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none mb-2" />
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <input value={mkSeri} onChange={(e) => setMkSeri(e.target.value)} placeholder="Seri No"
+                className="p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs outline-none" />
+              <input value={mkKapasite} onChange={(e) => setMkKapasite(e.target.value)} placeholder="Kapasite"
+                className="p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs outline-none" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setMkDuz(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black">İPTAL</button>
+              <button onClick={makineDuzKaydet} className="flex-[2] py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black">KAYDET</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PAZARLIK CEVAP MODAL */}
       {pzModal && (
