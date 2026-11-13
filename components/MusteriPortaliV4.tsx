@@ -36,6 +36,10 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   const [mKonum, setMKonum] = useState("");
 
   const [makineDuz, setMakineDuz] = useState<any | null>(null);
+  const [pazarlikAcik, setPazarlikAcik] = useState<any | null>(null);
+  const [pzTutar, setPzTutar] = useState(0);
+  const [pzMesaj, setPzMesaj] = useState("");
+  const [pzGonder, setPzGonder] = useState(false);
   const sohbetSon = useRef<HTMLDivElement | null>(null);
 
   const veriGetir = useCallback(async (tk: string) => {
@@ -132,6 +136,24 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
         await veriGetir(token);
       } else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
     } finally { setYukleniyor(false); }
+  };
+
+  const pazarlikGonder = async () => {
+    if (!pazarlikAcik) return;
+    if (!pzTutar || pzTutar <= 0) { setMesaj("⚠️ Tutar girin."); return; }
+    setPzGonder(true); setMesaj("");
+    try {
+      const { data } = await supabase.rpc("musteri_pazarlik_gonder", {
+        p_token: token, p_kaynak: pazarlikAcik.kaynak, p_kayit_id: pazarlikAcik.id,
+        p_teklif_tutar: Number(pazarlikAcik.tutar) || 0,
+        p_istenen_tutar: pzTutar, p_mesaj: pzMesaj.trim() || null, p_kalemler: null,
+      });
+      if ((data as any)?.ok) {
+        setMesaj("✅ " + (data as any).mesaj);
+        setPazarlikAcik(null); setPzTutar(0); setPzMesaj("");
+        await veriGetir(token);
+      } else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+    } finally { setPzGonder(false); }
   };
 
   const makineSil = async (id: string) => {
@@ -394,7 +416,10 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                 <p className="text-xs font-black text-slate-400">Teklif yok</p>
               </div>
             ) : teklifler.map((t: any, i: number) => {
-              const bekliyor = t.durum === "bekliyor" || t.durum === "BEKLIYOR";
+              const dNorm = String(t.durum || "").toLowerCase().trim();
+              const bekliyor = dNorm === "bekliyor" || dNorm === "beklemede" || dNorm === "" || dNorm === "taslak";
+              const onayli = dNorm === "onaylandi" || dNorm === "onayli";
+              const red = dNorm === "reddedildi" || dNorm === "red";
               return (
                 <div key={i} className="bg-white border border-slate-200 rounded-2xl p-3.5">
                   <div className="flex items-start justify-between gap-2">
@@ -402,8 +427,8 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="text-xs font-black text-slate-800">{t.baslik}</p>
                         <span className="text-[8px] font-black text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{t.no}</span>
-                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${bekliyor ? "bg-amber-100 text-amber-700" : t.durum === "onaylandi" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-                          {bekliyor ? "BEKLİYOR" : t.durum === "onaylandi" ? "ONAYLANDI" : "REDDEDİLDİ"}
+                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${bekliyor ? "bg-amber-100 text-amber-700" : onayli ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                          {bekliyor ? "BEKLİYOR" : onayli ? "ONAYLANDI" : red ? "REDDEDİLDİ" : String(t.durum || "BEKLİYOR").toUpperCase()}
                         </span>
                       </div>
                       <p className="text-[10px] text-slate-500 mt-1.5 line-clamp-2">{t.aciklama}</p>
@@ -418,6 +443,10 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                       <button onClick={() => teklifKarar(t.kaynak, t.id, false)}
                         className="flex-1 py-2.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[10px] font-black flex items-center justify-center gap-1">
                         <XCircle size={12} /> REDDET
+                      </button>
+                      <button onClick={() => { setPazarlikAcik(t); setPzTutar(Math.round(Number(t.tutar) * 0.9)); setPzMesaj(""); }}
+                        className="flex-1 py-2.5 bg-amber-500 text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1">
+                        <MessageSquare size={12} /> PAZARLIK
                       </button>
                       <button onClick={() => teklifKarar(t.kaynak, t.id, true)}
                         className="flex-[2] py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1">
@@ -467,6 +496,51 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
             </div>
           </div>
         )}
+
+        <AnimatePresence>
+          {pazarlikAcik && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+              <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }}
+                className="bg-white rounded-3xl w-full max-w-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 flex items-center justify-between">
+                  <h3 className="text-white font-black text-xs uppercase">💬 PAZARLIK TEKLİFİ</h3>
+                  <button onClick={() => setPazarlikAcik(null)} className="text-white/80"><X size={18} /></button>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-[9px] font-black text-slate-400 uppercase">Mevcut Teklif</p>
+                    <p className="text-lg font-black text-slate-800 mt-0.5">{Number(pazarlikAcik.tutar || 0).toLocaleString("tr-TR")} ₺</p>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase">Teklif Etmek İstediğiniz Tutar *</label>
+                    <input type="number" value={pzTutar} onChange={(e) => setPzTutar(Number(e.target.value) || 0)}
+                      className="w-full mt-1 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm font-black outline-none focus:border-amber-500" />
+                    {pzTutar > 0 && pzTutar < Number(pazarlikAcik.tutar || 0) && (
+                      <p className="text-[10px] font-bold text-emerald-600 mt-1">
+                        İndirim: {(Number(pazarlikAcik.tutar || 0) - pzTutar).toLocaleString("tr-TR")} ₺ (%{Math.round((1 - pzTutar / Number(pazarlikAcik.tutar || 1)) * 100)})
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase">Mesajınız (opsiyonel)</label>
+                    <textarea rows={3} value={pzMesaj} onChange={(e) => setPzMesaj(e.target.value)}
+                      placeholder="Örn: Peşin ödemede bu fiyatı yapabilir misiniz?"
+                      className="w-full mt-1 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs resize-none outline-none focus:border-amber-500" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setPazarlikAcik(null)}
+                      className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-[11px] font-black">İPTAL</button>
+                    <button onClick={pazarlikGonder} disabled={pzGonder}
+                      className="flex-[2] py-3 bg-amber-500 text-white rounded-xl text-[11px] font-black flex items-center justify-center gap-1.5 disabled:bg-slate-300">
+                      {pzGonder ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} GÖNDER
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <p className="text-center text-[9px] text-slate-400 font-bold py-3">BUVİSAN Vinç Servis · 0224 374 00 01</p>
       </div>
