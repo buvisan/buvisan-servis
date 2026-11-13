@@ -52,7 +52,9 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
         return;
       }
       setVeri(p.data);
-      setTeklifler((t.data as any[]) || []);
+      const ayriTeklif = (t.data as any[]) || [];
+      const anaTeklif = (p.data as any)?.teklifler || [];
+      setTeklifler(anaTeklif.length > 0 ? anaTeklif : ayriTeklif);
       setSohbet((s.data as any[]) || []);
     } finally { setYukleniyor(false); }
   }, []);
