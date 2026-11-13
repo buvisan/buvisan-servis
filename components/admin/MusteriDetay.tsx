@@ -36,6 +36,24 @@ export default function MusteriDetay({ hesapId, onKapat }: { hesapId: string; on
   }, [hesapId]);
 
   useEffect(() => { getir(); }, [getir]);
+  useEffect(() => {
+    const z = setInterval(getir, 15000);
+    return () => clearInterval(z);
+  }, [getir]);
+  // ⚡ REALTIME
+  useEffect(() => {
+    let kanal: any = null;
+    try {
+      kanal = supabase
+        .channel("admin-sohbet-rt-" + hesapId)
+        .on("postgres_changes" as any,
+          { event: "INSERT", schema: "public", table: "musteri_sohbet" },
+          async () => { await getir(); })
+        .subscribe();
+    } catch { /* yoksay */ }
+    return () => { try { if (kanal) supabase.removeChannel(kanal); } catch { /* yoksay */ } };
+  }, [hesapId, getir]);
+
   useEffect(() => { if (sonRef.current) sonRef.current.scrollIntoView({ behavior: "smooth" }); }, [veri, sekme]);
 
   const mesajGonder = async () => {

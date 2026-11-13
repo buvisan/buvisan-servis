@@ -70,9 +70,32 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
 
   useEffect(() => {
     if (!token) return;
-    const z = setInterval(() => veriGetir(token), 30000);
+    const z = setInterval(() => veriGetir(token), 8000);
     return () => clearInterval(z);
   }, [token, veriGetir]);
+
+  // ⚡ REALTIME — anlik mesaj
+  useEffect(() => {
+    if (!token) return;
+    let kanal: any = null;
+    try {
+      kanal = supabase
+        .channel("musteri-sohbet-rt")
+        .on("postgres_changes" as any,
+          { event: "INSERT", schema: "public", table: "musteri_sohbet" },
+          async () => {
+            try {
+              const s = await supabase.rpc("musteri_sohbet_getir", { p_token: token });
+              setSohbet((s.data as any[]) || []);
+            } catch { /* yoksay */ }
+          })
+        .subscribe();
+    } catch { /* yoksay */ }
+
+    return () => {
+      try { if (kanal) supabase.removeChannel(kanal); } catch { /* yoksay */ }
+    };
+  }, [token]);
 
   useEffect(() => {
     if (sohbetSon.current) sohbetSon.current.scrollIntoView({ behavior: "smooth" });
@@ -87,6 +110,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
         setYeniMesaj("");
         const s = await supabase.rpc("musteri_sohbet_getir", { p_token: token });
         setSohbet((s.data as any[]) || []);
+        if (veri) await veriGetir(token);
       }
     } finally { setGonderiyor(false); }
   };
