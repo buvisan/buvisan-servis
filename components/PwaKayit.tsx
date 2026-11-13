@@ -16,7 +16,22 @@ export default function PwaKayit() {
   useEffect(() => {
     // Service worker kaydı
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+      // ⭐ Yeni SW devreye girince sayfayı bir kez yenile (eski cache temizlenir)
+      let yenilendi = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (yenilendi) return;
+        yenilendi = true;
+        try { window.location.reload(); } catch { /* yoksay */ }
+      });
+
+      // Kayıtlı SW'yi güncelle
+      try {
+        navigator.serviceWorker.getRegistration().then((r) => {
+          if (r && r.update) r.update().catch(() => {});
+        }).catch(() => {});
+      } catch { /* yoksay */ }
+
+      navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).catch(() => {});
     }
 
     // iOS tespiti
