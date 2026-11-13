@@ -17,6 +17,8 @@ import {
 
 type Adim = "giris" | "kayit" | "portal";
 
+import MusteriPortaliV4 from "@/components/MusteriPortaliV4";
+
 export default function MusteriPortali() {
   const [adim, setAdim] = useState<Adim>("giris");
   const [kullaniciAdi, setKullaniciAdi] = useState("");
@@ -296,7 +298,10 @@ export default function MusteriPortali() {
     );
   }
 
-  // ═══════════ PORTAL ═══════════
+  // ═══════════ PORTAL v4 ═══════════
+  if (adim === "portal") return <MusteriPortaliV4 baslangicToken={token} />;
+
+  // ═══════════ PORTAL ═══════════ (ESKI)
   const vincler = veri?.vincler || [];
   const servisler = veri?.servisler || [];
   const aktif = veri?.aktif_isler || [];
