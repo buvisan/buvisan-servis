@@ -479,39 +479,43 @@ export function bakimFormuHtml(b: any): string {
     </tr></tbody>
   </table></div>
 
-  ${maddeler.length > 0 ? `
-  <div class="bolum">
-    <div class="bolum-baslik">Kontrol Maddeleri</div>
-    <div class="tbl-cerceve" style="margin-bottom:0"><table class="tbl">
-      <thead><tr>
-        <th>Kontrol Maddesi</th>
-        <th style="width:38px;text-align:center">R</th>
-        <th style="width:38px;text-align:center">O</th>
-        <th>Kontrol Maddesi</th>
-        <th style="width:38px;text-align:center">R</th>
-        <th style="width:38px;text-align:center">O</th>
-      </tr></thead>
-      <tbody>
-        ${(() => {
-          // 2 sütunlu düzen: her satırda 2 madde
-          const satirlar: string[] = [];
-          for (let i = 0; i < maddeler.length; i += 2) {
-            const a = maddeler[i];
-            const b = maddeler[i + 1];
-            const hucre = (m: any) => {
-              if (!m) return '<td></td><td></td><td></td>';
-              const ret = String(m?.sonuc || m?.durum || "").toLowerCase() === "ret" || m?.ret === true;
-              return '<td>' + esc(m?.madde || m?.ad || m?.metin || "—") + '</td>'
-                + '<td class="orta" style="color:#dc2626;font-weight:900">' + (ret ? "✕" : "") + '</td>'
-                + '<td class="orta" style="color:#059669;font-weight:900">' + (ret ? "" : "✓") + '</td>';
-            };
-            satirlar.push('<tr>' + hucre(a) + hucre(b) + '</tr>');
-          }
-          return satirlar.join("");
-        })()}
-      </tbody>
-    </table></div>
-  </div>` : ""}
+  ${maddeler.length > 0 ? (() => {
+    // ⭐ GRUPLARA AYIR (KALDIRMA GRUBU, ARA VİNÇ / KÖPRÜ GRUBU, ...)
+    const gruplar: { ad: string; items: any[] }[] = [];
+    for (const m of maddeler) {
+      const g = String(m?.grup || m?.grup_adi || "KONTROL MADDELERİ").trim();
+      let mevcut = gruplar.find((x) => x.ad === g);
+      if (!mevcut) { mevcut = { ad: g, items: [] }; gruplar.push(mevcut); }
+      mevcut.items.push(m);
+    }
+
+    return gruplar.map((g) => {
+      // Her grup icinde 2 sutun
+      const satirlar: string[] = [];
+      const hucre = (m: any) => {
+        if (!m) return '<td style="border:0"></td><td style="border:0;width:26px"></td><td style="border:0;width:26px"></td>';
+        const ret = String(m?.sonuc || "").toLowerCase() === "ret" || m?.ret === true;
+        return '<td>' + esc(m?.madde || "-") + '</td>'
+          + '<td class="orta" style="color:#dc2626;font-weight:900;width:26px">' + (ret ? "✕" : "") + '</td>'
+          + '<td class="orta" style="color:#059669;font-weight:900;width:26px">' + (ret ? "" : "✓") + '</td>';
+      };
+      for (let i = 0; i < g.items.length; i += 2) {
+        satirlar.push('<tr>' + hucre(g.items[i]) + hucre(g.items[i + 1]) + '</tr>');
+      }
+
+      const grupRet = g.items.filter((m: any) => String(m?.sonuc||"").toLowerCase() === "ret").length;
+      const grupOnay = g.items.length - grupRet;
+
+      return '<div class="bolum">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:5px;border-bottom:1.5px solid #0f172a;margin-bottom:6px">'
+        + '<span style="font-size:9.5px;font-weight:900;letter-spacing:1.1px;text-transform:uppercase;color:#0f172a">' + esc(g.ad) + '</span>'
+        + '<span style="font-size:8.5px;font-weight:800;color:#64748b">' + grupOnay + ' ONAY'
+        + (grupRet > 0 ? ' · <span style="color:#dc2626">' + grupRet + ' RET</span>' : '') + '</span>'
+        + '</div>'
+        + '<table class="tbl" style="table-layout:fixed"><tbody>' + satirlar.join('') + '</tbody></table>'
+        + '</div>';
+    }).join('');
+  })() : ''}
 
   ${b?.notlar ? `<div class="bolum">
     <div class="bolum-baslik">Notlar</div>
