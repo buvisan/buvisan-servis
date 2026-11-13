@@ -37,7 +37,7 @@ export default function MusteriDetay({ hesapId, onKapat }: { hesapId: string; on
 
   useEffect(() => { getir(); }, [getir]);
   useEffect(() => {
-    const z = setInterval(getir, 15000);
+    const z = setInterval(getir, 5000);
     return () => clearInterval(z);
   }, [getir]);
   // ⚡ REALTIME
@@ -48,7 +48,31 @@ export default function MusteriDetay({ hesapId, onKapat }: { hesapId: string; on
         .channel("admin-sohbet-rt-" + hesapId)
         .on("postgres_changes" as any,
           { event: "INSERT", schema: "public", table: "musteri_sohbet" },
-          async () => { await getir(); })
+          async (payload: any) => {
+            try {
+              const yeni = payload?.new;
+              if (yeni && yeni.id && yeni.hesap_id === hesapId) {
+                setVeri((o: any) => {
+                  if (!o) return o;
+                  const mevcut = o.sohbet || [];
+                  if (mevcut.some((x: any) => x.id === yeni.id)) return o;
+                  return {
+                    ...o,
+                    sohbet: [...mevcut, {
+                      id: yeni.id,
+                      gonderen: yeni.gonderen,
+                      mesaj: yeni.mesaj,
+                      tarih: new Date(yeni.created_at || Date.now()).toLocaleString("tr-TR", {
+                        day: "2-digit", month: "2-digit", year: "numeric",
+                        hour: "2-digit", minute: "2-digit",
+                      }),
+                    }],
+                  };
+                });
+              }
+            } catch { /* yoksay */ }
+            setTimeout(() => { getir(); }, 700);
+          })
         .subscribe();
     } catch { /* yoksay */ }
     return () => { try { if (kanal) supabase.removeChannel(kanal); } catch { /* yoksay */ } };

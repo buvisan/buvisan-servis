@@ -70,7 +70,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
 
   useEffect(() => {
     if (!token) return;
-    const z = setInterval(() => veriGetir(token), 8000);
+    const z = setInterval(() => veriGetir(token), 4000);
     return () => clearInterval(z);
   }, [token, veriGetir]);
 
@@ -83,11 +83,32 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
         .channel("musteri-sohbet-rt")
         .on("postgres_changes" as any,
           { event: "INSERT", schema: "public", table: "musteri_sohbet" },
-          async () => {
+          async (payload: any) => {
+            // ⚡ ANINDA ekle (replica gecikmesini bekle)
             try {
-              const s = await supabase.rpc("musteri_sohbet_getir", { p_token: token });
-              setSohbet((s.data as any[]) || []);
+              const yeni = payload?.new;
+              if (yeni && yeni.id) {
+                setSohbet((o) => {
+                  if (o.some((x: any) => x.id === yeni.id)) return o;
+                  return [...o, {
+                    id: yeni.id,
+                    gonderen: yeni.gonderen,
+                    mesaj: yeni.mesaj,
+                    tarih: new Date(yeni.created_at || Date.now()).toLocaleString("tr-TR", {
+                      day: "2-digit", month: "2-digit", year: "numeric",
+                      hour: "2-digit", minute: "2-digit",
+                    }),
+                  }];
+                });
+              }
             } catch { /* yoksay */ }
+            // sonra sunucudan teyit et
+            setTimeout(async () => {
+              try {
+                const s = await supabase.rpc("musteri_sohbet_getir", { p_token: token });
+                setSohbet((s.data as any[]) || []);
+              } catch { /* yoksay */ }
+            }, 700);
           })
         .subscribe();
     } catch { /* yoksay */ }
