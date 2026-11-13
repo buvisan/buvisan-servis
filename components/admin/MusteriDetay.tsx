@@ -97,11 +97,20 @@ export default function MusteriDetay({ hesapId, onKapat }: { hesapId: string; on
     } finally { setGonderiyor(false); }
   };
 
-  const makineSilAdmin = async (id: string) => {
-    if (!confirm("Bu makineyi silmek istiyor musunuz?")) return;
-    const { data } = await supabase.rpc("admin_makine_sil", { p_id: id });
-    if ((data as any)?.ok) { setMesaj("✅ Silindi"); await getir(); }
-    else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+  const makineSilAdmin = async (m: any) => {
+    if (!confirm("Bu makine listeden kaldırılsın mı?")) return;
+    let sonuc: any = null;
+    if (m.kaynak === "kendi" && m.kendi_id) {
+      const { data } = await supabase.rpc("admin_makine_sil", { p_id: m.kendi_id });
+      sonuc = data;
+    } else {
+      const { data } = await supabase.rpc("admin_makine_gizle", {
+        p_hesap_id: hesapId, p_model: m.model,
+      });
+      sonuc = data;
+    }
+    if (sonuc?.ok) { setMesaj("✅ " + sonuc.mesaj); await getir(); }
+    else setMesaj("❌ " + (sonuc?.mesaj || "Hata"));
   };
 
   const makineDuzAc = (m: any) => {
@@ -111,12 +120,22 @@ export default function MusteriDetay({ hesapId, onKapat }: { hesapId: string; on
 
   const makineDuzKaydet = async () => {
     if (!mkDuz) return;
-    const { data } = await supabase.rpc("admin_makine_guncelle", {
-      p_id: mkDuz.id, p_model: mkModel.trim(),
-      p_seri_no: mkSeri.trim() || null, p_kapasite: mkKapasite.trim() || null,
-    });
-    if ((data as any)?.ok) { setMesaj("✅ Güncellendi"); setMkDuz(null); await getir(); }
-    else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+    const kid = mkDuz.kendi_id || mkDuz.id;
+    if (mkDuz.kaynak === "kendi" && kid) {
+      const { data } = await supabase.rpc("admin_makine_guncelle", {
+        p_id: kid, p_model: mkModel.trim(),
+        p_seri_no: mkSeri.trim() || null, p_kapasite: mkKapasite.trim() || null,
+      });
+      if ((data as any)?.ok) { setMesaj("✅ Güncellendi"); setMkDuz(null); await getir(); }
+      else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+    } else {
+      const { data } = await supabase.rpc("admin_makine_sahiplen", {
+        p_hesap_id: hesapId, p_model: mkModel.trim(),
+        p_seri_no: mkSeri.trim() || null, p_kapasite: mkKapasite.trim() || null,
+      });
+      if ((data as any)?.ok) { setMesaj("✅ Güncellendi"); setMkDuz(null); await getir(); }
+      else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+    }
   };
 
   const makineEkleAdmin = async () => {
@@ -331,7 +350,7 @@ export default function MusteriDetay({ hesapId, onKapat }: { hesapId: string; on
                       {m.kaynak === "kendi" && (
                         <>
                           <button onClick={() => makineDuzAc(m)} className="text-indigo-500 p-1 shrink-0"><Pencil size={12} /></button>
-                          <button onClick={() => makineSilAdmin(m.id)} className="text-rose-500 p-1 shrink-0"><XCircle size={12} /></button>
+                          <button onClick={() => makineSilAdmin(m)} className="text-rose-500 p-1 shrink-0"><XCircle size={12} /></button>
                         </>
                       )}
                     </div>
