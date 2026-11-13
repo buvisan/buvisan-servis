@@ -78,22 +78,64 @@ export async function pdfIndir(
     const resim = kanvas.toDataURL("image/jpeg", 0.95);
 
     if (secenek.cokSayfali) {
-      // ⭐ ÇOK SAYFALI: genişliğe göre ölçekle, dikeyde böl (küçültme YOK)
+      // ⭐ AKILLI KESİM: beyaz satır bul, içeriği bölme
       const oran = g / kanvas.width;
-      const toplamY = kanvas.height * oran;
-      const sayfaSayisi = Math.max(1, Math.ceil(toplamY / maxY));
-      const dilimYukseklikPx = Math.floor(kanvas.height / sayfaSayisi);
+      const maxYPx = Math.floor(maxY / oran);          // sayfa basina piksel
+      const ctx2 = kanvas.getContext("2d");
+      const veri = ctx2 ? ctx2.getImageData(0, 0, kanvas.width, kanvas.height).data : null;
 
-      for (let i = 0; i < sayfaSayisi; i++) {
+      // Bir satirin neredeyse tamamen beyaz olup olmadigi
+      const bosSatir = (y: number): boolean => {
+        if (!veri) return true;
+        const gen = kanvas.width;
+        let koyu = 0;
+        for (let x = 0; x < gen; x += 4) {
+          const i = (y * gen + x) * 4;
+          const r = veri[i], gg = veri[i + 1], b = veri[i + 2];
+          if (r < 240 || gg < 240 || b < 240) koyu++;
+        }
+        return koyu <= 2;
+      };
+
+      const kesimler: number[] = [];
+      let imlec = 0;
+      let guvenlik = 0;
+
+      while (imlec < kanvas.height && guvenlik < 30) {
+        guvenlik++;
+        const hedef = Math.min(imlec + maxYPx, kanvas.height);
+        if (hedef >= kanvas.height) { kesimler.push(kanvas.height); break; }
+
+        // Hedefin ±90px araliginda en yakin bos satiri bul
+        let kesim = hedef;
+        let bulundu = false;
+        for (let fark = 0; fark <= 90; fark++) {
+          const alt = hedef + fark;
+          const ust = hedef - fark;
+          if (alt < kanvas.height && bosSatir(alt)) { kesim = alt; bulundu = true; break; }
+          if (ust > imlec + 80 && bosSatir(ust)) { kesim = ust; bulundu = true; break; }
+        }
+
+        kesimler.push(kesim);
+        imlec = kesim;
+      }
+      if (kesimler.length === 0) kesimler.push(kanvas.height);
+
+      // Dilimleri olustur
+      let onceki = 0;
+      for (let i = 0; i < kesimler.length; i++) {
         if (i > 0) pdf.addPage();
+        const dilimY = kesimler[i] - onceki;
+        if (dilimY <= 0) continue;
+
         const dilim = document.createElement("canvas");
         dilim.width = kanvas.width;
-        dilim.height = Math.min(dilimYukseklikPx, kanvas.height - i * dilimYukseklikPx);
-        dilim.getContext("2d")!.drawImage(
-          kanvas, 0, -i * dilimYukseklikPx
-        );
-        const h = (dilim.height * g) / kanvas.width;
+        dilim.height = dilimY;
+        dilim.getContext("2d")!.drawImage(kanvas, 0, -onceki);
+
+        const h = (dilimY * g) / kanvas.width;
         pdf.addImage(dilim.toDataURL("image/jpeg", 0.95), "JPEG", kenar, kenar, g, h);
+        onceki = kesimler[i];
       }
     } else {
       // TEK SAYFA: küçült
