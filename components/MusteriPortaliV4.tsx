@@ -35,6 +35,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   const [mTip, setMTip] = useState("vinç");
   const [mKonum, setMKonum] = useState("");
 
+  const [makineDuz, setMakineDuz] = useState<any | null>(null);
   const sohbetSon = useRef<HTMLDivElement | null>(null);
 
   const veriGetir = useCallback(async (tk: string) => {
@@ -100,6 +101,32 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
       if ((data as any)?.ok) {
         setMesaj("✅ " + (data as any).mesaj);
         setMakineForm(false); setMModel(""); setMSeri(""); setMKapasite(""); setMKonum("");
+        await veriGetir(token);
+      } else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+    } finally { setYukleniyor(false); }
+  };
+
+  const duzenleAc = (v: any) => {
+    setMakineDuz(v);
+    setMModel(v.model || ""); setMSeri(v.seri_no && v.seri_no !== "—" ? v.seri_no : "");
+    setMKapasite(v.kapasite && v.kapasite !== "—" ? v.kapasite : "");
+    setMTip(v.makine_tipi || "vinç"); setMKonum(v.konum && v.konum !== "—" ? v.konum : "");
+    setMakineForm(true);
+  };
+
+  const duzenleKaydet = async () => {
+    if (!makineDuz) return;
+    setYukleniyor(true); setMesaj("");
+    try {
+      const { data } = await supabase.rpc("musteri_vinc_guncelle", {
+        p_token: token, p_id: makineDuz.id, p_model: mModel.trim(),
+        p_seri_no: mSeri.trim() || null, p_kapasite: mKapasite.trim() || null,
+        p_tip: mTip, p_konum: mKonum.trim() || null,
+      });
+      if ((data as any)?.ok) {
+        setMesaj("✅ " + (data as any).mesaj);
+        setMakineDuz(null); setMakineForm(false);
+        setMModel(""); setMSeri(""); setMKapasite(""); setMKonum("");
         await veriGetir(token);
       } else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
     } finally { setYukleniyor(false); }
@@ -187,7 +214,14 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-gradient-to-br from-teal-600 to-cyan-600 rounded-2xl p-3.5 text-white">
                 <p className="text-[9px] font-black opacity-80">MAKİNE</p>
-                <p className="text-2xl font-black mt-0.5">{vincler.length + kendi.length + biletMak.length}</p>
+                <p className="text-2xl font-black mt-0.5">{(() => {
+                const set = new Set<string>();
+                const ekle = (s: any) => { const n = String(s || "").trim().toLowerCase().replace(/[^a-z0-9]/g, ""); if (n) set.add(n); };
+                vincler.forEach((v: any) => ekle(v.model));
+                kendi.forEach((v: any) => ekle(v.model));
+                biletMak.forEach((v: any) => ekle(v.model));
+                return set.size;
+              })()}</p>
               </div>
               <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl p-3.5 text-white">
                 <p className="text-[9px] font-black opacity-80">SERVİS</p>
@@ -237,7 +271,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
           </>
         ) : sekme === "makine" ? (
           <>
-            <button onClick={() => setMakineForm(o => !o)}
+            <button onClick={() => { setMakineDuz(null); setMModel(""); setMSeri(""); setMKapasite(""); setMKonum(""); setMakineForm(o => !o); }}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 rounded-2xl text-[11px] font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
               {makineForm ? <X size={14} /> : <Plus size={14} />} {makineForm ? "İPTAL" : "KENDİ MAKİNEMİ EKLE"}
             </button>
@@ -263,7 +297,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                     <input value={mKonum} onChange={(e) => setMKonum(e.target.value)} placeholder="Konum"
                       className="p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500" />
                   </div>
-                  <button onClick={makineEkle} disabled={yukleniyor}
+                  <button onClick={makineDuz ? duzenleKaydet : makineEkle} disabled={yukleniyor}
                     className="w-full py-3 bg-emerald-600 text-white rounded-xl text-[11px] font-black flex items-center justify-center gap-2 disabled:bg-slate-300">
                     {yukleniyor ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} KAYDET
                   </button>
@@ -319,6 +353,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                         <p className="text-xs font-black text-slate-800">{v.model}</p>
                         <div className="flex items-center gap-1.5">
                           <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">KAYITLI</span>
+                          <button onClick={() => duzenleAc(v)} className="text-indigo-500 p-1"><Check size={12} /></button>
                           <button onClick={() => makineSil(v.id)} className="text-rose-500 p-1"><X size={12} /></button>
                         </div>
                       </div>
