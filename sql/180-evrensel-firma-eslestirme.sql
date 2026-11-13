@@ -151,10 +151,10 @@ begin
     select distinct ad from (
       select coalesce(public.jalan(to_jsonb(c),'customer_name','firma_adi'),'') as ad
       from public.cranes c
-      union all select coalesce(cs.customer_text,'') from public.completed_services cs
+      union all select coalesce(public.jalan(to_jsonb(cs),'customer_text','musteri','firma_adi'),'') from public.completed_services cs
       union all select coalesce(public.jalan(to_jsonb(o),'customer_name','musteri','firma_adi'),'') from public.offers o
-      union all select coalesce(s.musteri,'') from public.satislar s
-      union all select coalesce(tb.musteri,'') from public.teklif_bekleyenler tb
+      union all select coalesce(public.jalan(to_jsonb(s),'musteri','customer_name','firma_adi'),'') from public.satislar s
+      union all select coalesce(public.jalan(to_jsonb(tb),'musteri','musteri_adi','firma','firma_adi'),'') from public.teklif_bekleyenler tb
       union all select coalesce(public.jalan(to_jsonb(st),'firma_adi','manual_customer_name'),'') from public.service_tickets st
     ) t
     where trim(coalesce(ad,'')) <> ''
@@ -190,12 +190,12 @@ set search_path = public
 as $$
   with adlar as (
     select 'vinç'::text as kaynak, coalesce(public.jalan(to_jsonb(c),'customer_name','firma_adi'),'') as ad from public.cranes c
-    union all select 'finans', coalesce(cs.customer_text,'') from public.completed_services cs
+    union all select 'finans', coalesce(public.jalan(to_jsonb(cs),'customer_text','musteri','firma_adi'),'') from public.completed_services cs
     union all select 'teklif', coalesce(public.jalan(to_jsonb(o),'customer_name','musteri','firma_adi'),'') from public.offers o
-    union all select 'satış', coalesce(s.musteri,'') from public.satislar s
-    union all select 'teklif-bekleyen', coalesce(tb.musteri,'') from public.teklif_bekleyenler tb
+    union all select 'satış', coalesce(public.jalan(to_jsonb(s),'musteri','customer_name','firma_adi'),'') from public.satislar s
+    union all select 'teklif-bekleyen', coalesce(public.jalan(to_jsonb(tb),'musteri','musteri_adi','firma','firma_adi'),'') from public.teklif_bekleyenler tb
     union all select 'talep', coalesce(public.jalan(to_jsonb(st),'firma_adi','manual_customer_name'),'') from public.service_tickets st
-    union all select 'form', coalesce(sr.firma_adi,'') from public.service_reports sr
+    union all select 'form', coalesce(public.jalan(to_jsonb(sr),'firma_adi','musteri','customer_text'),'') from public.service_reports sr
   )
   select distinct on (ad)
     ad, kaynak,
@@ -287,8 +287,8 @@ begin
              coalesce(left(cs.materials_text,200),'') as malzeme,
              coalesce(cs.form_number,'') as form_no
       from public.completed_services cs
-      where public.firma_eslestir(coalesce(cs.customer_text,''), v_h.firma_adi) >= 75
-         or public.temiz_telefon(coalesce(cs.customer_text,'')) like '%' || v_h.telefon || '%'
+      where public.firma_eslestir(coalesce(public.jalan(to_jsonb(cs),'customer_text','musteri','firma_adi'),''), v_h.firma_adi) >= 75
+         or public.temiz_telefon(coalesce(public.jalan(to_jsonb(cs),'customer_text','musteri','firma_adi'),'')) like '%' || v_h.telefon || '%'
 
       union all
 
@@ -302,7 +302,7 @@ begin
              coalesce(left(sr.degisen_parcalar::text,200),''),
              upper(left(sr.id::text,6))
       from public.service_reports sr
-      where public.firma_eslestir(coalesce(sr.firma_adi,''), v_h.firma_adi) >= 75
+      where public.firma_eslestir(coalesce(public.jalan(to_jsonb(sr),'firma_adi','musteri','customer_text'),''), v_h.firma_adi) >= 75
 
       union all
 
@@ -314,7 +314,7 @@ begin
              coalesce(bf.personel,'—'),
              0, '', coalesce(bf.seri_no,'')
       from public.bakim_formlari bf
-      where public.firma_eslestir(coalesce(bf.musteri,''), v_h.firma_adi) >= 75
+      where public.firma_eslestir(coalesce(public.jalan(to_jsonb(bf),'musteri','musteri_adi','firma_adi'),''), v_h.firma_adi) >= 75
     ) t
     limit 120;
   exception when others then v_servisler := '[]'::jsonb; end;

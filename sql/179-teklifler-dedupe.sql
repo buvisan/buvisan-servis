@@ -90,7 +90,7 @@ begin
       'durum', lower(coalesce(tb.durum,'bekliyor'))
     )
     from public.teklif_bekleyenler tb
-    where public.firma_eslestir(tb.musteri, v_h.firma_adi) >= 75
+    where public.firma_eslestir(coalesce(public.jalan(to_jsonb(tb),'musteri','musteri_adi','firma','firma_adi'),''), v_h.firma_adi) >= 75
 
   ) x;
 
