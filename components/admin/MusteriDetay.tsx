@@ -347,7 +347,7 @@ export default function MusteriDetay({ hesapId, onKapat }: { hesapId: string; on
                         m.kaynak === "kendi" ? "bg-indigo-100 text-indigo-700" : "bg-slate-200 text-slate-600"}`}>
                         {String(m.kaynak).toUpperCase()}
                       </span>
-                      {m.kaynak === "kendi" && (
+                      {(
                         <>
                           <button onClick={() => makineDuzAc(m)} className="text-indigo-500 p-1 shrink-0"><Pencil size={12} /></button>
                           <button onClick={() => makineSilAdmin(m)} className="text-rose-500 p-1 shrink-0"><XCircle size={12} /></button>
