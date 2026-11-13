@@ -41,7 +41,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
     setYukleniyor(true);
     try {
       const [p, t, s] = await Promise.all([
-        supabase.rpc("musteri_portal_v4", { p_token: tk }),
+        supabase.rpc("musteri_portal_v5", { p_token: tk }),
         supabase.rpc("musteri_teklifleri", { p_token: tk }),
         supabase.rpc("musteri_sohbet_getir", { p_token: tk }),
       ]);
@@ -105,6 +105,13 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
     } finally { setYukleniyor(false); }
   };
 
+  const makineSil = async (id: string) => {
+    if (!confirm("Bu makineyi silmek istiyor musunuz?")) return;
+    const { data } = await supabase.rpc("musteri_vinc_sil", { p_token: token, p_id: id });
+    if ((data as any)?.ok) { setMesaj("✅ Silindi"); await veriGetir(token); }
+    else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+  };
+
   const cikis = () => {
     try { localStorage.removeItem("musteri_token"); } catch { /* yoksay */ }
     setToken(""); setVeri(null);
@@ -113,6 +120,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
 
   const vincler = veri?.vincler || [];
   const kendi = veri?.kendi_makineler || [];
+  const biletMak = veri?.bilet_makineleri || [];
   const servisler = veri?.servisler || [];
   const aktif = veri?.aktif_isler || [];
   const bakim = veri?.bakim_takvimi || [];
@@ -179,7 +187,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-gradient-to-br from-teal-600 to-cyan-600 rounded-2xl p-3.5 text-white">
                 <p className="text-[9px] font-black opacity-80">MAKİNE</p>
-                <p className="text-2xl font-black mt-0.5">{vincler.length + kendi.length}</p>
+                <p className="text-2xl font-black mt-0.5">{vincler.length + kendi.length + biletMak.length}</p>
               </div>
               <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl p-3.5 text-white">
                 <p className="text-[9px] font-black opacity-80">SERVİS</p>
@@ -283,6 +291,22 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
               </div>
             </div>
 
+            {biletMak.length > 0 && (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3">
+                  <h3 className="text-white font-black text-sm">📋 TALEPLERİMDEN MAKİNELER ({biletMak.length})</h3>
+                </div>
+                <div className="p-3 space-y-2">
+                  {biletMak.map((v: any) => (
+                    <div key={v.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                      <p className="text-xs font-black text-slate-800">{v.model}</p>
+                      <p className="text-[9px] font-bold text-slate-400 mt-1">{v.tarih}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {kendi.length > 0 && (
               <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3">
@@ -293,9 +317,10 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                     <div key={v.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs font-black text-slate-800">{v.model}</p>
-                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${v.durum === "onaylandi" ? "bg-emerald-100 text-emerald-700" : v.durum === "reddedildi" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}`}>
-                          {v.durum === "onaylandi" ? "ONAYLI" : v.durum === "reddedildi" ? "RED" : "BEKLİYOR"}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">KAYITLI</span>
+                          <button onClick={() => makineSil(v.id)} className="text-rose-500 p-1"><X size={12} /></button>
+                        </div>
                       </div>
                       <p className="text-[9px] font-bold text-slate-400 mt-1">{v.tarih}</p>
                     </div>
