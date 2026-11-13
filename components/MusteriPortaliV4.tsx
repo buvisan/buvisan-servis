@@ -17,7 +17,7 @@ import {
   ShieldCheck, UserPlus,
 } from "lucide-react";
 
-type Sekme = "ozet" | "makine" | "servis" | "teklif" | "sohbet";
+type Sekme = "ozet" | "makine" | "servis" | "teklif" | "sohbet" | "talep";
 
 export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: string }) {
   const [token, setToken] = useState(baslangicToken || "");
@@ -25,6 +25,11 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   const [teklifler, setTeklifler] = useState<any[]>([]);
   const [sohbet, setSohbet] = useState<any[]>([]);
   const [pazarliklar, setPazarliklar] = useState<any[]>([]);
+  const [tKonu, setTKonu] = useState("");
+  const [tAciklama, setTAciklama] = useState("");
+  const [tTip, setTTip] = useState("ariza");
+  const [tMakine, setTMakine] = useState("");
+  const [tGonder, setTGonder] = useState(false);
   const [sekme, setSekme] = useState<Sekme>("ozet");
   const [yukleniyor, setYukleniyor] = useState(false);
   const [mesaj, setMesaj] = useState("");
@@ -207,6 +212,24 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
     } finally { setPzGonder(false); }
   };
 
+  const talepGonder = async () => {
+    if (!tKonu.trim()) { setMesaj("⚠️ Konu zorunludur."); return; }
+    setTGonder(true); setMesaj("");
+    try {
+      const tamAciklama = (tMakine ? "[MAKİNE: " + tMakine + "]\n" : "") + tAciklama.trim();
+      const { data } = await supabase.rpc("musteri_talep_ac", {
+        p_token: token, p_konu: tKonu.trim(),
+        p_aciklama: tamAciklama || tKonu.trim(), p_tip: tTip,
+      });
+      if ((data as any)?.ok) {
+        setMesaj("✅ " + (data as any).mesaj);
+        setTKonu(""); setTAciklama(""); setTMakine("");
+        await veriGetir(token);
+        setSekme("servis");
+      } else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+    } finally { setTGonder(false); }
+  };
+
   const pazarlikKarar = async (pid: string, onay: boolean) => {
     const { data } = await supabase.rpc("musteri_pazarlik_karar", {
       p_token: token, p_pazarlik_id: pid, p_onay: onay, p_not: null,
@@ -270,6 +293,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
     { k: "servis", ad: "SERVİS", ikon: Wrench, badge: 0 },
     { k: "teklif", ad: "TEKLİF", ikon: Star, badge: bekleyenTeklif },
     { k: "sohbet", ad: "SOHBET", ikon: MessageSquare, badge: okunmamis },
+    { k: "talep", ad: "TALEP", ikon: Plus, badge: 0 },
   ];
 
   return (
@@ -612,6 +636,55 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                 </div>
               );
             })}
+          </div>
+        ) : sekme === "talep" ? (
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-rose-600 to-red-600 px-4 py-3">
+              <h3 className="text-white font-black text-sm">🛠️ ARIZA / SERVİS TALEBİ</h3>
+              <p className="text-[9px] text-rose-200 font-bold mt-0.5">Talebiniz anında ekibimize düşer</p>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase">Talep Türü</label>
+                <div className="grid grid-cols-3 gap-2 mt-1">
+                  {([["ariza","Arıza"],["bakim","Bakım"],["kesif","Keşif"]] as const).map(([k, a]) => (
+                    <button key={k} onClick={() => setTTip(k)}
+                      className={`py-2.5 rounded-xl text-[10px] font-black transition ${tTip === k ? "bg-rose-600 text-white" : "bg-slate-50 text-slate-500 border border-slate-200"}`}>
+                      {a}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {(vincler.length + kendi.length) > 0 && (
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase">Makine (opsiyonel)</label>
+                  <select value={tMakine} onChange={(e) => setTMakine(e.target.value)}
+                    className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-rose-500">
+                    <option value="">Makine seçin...</option>
+                    {[...vincler, ...kendi].map((v: any, i: number) => (
+                      <option key={i} value={v.model}>{v.model}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase">Konu *</label>
+                <input value={tKonu} onChange={(e) => setTKonu(e.target.value)}
+                  placeholder="Örn: Vinçten ses geliyor"
+                  className="w-full mt-1 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-rose-500" />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase">Açıklama</label>
+                <textarea rows={4} value={tAciklama} onChange={(e) => setTAciklama(e.target.value)}
+                  placeholder="Ne olduğunu detaylı yazın..."
+                  className="w-full mt-1 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs resize-none outline-none focus:border-rose-500" />
+              </div>
+              <button onClick={talepGonder} disabled={tGonder}
+                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white rounded-xl text-[11px] font-black flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20">
+                {tGonder ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                {tGonder ? "GÖNDERİLİYOR..." : "TALEBİ GÖNDER"}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col" style={{ height: "calc(100vh - 240px)" }}>
