@@ -1,7 +1,7 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVİSAN - MÜŞTERİ HESAPLARI 👥 (admin)
+// BUVİSAN - MÜŞTERİ YÖNETİM 👥 (admin)
 // Kayıt taleplerini onayla / reddet
 // ----------------------------------------------------------------------------
 
@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import TelefonRehberi from "@/components/TelefonRehberi";
+import MusteriDetay from "@/components/admin/MusteriDetay";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Loader2, RefreshCw, CheckCircle2, XCircle,
@@ -32,6 +33,7 @@ export default function MusteriHesaplari() {
   const [tNot, setTNot] = useState('');
   const [telYuk, setTelYuk] = useState(false);
   const [telArama, setTelArama] = useState('');
+  const [detayId, setDetayId] = useState<string | null>(null);
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -122,7 +124,7 @@ export default function MusteriHesaplari() {
             <div className="flex items-center gap-2.5">
               <div className="bg-white/10 p-2 rounded-xl"><Users size={18} /></div>
               <div>
-                <h1 className="font-black text-sm leading-none">MÜŞTERİ HESAPLARI</h1>
+                <h1 className="font-black text-sm leading-none">MÜŞTERİ YÖNETİM</h1>
                 <p className="text-[10px] text-slate-400 font-bold mt-1">
                   {liste.length} kayıt · onay bekleyenler
                 </p>
@@ -194,7 +196,7 @@ export default function MusteriHesaplari() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-black text-slate-800">{h.firma_adi}</h3>
+                      <button onClick={() => setDetayId(h.id)} className="text-sm font-black text-indigo-700 hover:underline text-left">{h.firma_adi}</button>
                       <span className={`text-[9px] font-black px-2 py-0.5 rounded ${
                         h.durum === "onaylandi" ? "bg-emerald-100 text-emerald-700"
                         : h.durum === "reddedildi" ? "bg-rose-100 text-rose-700"
@@ -250,6 +252,8 @@ export default function MusteriHesaplari() {
         </>
         )}
       </div>
+
+      {detayId && <MusteriDetay hesapId={detayId} onKapat={() => { setDetayId(null); getir(); }} />}
 
       {/* RED MODAL */}
       <AnimatePresence>
