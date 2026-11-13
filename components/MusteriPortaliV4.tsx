@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { yazdirVeyaPaylas } from "@/lib/yazdirPaylas";
+import PushAbonelik from "@/components/PushAbonelik";
 import { teklifHtml, satisHtml } from "@/lib/formHtml";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -320,6 +321,8 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
           <div className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin text-slate-400 mx-auto" /></div>
         ) : sekme === "ozet" ? (
           <>
+            <PushAbonelik kullanici={veri?.firma} rol="musteri" />
+
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-gradient-to-br from-teal-600 to-cyan-600 rounded-2xl p-3.5 text-white">
                 <p className="text-[9px] font-black opacity-80">MAKİNE</p>

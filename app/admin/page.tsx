@@ -12,6 +12,7 @@ import VincKarti from '@/components/VincKarti';
 import DevamEdenIsler from '@/components/DevamEdenIsler';
 import BakimFormlarim from '@/components/BakimFormlarim';
 import { useBildirimler, gorulduIsaretle } from '@/lib/bildirimler';
+import PushAbonelik from "@/components/PushAbonelik";
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -250,6 +251,8 @@ export default function AdminPanel() {
   if (yukleniyor || !erisimIzni) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
+      <div className="max-w-7xl mx-auto px-4 pt-3"><PushAbonelik kullanici="ADMIN" rol="admin" /></div>
+
          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
          <div className="font-bold text-lg animate-pulse">Güvenlik Kontrolü Yapılıyor...</div>
       </div>
