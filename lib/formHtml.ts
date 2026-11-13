@@ -500,7 +500,7 @@ export function bakimFormuHtml(b: any): string {
             const b = maddeler[i + 1];
             const hucre = (m: any) => {
               if (!m) return '<td></td><td></td><td></td>';
-              const ret = m?.durum === "ret" || m?.ret;
+              const ret = String(m?.sonuc || m?.durum || "").toLowerCase() === "ret" || m?.ret === true;
               return '<td>' + esc(m?.madde || m?.ad || m?.metin || "—") + '</td>'
                 + '<td class="orta" style="color:#dc2626;font-weight:900">' + (ret ? "✕" : "") + '</td>'
                 + '<td class="orta" style="color:#059669;font-weight:900">' + (ret ? "" : "✓") + '</td>';
