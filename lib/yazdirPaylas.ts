@@ -7,6 +7,7 @@
 export type PdfSecenek = {
   baslik?: string;
   dosyaAdi?: string;
+  cokSayfali?: boolean;   // true = kucultmeden sayfalara bol
 };
 
 /** Tam HTML'i gizli iframe'e yaz */
@@ -74,17 +75,36 @@ export async function pdfIndir(
     const kenar = 6;
     const g = 210 - kenar * 2;
     const maxY = 297 - kenar * 2;
+    const resim = kanvas.toDataURL("image/jpeg", 0.95);
 
-    // ⭐ HER ZAMAN TEK SAYFA: genislik veya yukseklik — hangisi kisitliyorsa
-    const oranG = g / kanvas.width;
-    const oranY = maxY / kanvas.height;
-    const oran = Math.min(oranG, oranY);
+    if (secenek.cokSayfali) {
+      // ⭐ ÇOK SAYFALI: genişliğe göre ölçekle, dikeyde böl (küçültme YOK)
+      const oran = g / kanvas.width;
+      const toplamY = kanvas.height * oran;
+      const sayfaSayisi = Math.max(1, Math.ceil(toplamY / maxY));
+      const dilimYukseklikPx = Math.floor(kanvas.height / sayfaSayisi);
 
-    const w = kanvas.width * oran;
-    const h = kanvas.height * oran;
-    const x = kenar + (g - w) / 2;
-
-    pdf.addImage(kanvas.toDataURL("image/jpeg", 0.95), "JPEG", x, kenar, w, h);
+      for (let i = 0; i < sayfaSayisi; i++) {
+        if (i > 0) pdf.addPage();
+        const dilim = document.createElement("canvas");
+        dilim.width = kanvas.width;
+        dilim.height = Math.min(dilimYukseklikPx, kanvas.height - i * dilimYukseklikPx);
+        dilim.getContext("2d")!.drawImage(
+          kanvas, 0, -i * dilimYukseklikPx
+        );
+        const h = (dilim.height * g) / kanvas.width;
+        pdf.addImage(dilim.toDataURL("image/jpeg", 0.95), "JPEG", kenar, kenar, g, h);
+      }
+    } else {
+      // TEK SAYFA: küçült
+      const oranG = g / kanvas.width;
+      const oranY = maxY / kanvas.height;
+      const oran = Math.min(oranG, oranY);
+      const w = kanvas.width * oran;
+      const h = kanvas.height * oran;
+      const x = kenar + (g - w) / 2;
+      pdf.addImage(resim, "JPEG", x, kenar, w, h);
+    }
 
     pdf.save(`${dosyaAdi}.pdf`);
     return "basarili";

@@ -63,6 +63,7 @@ export default function BakimFormlariSayfasi() {
     await yazdirVeyaPaylas(html, {
       baslik: "Bakim Formu - " + (detay?.musteri || ""),
       dosyaAdi: "bakim-formu-" + String(detay?.id || "").slice(0,6),
+      cokSayfali: true,
     });
   };;;;
 

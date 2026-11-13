@@ -485,18 +485,30 @@ export function bakimFormuHtml(b: any): string {
     <div class="tbl-cerceve" style="margin-bottom:0"><table class="tbl">
       <thead><tr>
         <th>Kontrol Maddesi</th>
-        <th style="width:56px;text-align:center">Ret</th>
-        <th style="width:56px;text-align:center">Onay</th>
+        <th style="width:38px;text-align:center">R</th>
+        <th style="width:38px;text-align:center">O</th>
+        <th>Kontrol Maddesi</th>
+        <th style="width:38px;text-align:center">R</th>
+        <th style="width:38px;text-align:center">O</th>
       </tr></thead>
       <tbody>
-        ${maddeler.map((m: any) => {
-          const ret = m?.durum === "ret" || m?.ret;
-          return `<tr>
-            <td>${esc(m?.madde || m?.ad || m?.metin || "—")}</td>
-            <td class="orta" style="color:#dc2626;font-weight:900">${ret ? "✕" : ""}</td>
-            <td class="orta" style="color:#059669;font-weight:900">${ret ? "" : "✓"}</td>
-          </tr>`;
-        }).join("")}
+        ${(() => {
+          // 2 sütunlu düzen: her satırda 2 madde
+          const satirlar: string[] = [];
+          for (let i = 0; i < maddeler.length; i += 2) {
+            const a = maddeler[i];
+            const b = maddeler[i + 1];
+            const hucre = (m: any) => {
+              if (!m) return '<td></td><td></td><td></td>';
+              const ret = m?.durum === "ret" || m?.ret;
+              return '<td>' + esc(m?.madde || m?.ad || m?.metin || "—") + '</td>'
+                + '<td class="orta" style="color:#dc2626;font-weight:900">' + (ret ? "✕" : "") + '</td>'
+                + '<td class="orta" style="color:#059669;font-weight:900">' + (ret ? "" : "✓") + '</td>';
+            };
+            satirlar.push('<tr>' + hucre(a) + hucre(b) + '</tr>');
+          }
+          return satirlar.join("");
+        })()}
       </tbody>
     </table></div>
   </div>` : ""}
