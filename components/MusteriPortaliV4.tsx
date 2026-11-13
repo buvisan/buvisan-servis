@@ -7,6 +7,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { yazdirVeyaPaylas } from "@/lib/yazdirPaylas";
+import { teklifHtml, satisHtml } from "@/lib/formHtml";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Loader2, LogOut, Wrench, RefreshCw, Send, MessageSquare, Plus, X,
@@ -202,6 +204,41 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
         await veriGetir(token);
       } else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
     } finally { setPzGonder(false); }
+  };
+
+  const pazarlikKarar = async (pid: string, onay: boolean) => {
+    const { data } = await supabase.rpc("musteri_pazarlik_karar", {
+      p_token: token, p_pazarlik_id: pid, p_onay: onay, p_not: null,
+    });
+    if ((data as any)?.ok) { setMesaj("✅ " + (data as any).mesaj); await veriGetir(token); }
+    else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+  };
+
+  const teklifPdf = async (kaynak: string, id: string, no: string) => {
+    try {
+      setMesaj("⏳ PDF hazırlanıyor...");
+      const { data } = await supabase.rpc("musteri_teklif_detay", {
+        p_token: token, p_kaynak: kaynak, p_id: id,
+      });
+      if (!(data as any)?.ok) { setMesaj("❌ " + ((data as any)?.mesaj || "Teklif yüklenemedi")); return; }
+
+      let html = "";
+      if (kaynak === "offer") {
+        const t = (data as any).teklif;
+        html = teklifHtml({ ...t, kalemler: t.kalemler || [] }, t.kalemler || []);
+      } else if (kaynak === "satis") {
+        const s = (data as any).satis;
+        html = satisHtml({ ...s, kalemler: (data as any).kalemler || [] });
+      } else {
+        setMesaj("⚠️ Bu teklif türü için PDF henüz yok.");
+        return;
+      }
+
+      await yazdirVeyaPaylas(html, { baslik: "Teklif " + (no || ""), dosyaAdi: "teklif-" + (no || "buv") });
+      setMesaj("");
+    } catch (e: any) {
+      setMesaj("❌ " + (e?.message || "PDF hatası"));
+    }
   };
 
   const makineSil = async (id: string) => {
@@ -502,6 +539,18 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                             <p className="text-[10px] font-bold mt-0.5">{p.admin_notu}</p>
                           </div>
                         )}
+                        {(dn === "revize" || dn === "bekliyor") && (
+                          <div className="flex gap-1.5 mt-2">
+                            <button onClick={() => pazarlikKarar(p.id, false)}
+                              className="flex-1 py-2 bg-rose-600 text-white rounded-lg text-[10px] font-black flex items-center justify-center gap-1">
+                              <XCircle size={11} /> REDDET
+                            </button>
+                            <button onClick={() => pazarlikKarar(p.id, true)}
+                              className="flex-[2] py-2 bg-emerald-600 text-white rounded-lg text-[10px] font-black flex items-center justify-center gap-1">
+                              <CheckCircle2 size={11} /> BU FİYATI KABUL ET
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -537,6 +586,10 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                       <p className="text-sm font-black text-emerald-600 shrink-0">{Number(t.tutar).toLocaleString("tr-TR")} ₺</p>
                     )}
                   </div>
+                  <button onClick={() => teklifPdf(t.kaynak, t.id, t.no)}
+                    className="w-full mt-2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-black flex items-center justify-center gap-1">
+                    📄 TEKLİFİ GÖRÜNTÜLE / PDF
+                  </button>
                   {bekliyor && (
                     <div className="flex gap-2 mt-2.5">
                       <button onClick={() => teklifKarar(t.kaynak, t.id, false)}
