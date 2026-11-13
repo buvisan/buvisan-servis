@@ -42,7 +42,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
     setYukleniyor(true);
     try {
       const [p, t, s] = await Promise.all([
-        supabase.rpc("musteri_portal_v5", { p_token: tk }),
+        supabase.rpc("musteri_portal_v6", { p_token: tk }),
         supabase.rpc("musteri_teklifleri", { p_token: tk }),
         supabase.rpc("musteri_sohbet_getir", { p_token: tk }),
       ]);
@@ -214,14 +214,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-gradient-to-br from-teal-600 to-cyan-600 rounded-2xl p-3.5 text-white">
                 <p className="text-[9px] font-black opacity-80">MAKİNE</p>
-                <p className="text-2xl font-black mt-0.5">{(() => {
-                const set = new Set<string>();
-                const ekle = (s: any) => { const n = String(s || "").trim().toLowerCase().replace(/[^a-z0-9]/g, ""); if (n) set.add(n); };
-                vincler.forEach((v: any) => ekle(v.model));
-                kendi.forEach((v: any) => ekle(v.model));
-                biletMak.forEach((v: any) => ekle(v.model));
-                return set.size;
-              })()}</p>
+                <p className="text-2xl font-black mt-0.5">{Number(veri?.makine_sayisi ?? 0)}</p>
               </div>
               <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl p-3.5 text-white">
                 <p className="text-[9px] font-black opacity-80">SERVİS</p>
