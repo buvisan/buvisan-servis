@@ -27,6 +27,7 @@ type Sozlesme = {
   machine_type?: string | null;
   yearly_total?: number | null;
   visits_per_year?: number | null;
+  asama?: string | null;
 };
 
 export default function BakimSozlesmeler() {
@@ -48,6 +49,7 @@ export default function BakimSozlesmeler() {
   const [cServis, setCServis] = useState("");
   const [cTip, setCTip] = useState("vinç");
   const [cYilda, setCYilda] = useState(4);
+  const [cAsama, setCAsama] = useState<"teklif"|"anlasildi">("anlasildi");
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -98,6 +100,7 @@ export default function BakimSozlesmeler() {
         p_dosya_url: dosyaUrl,
         p_notlar: null,
         p_yilda: Number(cYilda) || 4,
+        p_asama: cAsama,
       });
 
       if (error || !(data as any)?.ok) {
@@ -203,6 +206,11 @@ export default function BakimSozlesmeler() {
                       <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                         YILDA {Math.floor(12 / Math.max(1, s.maintenance_period_months || 3))} BAKIM
                       </span>
+                      {s.asama === "teklif" && (
+                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                          TEKLİF AŞAMASI
+                        </span>
+                      )}
                       {s.hitap_adi && (
                         <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">
                           {s.hitap_adi}
@@ -245,7 +253,17 @@ export default function BakimSozlesmeler() {
                       DOSYA YOK
                     </span>
                   )}
-                  {!bitti && (
+                  {s.asama === "teklif" && (
+                    <button onClick={async () => {
+                      const { data } = await supabase.rpc("sozlesme_asama_degistir", { p_id: s.id, p_asama: "anlasildi" });
+                      if ((data as any)?.ok) { setMesaj("✅ " + (data as any).mesaj); await getir(); }
+                      else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+                    }}
+                      className="flex-1 py-2 bg-emerald-600 text-white rounded-lg text-[10px] font-black">
+                      ANLAŞILDI
+                    </button>
+                  )}
+                  {!bitti && s.asama !== "teklif" && (
                     <button onClick={() => bitir(s.id)}
                       className="px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black">
                       BİTİR
@@ -273,6 +291,23 @@ export default function BakimSozlesmeler() {
                   placeholder="Örn: ROLLMECH"
                   className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-teal-500" />
               </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase">Aşama</label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <button onClick={() => setCAsama("teklif")}
+                    className={`py-2.5 rounded-xl text-[11px] font-black transition ${cAsama === "teklif" ? "bg-amber-500 text-white" : "bg-slate-50 text-slate-500 border border-slate-200"}`}>
+                    📝 TEKLİF
+                  </button>
+                  <button onClick={() => setCAsama("anlasildi")}
+                    className={`py-2.5 rounded-xl text-[11px] font-black transition ${cAsama === "anlasildi" ? "bg-emerald-600 text-white" : "bg-slate-50 text-slate-500 border border-slate-200"}`}>
+                    ✅ ANLAŞILDI
+                  </button>
+                </div>
+                <p className="text-[8px] text-slate-400 mt-1">
+                  {cAsama === "teklif" ? "Takvime eklenmez — anlaşılınca eklenir" : "Takvime otomatik eklenir"}
+                </p>
+              </div>
+
               <div>
                 <label className="text-[9px] font-black text-slate-400 uppercase">Hitap Adı (sözleşmede geçecek)</label>
                 <input value={cHitap} onChange={(e) => setCHitap(e.target.value)}
