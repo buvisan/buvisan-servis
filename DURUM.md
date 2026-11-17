@@ -199,7 +199,8 @@ Admin Panel → “Veri Sağlığı” (kalkan ikonu) veya mobil menü.
 - `app/api/hatirlatma/route.ts` → GET (cron) / POST (admin). Üretir **ve** push gönderir.
   Yetki: `CRON_SECRET` **veya** yönetici oturumu (`lib/api-yetki.adminMi`). `CRON_SECRET` tanımlı değilse izin verir (push API'si ile aynı davranış).
 - `app/admin/hatirlatmalar/page.tsx` → kuyruk + gönderim geçmişi + “ŞİMDİ ÇALIŞTIR”
-- `vercel.json` → `{ "path": "/api/hatirlatma", "schedule": "0 6 * * *" }`
+- `vercel.json` → `{ "path": "/api/hatirlatma", "schedule": "0 3 * * *" }`
+  (Vercel cron **UTC** çalışır → 03:00 UTC = **06:00 Türkiye saati**)
 
 **Bonus düzeltme:** eski cron `/api/push-gonder` idi ama Vercel Cron **GET** çağırır, o route’un GET’i sadece durum döndürüyordu → **günlük push hiç gitmiyordu**. Artık `/api/hatirlatma` GET'i kuyruğu doldurup `/api/push-gonder` POST’unu kendisi tetikliyor.
 
