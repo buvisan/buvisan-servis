@@ -124,6 +124,7 @@ export default function BakimSozlesmeler() {
       await yazdirVeyaPaylas(sozlesmeHtml(s), {
         baslik: "Bakım Sözleşmesi - " + s.company_name,
         dosyaAdi: "sozlesme-" + String(s.company_name || "firma").replace(/\s+/g, "-").toLowerCase(),
+        cokSayfali: true,
       });
       setMesaj("");
     } catch (e: any) {

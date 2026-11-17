@@ -53,7 +53,8 @@ export function sozlesmeHtml(s: any): string {
   const makine = Number(s?.machine_count || 0);
   const makineFiyat = Number(s?.price_per_machine || 0);
   const servisFiyat = Number(s?.service_price || makineFiyat || 0);
-  const yilda = Number(s?.visits_per_year || Math.floor(12 / Math.max(1, Number(s?.maintenance_period_months || 3)))) || 4;
+  const periyotAy = Math.max(1, Number(s?.maintenance_period_months || 3));
+  const yilda = Math.max(1, Math.round(12 / periyotAy));   // period TEK DOĞRU KAYNAK
   const periyot = Math.max(1, Math.round(12 / yilda));
   const basla = tarih(s?.start_date);
   const bitis = tarih(s?.end_date);
