@@ -18,7 +18,7 @@ const css = `
     padding: 20px 34px 16px; border-bottom: 3px solid #0f172a;
     background: #fff;
   }
-  .ust img { height: 46px; width: auto; }
+  .ust img { height: 44px; width: auto; max-width: 260px; object-fit: contain; }
   .ust-sag { text-align: right; font-size: 8.5px; line-height: 1.5; color: #64748b; font-weight: 600; }
   .ust-sag b { display: block; font-size: 9.5px; color: #0f172a; font-weight: 900; margin-bottom: 2px; }
 
