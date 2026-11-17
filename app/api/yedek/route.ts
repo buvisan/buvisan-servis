@@ -201,11 +201,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, mesaj: 'Yetkisiz' }, { status: 401 });
   }
   try {
-    const islem = req.nextUrl.searchParams.get('islem') || 'liste';
+    // Vercel Cron GET çağırır → parametresiz istek = YEDEK AL
+    const islem = req.nextUrl.searchParams.get('islem') || 'al';
+    if (islem === 'liste') {
+      return await liste();
+    }
     if (islem === 'indir') {
       return await indir(req.nextUrl.searchParams.get('dosya') || '');
     }
-    return await liste();
+    return await yedekAl();
   } catch (e: any) {
     return NextResponse.json({ ok: false, mesaj: e?.message || 'Sunucu hatası' }, { status: 500 });
   }
