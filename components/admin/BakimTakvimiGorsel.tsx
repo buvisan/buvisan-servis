@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Loader2, ChevronLeft, ChevronRight, CheckCircle2, X, Calendar } from "lucide-react";
+import { yilTatilleri, type Tatil } from "@/lib/tatiller";
 
 type Kayit = {
   id: string;
@@ -71,6 +72,8 @@ export default function BakimTakvimiGorsel() {
     return `${yil}-${ay}-${g}`;
   };
 
+  const tatiller = useMemo(() => yilTatilleri(yil), [yil]);
+
   const buAy = new Date().getMonth();
   const buGun = new Date().getDate();
 
@@ -108,6 +111,8 @@ export default function BakimTakvimiGorsel() {
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Yapıldı</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-500" /> Planlandı</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" /> Gecikmiş</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-400" /> Resmî Tatil</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-400" /> Dinî Bayram</span>
         </span>
       </div>
 
@@ -154,11 +159,16 @@ export default function BakimTakvimiGorsel() {
                         const gecikmisGun = varKayit && kayitlar.some((k) => k.durum === "planlandi" && k.gun_kaldi < 0);
                         const bugunMu = yil === buYil && ayIdx === buAy && gun === buGun;
 
+                        const tatil = tatiller[ts];
                         let renk = "";
                         if (varKayit) {
                           renk = hepsiYapildi ? "bg-emerald-500 text-white"
                             : gecikmisGun ? "bg-rose-500 text-white"
                             : "bg-teal-500 text-white";
+                        } else if (tatil) {
+                          renk = tatil.tur === "dini" ? "bg-violet-200 text-violet-900"
+                            : tatil.tur === "arefe" ? "bg-violet-100 text-violet-800"
+                            : "bg-orange-200 text-orange-900";
                         } else if (bugunMu) {
                           renk = "bg-yellow-400 text-slate-900";
                         } else {
