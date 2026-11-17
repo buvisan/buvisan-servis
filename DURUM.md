@@ -182,6 +182,31 @@ Admin Panel → “Veri Sağlığı” (kalkan ikonu) veya mobil menü.
 
 ---
 
+## 🟢 v7 — HATIRLATMA MOTORU
+
+`/admin/hatirlatmalar` · ⚠️ **SQL `204-hatirlatma-motoru.sql` çalıştırılmalı.**
+
+**Ne yapıyor (otomatik, günde 1 kez 06:00 Vercel Cron):**
+| Kural | Kime | Kanal |
+|---|---|---|
+| Bakımdan **7 gün** önce | Müşteri | Portal SOHBET mesajı + push |
+| Bakımdan **1 gün** önce | Müşteri | Portal SOHBET mesajı + push |
+| Her **pazartesi** özet (gecikmiş bakım · cevapsız teklif · yenilenecek sözleşme) | Admin | Push + Hatırlatmalar ekranı |
+| Portal hesabı yoksa | Admin | Push + Hatırlatmalar ekranı |
+
+**Bileşenler**
+- `sql/204-hatirlatma-motoru.sql` → `hatirlatma_gonderim` tablosu (tekrar koruması) + `hatirlatma_uret()` fonksiyonu
+- `app/api/hatirlatma/route.ts` → GET (cron) / POST (admin). Üretir **ve** push gönderir.
+  Yetki: `CRON_SECRET` **veya** yönetici oturumu (`lib/api-yetki.adminMi`). `CRON_SECRET` tanımlı değilse izin verir (push API'si ile aynı davranış).
+- `app/admin/hatirlatmalar/page.tsx` → kuyruk + gönderim geçmişi + “ŞİMDİ ÇALIŞTIR”
+- `vercel.json` → `{ "path": "/api/hatirlatma", "schedule": "0 6 * * *" }`
+
+**Bonus düzeltme:** eski cron `/api/push-gonder` idi ama Vercel Cron **GET** çağırır, o route’un GET’i sadece durum döndürüyordu → **günlük push hiç gitmiyordu**. Artık `/api/hatirlatma` GET'i kuyruğu doldurup `/api/push-gonder` POST’unu kendisi tetikliyor.
+
+**Tekrar koruması:** her hatırlatma `hatirlatma_gonderim.anahtar` (unique) ile bir kez kaydedilir → aynı bakım için iki kez bildirim gitmez.
+
+---
+
 ## 📊 VERİTABANI DURUMU
 
 ### Kritik Tablolar
@@ -204,10 +229,15 @@ Admin Panel → “Veri Sağlığı” (kalkan ikonu) veya mobil menü.
 143 → 202 (sırayla, hepsi çalıştırıldı)
 En son çalıştırılan: 202-musteri-bakim-fix.sql
 
-⏳ SIRADA: 203-musteri-sozlesme-servis-detay.sql  ← ÇALIŞTIRILMALI
+203-musteri-sozlesme-servis-detay.sql
    • musteri_sozlesmem + musteri_bakim_takvimi → hitap_adi eşleşmesi (sözleşme fix)
    • musteri_servislerim() + musteri_servis_detay() → servis formu detayı
-   • Sonda kontrol SELECT'i var: tam_unvan_eslesme=0, hitap_eslesme=95, fonksiyon_sayisi=4
+   • Kontrol: tam_unvan_eslesme=0, hitap_eslesme=95, fonksiyon_sayisi=4
+
+⏳ SIRADA: 204-hatirlatma-motoru.sql  ← ÇALIŞTIRILMALI (hatırlatma motoru)
+   • hatirlatma_gonderim tablosu + hatirlatma_uret() fonksiyonu
+   • Kontrol: tablo_ok=1, fonksiyon_ok=1
+   • Bu SQL çalışmadan /admin/hatirlatmalar boş kalır ve cron hata verir
 ```
 
 ### ⚠️ SQL Editor Kuralı
@@ -258,6 +288,7 @@ app/admin/bakim-takvimi/page.tsx    → Bakım (birleşik)
 app/admin/musteri-hesaplari/page.tsx → Müşteri yönetim
 app/admin/satis/page.tsx            → Malzeme satışı
 app/admin/veri-sagligi/page.tsx     → Veri Sağlığı (tutarsızlık + onarım)
+app/admin/hatirlatmalar/page.tsx    → Hatırlatma merkezi (kuyruk + geçmiş)
 app/musteri/page.tsx                → Müşteri portalı (giriş)
 ```
 
@@ -299,6 +330,20 @@ lib/tatiller.ts          → Resmî + dinî tatiller
   • Desktop UI pixel-identical kalmalı
   • Mobil kurallar breakpoint ile scope'lanmalı
   • Şema-bağımsız erişim: public.jalan(to_jsonb(x), 'kol1','kol2')
+```
+
+### 💰 PARA KURALI (çok önemli)
+```
+Sisteme girilen BÜTÜN tutarlar KDV HARİÇTİR.
+  • completed_services.price      → KDV hariç
+  • offers / satislar toplamları  → KDV hariç
+  • sözleşme yearly_total         → KDV hariç (makine × fiyat × yılda)
+  • cari hesap / tahsilat         → KDV hariç
+  • servis formu tutarları        → KDV hariç
+TEK İSTİSNA: depo ekranındaki (app/admin/malzemeler) hesaplayıcı,
+             KDV'li tutarı da AYRICA gösterir — o davranış korunacak.
+Kural: yeni güncellemelerde kullanıcıya/müşteriye tutar gösterirken
+       KDV hariç olduğunu varsay; gerekiyorsa "KDV hariç" ibaresi ekle.
 ```
 
 ---
