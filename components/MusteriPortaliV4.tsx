@@ -79,7 +79,8 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
       setTeklifler(anaTeklif.length > 0 ? anaTeklif : ayriTeklif);
       setSohbet((s.data as any[]) || []);
       setPazarliklar((pz.data as any[]) || []);
-      setBakimTakvim(((bk.data as any)?.takvim) || []);
+      const bkData: any = bk.data || {};
+      setBakimTakvim(bkData.sozlesme_var ? (bkData.takvim || []) : []);
       setSozlesme(((sz.data as any)?.var ? sz.data : null));
       setBakimTalepler((bt.data as any[]) || []);
     } finally { setYukleniyor(false); }
