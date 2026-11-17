@@ -7,18 +7,18 @@ const css = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: Arial, Helvetica, sans-serif;
-    background: #fff; color: #111827; font-size: 11px; line-height: 1.6;
+    background: #fff; color: #111827; font-size: 15px; line-height: 1.75;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  .sayfa { width: 794px; padding: 42px 46px; background: #fff; margin: 0 auto; }
-  h1 { font-size: 15px; font-weight: 900; text-align: center; letter-spacing: 0.6px; margin-bottom: 4px; }
-  .no { text-align: center; font-size: 10px; font-weight: 700; color: #dc2626; margin-bottom: 18px; }
-  h2 { font-size: 11px; font-weight: 900; margin: 14px 0 6px; letter-spacing: 0.3px; }
-  p { font-size: 10.5px; margin-bottom: 6px; text-align: justify; }
+  .sayfa { width: 794px; padding: 46px 50px; background: #fff; margin: 0 auto; }
+  h1 { font-size: 21px; font-weight: 900; text-align: center; letter-spacing: 0.6px; margin-bottom: 4px; }
+  .no { text-align: center; font-size: 13px; font-weight: 700; color: #dc2626; margin-bottom: 18px; }
+  h2 { font-size: 15.5px; font-weight: 900; margin: 20px 0 9px; letter-spacing: 0.3px; }
+  p { font-size: 14.5px; margin-bottom: 9px; text-align: justify; }
   ul { margin: 4px 0 8px 18px; }
-  li { font-size: 10px; margin-bottom: 1.5px; }
+  li { font-size: 13.5px; margin-bottom: 3px; }
   .kutu { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px 16px; margin: 10px 0 14px; }
-  .kutu p { margin-bottom: 4px; font-size: 10.5px; }
+  .kutu p { margin-bottom: 6px; font-size: 14.5px; }
   .kutu b { font-weight: 900; }
   .vurgu { color: #0f172a; font-weight: 900; }
   .imza { margin-top: 34px; display: flex; gap: 22px; }
@@ -57,7 +57,7 @@ export function sozlesmeHtml(s: any): string {
   const periyot = Math.max(1, Math.round(12 / yilda));
   const basla = tarih(s?.start_date);
   const bitis = tarih(s?.end_date);
-  const yillik = Number(s?.yearly_total || ((makine * makineFiyat + servisFiyat) * yilda)) || 0;
+  const yillik = (makineFiyat + servisFiyat) * makine * yilda;
   const tip = String(s?.machine_type || "vinç");
   const no = "261711-" + String(s?.id || "001").replace(/-/g, "").slice(0, 3).toUpperCase();
   const sozlesmeNo = s?.sozlesme_no || no;
