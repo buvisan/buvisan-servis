@@ -1,6 +1,6 @@
 ﻿-- ============================================================================
 --  💰 SÖZLEŞME TUTAR FORMÜLÜ DÜZELTMESİ (Güncelleme #171)
---  DOĞRU: (makine_fiyat + servis_fiyat) × makine_sayısı × yılda_kez
+--  DOĞRU: makine_sayısı × bakım_fiyatı × yılda_kez  (servis ücreti DAHİL DEĞİL)
 --  KULLANIM: 198'den SONRA çalıştır.
 -- ============================================================================
 
@@ -11,7 +11,7 @@ returns numeric
 language sql
 immutable
 as $$
-  select coalesce(p_makine,0) * (coalesce(p_makine_fiyat,0) + coalesce(p_servis_fiyat,0)) * greatest(1, coalesce(p_yilda,1));
+  select coalesce(p_makine,0) * coalesce(p_makine_fiyat,0) * greatest(1, coalesce(p_yilda,1));
 $$;
 
 revoke all on function public.sozlesme_tutar_hesapla(integer, numeric, numeric, integer) from public;

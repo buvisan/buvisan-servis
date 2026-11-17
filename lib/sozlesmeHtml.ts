@@ -57,7 +57,7 @@ export function sozlesmeHtml(s: any): string {
   const periyot = Math.max(1, Math.round(12 / yilda));
   const basla = tarih(s?.start_date);
   const bitis = tarih(s?.end_date);
-  const yillik = (makineFiyat + servisFiyat) * makine * yilda;
+  const yillik = makine * makineFiyat * yilda;   // servis ücreti DAHİL DEĞİL
   const tip = String(s?.machine_type || "vinç");
   const no = "261711-" + String(s?.id || "001").replace(/-/g, "").slice(0, 3).toUpperCase();
   const sozlesmeNo = s?.sozlesme_no || no;

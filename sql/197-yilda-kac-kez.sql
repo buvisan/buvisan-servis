@@ -56,7 +56,7 @@ begin
   v_periyot := greatest(1, round(12.0 / v_yilda)::integer);
 
   v_bitis := (coalesce(p_baslangic, current_date)::date + (greatest(1, coalesce(p_sure_yil,1)) * interval '1 year'))::date;
-  v_yillik := coalesce(p_makine_sayisi,1) * (coalesce(p_makine_fiyat,0) + coalesce(p_servis_fiyat,0)) * v_yilda;
+  v_yillik := coalesce(p_makine_sayisi,1) * coalesce(p_makine_fiyat,0) * v_yilda;
 
   insert into public.maintenance_contracts (
     company_name, hitap_adi, machine_count, price_per_machine, service_price,
