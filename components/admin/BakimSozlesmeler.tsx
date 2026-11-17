@@ -22,6 +22,11 @@ type Sozlesme = {
   end_date: string;
   status: string;
   contract_file_url: string | null;
+  hitap_adi?: string | null;
+  service_price?: number | null;
+  machine_type?: string | null;
+  yearly_total?: number | null;
+  visits_per_year?: number | null;
 };
 
 export default function BakimSozlesmeler() {
@@ -196,8 +201,13 @@ export default function BakimSozlesmeler() {
                         {bitti ? "SÜRESİ BİTTİ" : `${g} GÜN KALDI`}
                       </span>
                       <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                        {s.maintenance_period_months} AYDA 1 BAKIM
+                        YILDA {Math.floor(12 / Math.max(1, s.maintenance_period_months || 3))} BAKIM
                       </span>
+                      {s.hitap_adi && (
+                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">
+                          {s.hitap_adi}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <button onClick={() => sil(s.id, s.company_name)} className="text-rose-400 hover:text-rose-600 p-1 shrink-0">
@@ -263,6 +273,27 @@ export default function BakimSozlesmeler() {
                   placeholder="Örn: ROLLMECH"
                   className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-teal-500" />
               </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase">Hitap Adı (sözleşmede geçecek)</label>
+                <input value={cHitap} onChange={(e) => setCHitap(e.target.value)}
+                  placeholder="Örn: KONFİDA PERİYODİK KONTROL"
+                  className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-teal-500" />
+              </div>
+
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase">Makine Tipi</label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <button onClick={() => setCTip("vinç")}
+                    className={`py-2.5 rounded-xl text-[11px] font-black transition ${cTip === "vinç" ? "bg-teal-600 text-white" : "bg-slate-50 text-slate-500 border border-slate-200"}`}>
+                    🏗️ VİNÇ
+                  </button>
+                  <button onClick={() => setCTip("asansör")}
+                    className={`py-2.5 rounded-xl text-[11px] font-black transition ${cTip === "asansör" ? "bg-cyan-600 text-white" : "bg-slate-50 text-slate-500 border border-slate-200"}`}>
+                    🛗 ASANSÖR
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase">Makine Sayısı</label>
@@ -276,12 +307,24 @@ export default function BakimSozlesmeler() {
                     className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none" />
                 </div>
               </div>
+
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase">Servis / Yol Fiyatı (her ziyaret)</label>
+                <input value={cServis} onChange={(e) => setCServis(e.target.value)}
+                  placeholder="2000"
+                  className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-teal-500" />
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase">Bakım Periyodu</label>
+                  <label className="text-[9px] font-black text-slate-400 uppercase">Yılda Kaç Bakım</label>
                   <select value={cPeriyot} onChange={(e) => setCPeriyot(Number(e.target.value))}
                     className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none">
-                    {[1, 2, 3, 4, 6, 12].map((p) => <option key={p} value={p}>{12 / p} kez/yıl ({p} ayda 1)</option>)}
+                    <option value={12}>1 kez / yıl (12 ayda 1)</option>
+                    <option value={6}>2 kez / yıl (6 ayda 1)</option>
+                    <option value={4}>3 kez / yıl (4 ayda 1)</option>
+                    <option value={3}>4 kez / yıl (3 ayda 1)</option>
+                    <option value={2}>6 kez / yıl (2 ayda 1)</option>
+                    <option value={1}>12 kez / yıl (ayda 1)</option>
                   </select>
                 </div>
                 <div>
@@ -310,7 +353,11 @@ export default function BakimSozlesmeler() {
                     const b = new Date(cBaslangic);
                     b.setFullYear(b.getFullYear() + Number(cSure || 1));
                     return b.toLocaleDateString("tr-TR");
-                  })()} · Toplam: {((Number(cMakine) * Number(String(cFiyat).replace(",", ".") || 0) + Number(String(cServis).replace(",", ".") || 0)) * (12 / Number(cPeriyot || 3))).toLocaleString("tr-TR")} ₺
+                  })()} · Yılda {Math.floor(12 / Number(cPeriyot || 3))} bakım · Yıllık toplam: {(() => {
+                    const ziyaret = Math.floor(12 / Number(cPeriyot || 3));
+                    const birim = Number(cMakine) * Number(String(cFiyat).replace(",", ".") || 0) + Number(String(cServis).replace(",", ".") || 0);
+                    return (birim * ziyaret).toLocaleString("tr-TR");
+                  })()} ₺
                 </p>
               </div>
 
