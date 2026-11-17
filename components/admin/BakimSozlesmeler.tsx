@@ -39,6 +39,9 @@ export default function BakimSozlesmeler() {
   const [cSure, setCSure] = useState(1);
   const [cBaslangic, setCBaslangic] = useState(new Date().toISOString().slice(0, 10));
   const [cDosya, setCDosya] = useState<File | null>(null);
+  const [cHitap, setCHitap] = useState("");
+  const [cServis, setCServis] = useState("");
+  const [cTip, setCTip] = useState("vinç");
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -65,7 +68,6 @@ export default function BakimSozlesmeler() {
     try {
       let dosyaUrl: string | null = null;
 
-      // Dosya yükle
       if (cDosya) {
         try {
           const ad = `sozlesme-${Date.now()}-${cDosya.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
@@ -77,26 +79,29 @@ export default function BakimSozlesmeler() {
         } catch { /* yoksay */ }
       }
 
-      const basla = new Date(cBaslangic);
-      const bitis = new Date(basla);
-      bitis.setFullYear(bitis.getFullYear() + Number(cSure || 1));
+      const { data, error } = await supabase.rpc("sozlesme_kaydet", {
+        p_firma: cFirma.trim(),
+        p_hitap: cHitap.trim() || null,
+        p_makine_sayisi: Number(cMakine) || 1,
+        p_makine_fiyat: Number(String(cFiyat).replace(",", ".")) || 0,
+        p_servis_fiyat: Number(String(cServis).replace(",", ".")) || 0,
+        p_periyot: Number(cPeriyot) || 3,
+        p_makine_tipi: cTip,
+        p_baslangic: cBaslangic,
+        p_sure_yil: Number(cSure) || 1,
+        p_dosya_url: dosyaUrl,
+        p_notlar: null,
+      });
 
-      const { error } = await supabase.from("maintenance_contracts").insert([{
-        company_name: cFirma.trim(),
-        machine_count: Number(cMakine) || 1,
-        price_per_machine: Number(String(cFiyat).replace(",", ".")) || 0,
-        maintenance_period_months: Number(cPeriyot) || 3,
-        start_date: cBaslangic,
-        end_date: bitis.toISOString().slice(0, 10),
-        status: "aktif",
-        contract_file_url: dosyaUrl,
-      }]);
+      if (error || !(data as any)?.ok) {
+        setMesaj("❌ " + (error?.message || (data as any)?.mesaj || "Kaydedilemedi"));
+        return;
+      }
 
-      if (error) { setMesaj("❌ " + error.message); return; }
-
-      setMesaj("✅ Sözleşme eklendi.");
+      setMesaj("✅ " + ((data as any).mesaj || "Sözleşme eklendi."));
       setFormAcik(false);
-      setCFirma(""); setCMakine(1); setCFiyat(""); setCPeriyot(3); setCSure(1); setCDosya(null);
+      setCFirma(""); setCHitap(""); setCMakine(1); setCFiyat(""); setCServis("");
+      setCPeriyot(3); setCSure(1); setCDosya(null); setCTip("vinç");
       await getir();
     } finally { setKaydediliyor(false); }
   };
