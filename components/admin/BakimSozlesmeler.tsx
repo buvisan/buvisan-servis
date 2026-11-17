@@ -42,6 +42,7 @@ export default function BakimSozlesmeler() {
   const [cHitap, setCHitap] = useState("");
   const [cServis, setCServis] = useState("");
   const [cTip, setCTip] = useState("vinç");
+  const [cYilda, setCYilda] = useState(4);
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -91,6 +92,7 @@ export default function BakimSozlesmeler() {
         p_sure_yil: Number(cSure) || 1,
         p_dosya_url: dosyaUrl,
         p_notlar: null,
+        p_yilda: Number(cYilda) || 4,
       });
 
       if (error || !(data as any)?.ok) {
@@ -279,7 +281,7 @@ export default function BakimSozlesmeler() {
                   <label className="text-[9px] font-black text-slate-400 uppercase">Bakım Periyodu</label>
                   <select value={cPeriyot} onChange={(e) => setCPeriyot(Number(e.target.value))}
                     className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none">
-                    {[1, 2, 3, 4, 6, 12].map((p) => <option key={p} value={p}>{p} ayda 1</option>)}
+                    {[1, 2, 3, 4, 6, 12].map((p) => <option key={p} value={p}>{12 / p} kez/yıl ({p} ayda 1)</option>)}
                   </select>
                 </div>
                 <div>
@@ -308,7 +310,7 @@ export default function BakimSozlesmeler() {
                     const b = new Date(cBaslangic);
                     b.setFullYear(b.getFullYear() + Number(cSure || 1));
                     return b.toLocaleDateString("tr-TR");
-                  })()} · Toplam: {(Number(cMakine) * Number(String(cFiyat).replace(",", ".") || 0)).toLocaleString("tr-TR")} ₺
+                  })()} · Toplam: {((Number(cMakine) * Number(String(cFiyat).replace(",", ".") || 0) + Number(String(cServis).replace(",", ".") || 0)) * (12 / Number(cPeriyot || 3))).toLocaleString("tr-TR")} ₺
                 </p>
               </div>
 
