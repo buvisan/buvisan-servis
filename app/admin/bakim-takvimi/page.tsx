@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { FileText, Calendar } from 'lucide-react';
 import BakimSozlesmeler from '@/components/admin/BakimSozlesmeler';
 import BakimTakvimiYeni from '@/components/admin/BakimTakvimiYeni';
+import BakimTakvimiGorsel from '@/components/admin/BakimTakvimiGorsel';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
@@ -188,6 +189,10 @@ export default function BakimTakvimiPage() {
             </div>
           </div>
           <BakimTakvimiYeni />
+          <div className="mt-4">
+            <BakimTakvimiGorsel />
+          </div>
+
         </div>
 
         <div className="hidden">
