@@ -230,6 +230,7 @@ Admin Panel → “Veri Sağlığı” (kalkan ikonu) veya mobil menü.
 
 **2) Yedek (JSON)**
 - `app/api/yedek/route.ts` → `POST` yedek al · `GET ?islem=liste` · `GET ?islem=indir&dosya=…` (5 dk imzalı link)
+  ⚠️ Vercel Cron **GET** çağırır → **parametresiz GET = yedek al**. Panel her zaman `?islem=liste` gönderir.
 - Hedef: **özel (private) `yedekler` bucket** — `yedek/YYYY-MM-DD_HHmm.json`
 - 16 tablo denenir, olmayan tablo `atlanan` listesine yazılır; 25 MB üstü yedek reddedilir
 - Yetki: yönetici oturumu **veya** `CRON_SECRET` (açık erişim YOK)
