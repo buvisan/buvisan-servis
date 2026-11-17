@@ -154,6 +154,34 @@ Commit: `96d67b1` · `npm run build` ✅
 
 ---
 
+## 🟢 v6 — VERİ SAĞLIĞI DENETLEYİCİSİ (commit `173d447`)
+
+`/admin/veri-sagligi` · **SQL gerektirmez** (admin oturumu + RLS ile çalışır, deploy edince hazır).
+Admin Panel → “Veri Sağlığı” (kalkan ikonu) veya mobil menü.
+
+**Ne yapar:** 9 kontrol çalıştırır, tutarsız kayıtları listeler, satır bazlı + toplu **DÜZELT** sunar.
+
+| # | Kontrol | Düzeltme |
+|---|---|---|
+| 1 | Hitap yok → sözleşme portala düşmüyor | HİTAP EKLE (prompt) |
+| 2 | Bakım takvimi sözleşmeyle uyuşmuyor | `takvim_yenile` |
+| 3 | Periyot ↔ yılda kaç bakım tutarsız | periyottan yeniden yaz + takvim |
+| 4 | Yıllık tutar yanlış | makine × fiyat × yılda |
+| 5 | Süresi geçmiş ama “aktif” | `status = bitti` |
+| 6 | Aynı gün mükerrer takvim kaydı | fazlayı sil (yapıldı korunur) |
+| 7 | Sözleşmenin portal hesabı yok | bilgi (hesap aç) |
+| 8 | Tarihi geçmiş planlı bakım | bilgi → takvim |
+| 9 | Mükerrer seri no · müşterisiz vinç | bilgi → vinç listesi |
+
+**Teknik notlar**
+- Veri doğrudan tablolardan (`maintenance_contracts`, `bakim_plani`, `musteri_hesaplar`, `cranes`)
+  okunur; firma eşleştirme mevcut `firma_eslestir()` RPC’si ile yapılır → **tek doğru kaynak**.
+- `TÜMÜNÜ DÜZELT` toplu onarım yapar; **hitap adımı etkileşimli olduğu için topluya dahil değil**.
+- Eşleştirme kontrolü `sözleşme × benzersiz firma > 200` olursa atlanır (performans koruması).
+- Yeni hata sınıfı eklemek için: `denetle()` içine bir `bosKontrol({...})` bloğu ekle + `liste`ye koy.
+
+---
+
 ## 📊 VERİTABANI DURUMU
 
 ### Kritik Tablolar
@@ -229,6 +257,7 @@ app/admin/page.tsx                  → Admin kokpit
 app/admin/bakim-takvimi/page.tsx    → Bakım (birleşik)
 app/admin/musteri-hesaplari/page.tsx → Müşteri yönetim
 app/admin/satis/page.tsx            → Malzeme satışı
+app/admin/veri-sagligi/page.tsx     → Veri Sağlığı (tutarsızlık + onarım)
 app/musteri/page.tsx                → Müşteri portalı (giriş)
 ```
 
