@@ -1,7 +1,7 @@
 # 📋 BUVİSAN SERVİS SİSTEMİ — DEVİR DOSYASI
 
 > Bu dosya yeni oturumda devam etmek için hazırlandı.
-> Son güncelleme: 2026-11-13
+> Son güncelleme: 2026-11-17 (müşteri arayüzü v5)
 
 ---
 
@@ -54,7 +54,8 @@
 - ✅ Malzeme detayı
 - ✅ Otomatik FİNANSTA işaretleme
 
-### Müşteri Portalı (v4)
+### Müşteri Portalı (v5)
+- ✅ **v5 modern arayüz** (hero kart, timeline, takvim şeridi, skeleton, toast)
 - ✅ Telefon + SMS / kullanıcı adı + şifre girişi
 - ✅ Admin onaylı kayıt
 - ✅ Evrensel firma eşleştirme (alias tablosu)
@@ -84,29 +85,30 @@
 
 ---
 
-## 🔴 DEVAM EDEN İŞ (YARIM KALAN)
+## 🟢 SON YAPILAN İŞ — Müşteri Arayüzü v5 (TAMAM)
 
-### Müşteri Arayüzü Yenileme — %40 TAMAM
+`components/MusteriPortaliV4.tsx` baştan yazıldı: **arayüz tamamen yenilendi, veri akışı aynı kaldı.**
+Commit: `13688c5` · `npm run build` ✅
 
 **Yapılan:**
-- ✅ Header modernize edildi (avatar + 3 metrik + yeşil nokta)
-- ✅ Sekmeler pill stiline çevrildi (gradient aktif)
+- ✅ Üst bar: 64px kompakt sticky header (avatar + firma + CANLI nokta + yenile/çıkış)
+- ✅ 7 sekmeli yatay pill bar (sticky, aktif koyu gradient, badge'ler)
+- ✅ ÖZET: hero kart (makine parkı + sıradaki bakım + 3 metrik), hızlı işlemler, aktif servisler, yaklaşan bakımlar, HESABIM ekstre kartı, destek hattı
+- ✅ MAKİNE: park özeti + ekleme formu, sistem makineleri kartları, ekledikleri (düzenle/sil)
+- ✅ SERVİS: dikey timeline (bakım = teal, servis = indigo)
+- ✅ TEKLİF: pazarlık kartları + teklif kartları (onayla / pazarlık / reddet / PDF)
+- ✅ SOHBET: balonlar, çevrimiçi başlık, composer
+- ✅ BAKIM: sözleşme kartı, 12 aylık mini takvim şeridi + yıl seçimi, bakım listesi, tarih talepleri
+- ✅ **BAKIM tarih değişikliği modalı** (eksikti; `musteri_bakim_tarih_talebi` RPC'sine bağlandı)
+- ✅ Empty state + skeleton + toast (5 sn'de otomatik kapanır)
+- ✅ Oturum geçersizse "Giriş ekranına dön" kartı (ekran kilitlenmiyor)
 
-**YAPILACAK:**
-```
-1. ÖZET sekmesi hero kartı (gradient, istatistikler)
-2. Kartların genel polish:
-   - rounded-3xl → tutarlı
-   - shadow-sm → shadow-md
-   - Renk paleti birleştirme
-3. MAKİNE sekmesi kartları
-4. SERVİS sekmesi timeline görünümü
-5. TEKLİF/Pazarlık kartları
-6. SOHBET baloncukları
-7. BAKIM sekmesi takvim görünümü
-8. Boş durumlar (empty state) tasarımları
-9. Yükleme iskeletleri (skeleton)
-```
+**Teknik notlar (yeni oturum için önemli):**
+- Global CSS'e dokunulmadı; tipografi (`FONT`) ve stiller bileşende scope'lu
+- ⚠️ `grid-cols-2/3/4` KULLANMA → `globals.css` mobilde bunları 1 sütuna indiriyor.
+  Yerine: `grid-cols-[repeat(n,minmax(0,1fr))]`
+- 4 sn polling · Realtime sohbet · tüm RPC isim/parametreleri **aynı**
+- Sohbet otomatik kaydırma artık sadece yeni mesajda (polling kullanıcıyı aşağı çekmiyor)
 
 ### Kullanıcının Son İsteği
 > "müşteri ekranını en baştan yapalım, modern ve üst düzey, A Kalite olsun"
@@ -234,10 +236,13 @@ lib/tatiller.ts          → Resmî + dinî tatiller
 "Merhaba, BUVİSAN servis sistemine devam ediyoruz.
 DURUM.md dosyasını oku.
 
-Son iş: Müşteri portalı arayüzünü modern ve A-kalite 
-seviyeye çıkarmak. Header ve sekmeler yenilendi, 
-kalan kartları (ÖZET hero, MAKİNE, SERVİS, TEKLİF, 
-SOHBET, BAKIM) modernize etmemiz gerekiyor.
+Son iş: Müşteri portalı arayüzü v5 baştan yazıldı
+(ÖZET hero, MAKİNE, SERVİS timeline, TEKLİF, SOHBET,
+BAKIM takvimi, TALEP) + bakım tarih değişikliği modalı.
+Derleme geçti, push edildi (13688c5).
+
+Sıradaki adım: kullanıcının ekran görüntüsü / geri
+bildirimine göre ince ayar (renk, boşluk, metin).
 
 Dosya: components/MusteriPortaliV4.tsx
 "
