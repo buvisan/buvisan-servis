@@ -66,6 +66,8 @@
 - ✅ Arıza talebi açma
 - ✅ HESABIM ekstre kartı
 - ✅ **BAKIM sekmesi** (sözleşme + takvim + tarih değiştirme)
+- ✅ **Sözleşme PDF'i müşteride** (admin ile aynı şablon) + imzalı dosya linki
+- ✅ **Servis formu detayı** (fiyat listede gizli, detayda görünür; malzeme + kontrol listesi)
 
 ### Bakım Sistemi (Birleştirilmiş)
 - ✅ `/admin/bakim-takvimi` — tek ekran
@@ -115,6 +117,32 @@ Commit: `13688c5` · `npm run build` ✅
 
 ---
 
+## 🟢 SON YAPILAN İŞ — v5.1: Sözleşme + Servis Formu Detayı
+
+Commit: `96d67b1` · `npm run build` ✅
+
+**1) Sözleşme görünmüyordu — KÖK NEDEN BULUNDU ve DÜZELTİLDİ**
+- Sözleşme eşleşmesi sadece `company_name` (tam ünvan) ile yapılıyordu:
+  `firma_eslestir('KARESİ POLYESTER VE PETROKİMYA SANAYİ A.Ş.','RB KARESİ') = 0`
+- Sözleşmedeki **`hitap_adi`** ("KARESİ") ile eşleşince `95` dönüyor.
+- Artık `company_name` VEYA `hitap_adi` eşleşmesi kullanılıyor (>= 75).
+- ⚠️ **SQL `203-musteri-sozlesme-servis-detay.sql` çalıştırılmadan düzelmez.**
+
+**2) Sözleşme PDF'i müşteriye açıldı**
+- BAKIM → sözleşme kartında **"SÖZLEŞME PDF'İNİ GÖRÜNTÜLE"**
+- Admin ile **aynı şablon** (`lib/sozlesmeHtml.ts`) → birebir aynı PDF
+
+**3) Servis formu detayı**
+- SERVİS listesinde **fiyat artık görünmüyor**; satıra tıklayınca detay penceresi açılıyor
+- Detayda: form no, tarih, tür, makine, teknisyen, tam açıklama, malzeme,
+  bakım kontrol listesi (27/31 madde onay-ret), makine bilgileri ve **servis bedeli**
+- Yeni RPC'ler: `musteri_servislerim()` (fiyatsız liste) + `musteri_servis_detay()` (fiyatlı detay)
+- Fiyat kaynağı: `completed_services.price` (finans = tek doğruluk kaynağı)
+- SQL çalışmadan da bozulmaz: yeni RPC yoksa eski `musteri_portal_v6` listesine düşer
+  (fiyat yine listede gizli, detayda satır verisinden gösterilir)
+
+---
+
 ## 📊 VERİTABANI DURUMU
 
 ### Kritik Tablolar
@@ -135,7 +163,12 @@ Commit: `13688c5` · `npm run build` ✅
 ### Çalıştırılan Son SQL'ler
 ```
 143 → 202 (sırayla, hepsi çalıştırıldı)
-En son: 202-musteri-bakim-fix.sql
+En son çalıştırılan: 202-musteri-bakim-fix.sql
+
+⏳ SIRADA: 203-musteri-sozlesme-servis-detay.sql  ← ÇALIŞTIRILMALI
+   • musteri_sozlesmem + musteri_bakim_takvimi → hitap_adi eşleşmesi (sözleşme fix)
+   • musteri_servislerim() + musteri_servis_detay() → servis formu detayı
+   • Sonda kontrol SELECT'i var: tam_unvan_eslesme=0, hitap_eslesme=95, fonksiyon_sayisi=4
 ```
 
 ### ⚠️ SQL Editor Kuralı
@@ -236,13 +269,16 @@ lib/tatiller.ts          → Resmî + dinî tatiller
 "Merhaba, BUVİSAN servis sistemine devam ediyoruz.
 DURUM.md dosyasını oku.
 
-Son iş: Müşteri portalı arayüzü v5 baştan yazıldı
-(ÖZET hero, MAKİNE, SERVİS timeline, TEKLİF, SOHBET,
-BAKIM takvimi, TALEP) + bakım tarih değişikliği modalı.
-Derleme geçti, push edildi (13688c5).
+Son iş: Müşteri portalı v5 (arayüz) + v5.1 (sözleşme fix
++ servis formu detayı). Sözleşme artık hitap_adi ile de
+eşleşiyor; PDF müşteriye açıldı; servis listesinde fiyat
+gizli, detayda görünüyor. (Commit 96d67b1)
+
+⚠️ ÖNCE: sql/203-musteri-sozlesme-servis-detay.sql
+   Supabase SQL Editor'de çalıştırılmalı.
 
 Sıradaki adım: kullanıcının ekran görüntüsü / geri
-bildirimine göre ince ayar (renk, boşluk, metin).
+bildirimine göre ince ayar.
 
 Dosya: components/MusteriPortaliV4.tsx
 "
