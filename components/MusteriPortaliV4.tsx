@@ -311,20 +311,47 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-4 py-3.5 sticky top-0 z-40 shadow-lg">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 bg-yellow-400 rounded-xl flex items-center justify-center font-black text-slate-900 shrink-0">B</div>
-            <div className="min-w-0">
-              <p className="text-white font-black text-sm leading-none truncate">{veri?.firma || "Firma"}</p>
-              <p className="text-slate-400 text-[9px] font-bold mt-1 truncate">{veri?.ad_soyad || "Müşteri Portalı"}</p>
+      {/* ═══ HEADER ═══ */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 sticky top-0 z-50 shadow-xl">
+        <div className="max-w-2xl mx-auto px-4 pt-3.5 pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center font-black text-lg text-slate-900 shrink-0 shadow-lg shadow-amber-500/30">
+                {(veri?.firma || "B").charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-white font-black text-[15px] leading-tight truncate">{veri?.firma || "Firma"}</p>
+                <p className="text-slate-400 text-[10px] font-semibold mt-0.5 truncate flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  {veri?.ad_soyad || "Müşteri Portalı"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button onClick={() => token && veriGetir(token)}
+                className="bg-white/10 hover:bg-white/20 active:scale-95 p-2.5 rounded-xl transition">
+                <RefreshCw size={15} className={`text-white ${yukleniyor ? "animate-spin" : ""}`} />
+              </button>
+              <button onClick={cikis} className="bg-white/10 hover:bg-rose-500 active:scale-95 p-2.5 rounded-xl transition">
+                <LogOut size={15} className="text-white" />
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button onClick={() => token && veriGetir(token)} className="bg-white/10 hover:bg-white/20 p-2 rounded-lg">
-              <RefreshCw size={14} className={`text-white ${yukleniyor ? "animate-spin" : ""}`} />
-            </button>
-            <button onClick={cikis} className="bg-white/10 hover:bg-red-500 p-2 rounded-lg"><LogOut size={14} className="text-white" /></button>
+
+          {/* HIZLI METRİKLER */}
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            <div className="bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Makine</p>
+              <p className="text-white font-black text-sm">{vincler.length + kendi.length}</p>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Servis</p>
+              <p className="text-white font-black text-sm">{servisler.length}</p>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Aktif</p>
+              <p className="text-white font-black text-sm">{aktif.length}</p>
+            </div>
           </div>
         </div>
       </div>
