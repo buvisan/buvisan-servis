@@ -1,11 +1,16 @@
 "use client";
 
 // ----------------------------------------------------------------------------
-// BUVİSAN - MÜŞTERİ PORTALI v4 👤
-// Özet · Makine · Servis · Teklif · Canlı Sohbet
+// BUVİSAN — MÜŞTERİ PORTALI v5
+// Özet · Makine · Servis · Teklif · Sohbet · Bakım · Talep
+//
+// NOT: Veri akışı / RPC sözleşmeleri AYNEN korundu (musteri_portal_v6 vb.).
+//      Bu dosyada sadece arayüz yenilendi + eksik "tarih değişikliği"
+//      modalı bağlandı (RPC: musteri_bakim_tarih_talebi).
 // ----------------------------------------------------------------------------
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { yazdirVeyaPaylas } from "@/lib/yazdirPaylas";
 import PushAbonelik from "@/components/PushAbonelik";
@@ -13,11 +18,139 @@ import { teklifHtml, satisHtml } from "@/lib/formHtml";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Loader2, LogOut, Wrench, RefreshCw, Send, MessageSquare, Plus, X,
-  Check, CheckCircle2, XCircle, Star, Package, TrendingUp, Eye, EyeOff,
-  ShieldCheck, UserPlus, Calendar,
+  Check, CheckCircle2, XCircle, Star, Package, Calendar, MapPin,
+  ChevronRight, Clock, FileText, Banknote, AlertCircle, Sparkles,
+  Phone, Pencil, Trash2, ShieldCheck, Activity,
 } from "lucide-react";
 
 type Sekme = "ozet" | "makine" | "servis" | "teklif" | "sohbet" | "talep" | "bakim";
+
+// ─── Tipografi (sadece bu ekranı kapsar, global CSS'e dokunmaz) ───
+const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
+const para = (n: any) => (Number(n) || 0).toLocaleString("tr-TR");
+
+const AY_ADLARI = ["OCA", "ŞUB", "MAR", "NİS", "MAY", "HAZ", "TEM", "AĞU", "EYL", "EKİ", "KAS", "ARA"];
+
+// ─── Renk sözlüğü (ikon kutusu) ───
+const RENK: Record<string, string> = {
+  slate: "bg-slate-100 text-slate-600 ring-slate-200",
+  teal: "bg-teal-50 text-teal-600 ring-teal-100",
+  indigo: "bg-indigo-50 text-indigo-600 ring-indigo-100",
+  amber: "bg-amber-50 text-amber-600 ring-amber-100",
+  violet: "bg-violet-50 text-violet-600 ring-violet-100",
+  rose: "bg-rose-50 text-rose-600 ring-rose-100",
+  emerald: "bg-emerald-50 text-emerald-600 ring-emerald-100",
+};
+
+const CIP_RENK: Record<string, string> = {
+  slate: "bg-slate-50 text-slate-600 border-slate-200",
+  teal: "bg-teal-50 text-teal-700 border-teal-200",
+  amber: "bg-amber-50 text-amber-700 border-amber-200",
+  rose: "bg-rose-50 text-rose-700 border-rose-200",
+  emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  indigo: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  violet: "bg-violet-50 text-violet-700 border-violet-200",
+};
+
+const BOS_RENK: Record<string, string> = {
+  slate: "bg-slate-50 text-slate-300",
+  teal: "bg-teal-50 text-teal-300",
+  amber: "bg-amber-50 text-amber-300",
+  indigo: "bg-indigo-50 text-indigo-300",
+  violet: "bg-violet-50 text-violet-300",
+  rose: "bg-rose-50 text-rose-300",
+  emerald: "bg-emerald-50 text-emerald-300",
+};
+
+function Kart({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={
+        "bg-white rounded-[22px] border border-slate-200/80 overflow-hidden " +
+        "shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_34px_-26px_rgba(15,23,42,0.35)] " +
+        className
+      }
+    >
+      {children}
+    </div>
+  );
+}
+
+function Bolum({
+  ikon: Ikon, baslik, sayi, renk = "slate", sag,
+}: {
+  ikon: any; baslik: string; sayi?: number; renk?: string; sag?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 px-3.5 pt-3.5 pb-2.5">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={"w-7 h-7 rounded-xl grid place-items-center ring-1 shrink-0 " + (RENK[renk] || RENK.slate)}>
+          <Ikon size={13} />
+        </span>
+        <h3 className="text-[10px] font-black tracking-[0.1em] text-slate-700 truncate">{baslik}</h3>
+        {typeof sayi === "number" && (
+          <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md shrink-0">{sayi}</span>
+        )}
+      </div>
+      {sag}
+    </div>
+  );
+}
+
+function Cip({ children, renk = "slate" }: { children: ReactNode; renk?: string }) {
+  return (
+    <span className={"inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-black whitespace-nowrap " + (CIP_RENK[renk] || CIP_RENK.slate)}>
+      {children}
+    </span>
+  );
+}
+
+function Bos({ ikon: Ikon, baslik, alt, ton = "slate" }: { ikon: any; baslik: string; alt?: string; ton?: string }) {
+  return (
+    <div className="flex flex-col items-center text-center px-6 py-7">
+      <div className={"w-14 h-14 rounded-[20px] grid place-items-center " + (BOS_RENK[ton] || BOS_RENK.slate)}>
+        <Ikon size={24} />
+      </div>
+      <p className="text-[12px] font-black text-slate-600 mt-3">{baslik}</p>
+      {alt && <p className="text-[10px] font-semibold text-slate-400 mt-1 leading-relaxed max-w-[240px]">{alt}</p>}
+    </div>
+  );
+}
+
+function Iskelet() {
+  return (
+    <div className="space-y-3 animate-pulse">
+      <div className="h-[176px] rounded-[26px] bg-slate-200/70" />
+      <div className="grid grid-cols-[repeat(4,minmax(0,1fr))] gap-2">
+        {[0, 1, 2, 3].map((i) => <div key={i} className="h-[72px] rounded-2xl bg-slate-200/70" />)}
+      </div>
+      <div className="h-[132px] rounded-[22px] bg-slate-200/70" />
+      <div className="h-[132px] rounded-[22px] bg-slate-200/70" />
+    </div>
+  );
+}
+
+function bekliyorMu(d: any): boolean {
+  const x = String(d ?? "").toLowerCase().trim();
+  return x === "bekliyor" || x === "beklemede" || x === "taslak" || x === "";
+}
+
+function teklifDurum(d: any): { ad: string; renk: string } {
+  const x = String(d ?? "").toLowerCase().trim();
+  if (x === "onaylandi" || x === "onayli") return { ad: "ONAYLANDI", renk: "emerald" };
+  if (x === "reddedildi" || x === "red") return { ad: "REDDEDİLDİ", renk: "rose" };
+  if (bekliyorMu(d)) return { ad: "BEKLİYOR", renk: "amber" };
+  return { ad: String(d).toUpperCase(), renk: "slate" };
+}
+
+function pzDurum(d: any): { ad: string; renk: string; sinif: string } {
+  const x = String(d ?? "").toLowerCase();
+  if (x === "kabul") return { ad: "KABUL EDİLDİ", renk: "emerald", sinif: "border-emerald-200 bg-emerald-50/60" };
+  if (x === "red") return { ad: "REDDEDİLDİ", renk: "rose", sinif: "border-rose-200 bg-rose-50/60" };
+  if (x === "revize") return { ad: "REVİZE EDİLDİ", renk: "indigo", sinif: "border-indigo-200 bg-indigo-50/60" };
+  return { ad: "CEVAP BEKLİYOR", renk: "amber", sinif: "border-amber-200 bg-amber-50/60" };
+}
 
 export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: string }) {
   const [token, setToken] = useState(baslangicToken || "");
@@ -35,6 +168,9 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   const [bakimTalepler, setBakimTalepler] = useState<any[]>([]);
   const [duzPlan, setDuzPlan] = useState<any | null>(null);
   const [duzYeniTarih, setDuzYeniTarih] = useState("");
+  const [duzSebep, setDuzSebep] = useState("");
+  const [duzGonder, setDuzGonder] = useState(false);
+  const [bakimYil, setBakimYil] = useState("");
   const [sekme, setSekme] = useState<Sekme>("ozet");
   const [yukleniyor, setYukleniyor] = useState(false);
   const [mesaj, setMesaj] = useState("");
@@ -70,6 +206,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
       ]);
       if (!(p.data as any)?.ok) {
         setMesaj((p.data as any)?.mesaj || "Oturum geçersiz");
+        setToken("");
         try { localStorage.removeItem("musteri_token"); } catch { /* yoksay */ }
         return;
       }
@@ -94,7 +231,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
     return () => clearInterval(z);
   }, [token, veriGetir]);
 
-  // ⚡ REALTIME — anlik mesaj
+  // ⚡ REALTIME — anlık mesaj
   useEffect(() => {
     if (!token) return;
     let kanal: any = null;
@@ -139,8 +276,19 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   }, [token]);
 
   useEffect(() => {
-    if (sohbetSon.current) sohbetSon.current.scrollIntoView({ behavior: "smooth" });
-  }, [sohbet, sekme]);
+    // Sadece yeni mesaj geldiğinde veya sohbet sekmesine geçildiğinde en alta in.
+    // (4 sn'lik veri yenilemesi kullanıcıyı yukarı kaydırmışken aşağı çekmesin)
+    const el = sohbetSon.current;
+    if (!el || sekme !== "sohbet") return;
+    el.scrollTop = el.scrollHeight;
+  }, [sohbet.length, sekme]);
+
+  // Bilgi mesajı 5 sn sonra kendiliğinden kapansın
+  useEffect(() => {
+    if (!mesaj) return;
+    const z = setTimeout(() => setMesaj(""), 5000);
+    return () => clearTimeout(z);
+  }, [mesaj]);
 
   const mesajGonder = async () => {
     if (!yeniMesaj.trim() || gonderiyor) return;
@@ -242,6 +390,23 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
     } finally { setTGonder(false); }
   };
 
+  const tarihTalepGonder = async () => {
+    if (!duzPlan) return;
+    if (!duzYeniTarih) { setMesaj("⚠️ Yeni tarih seçin."); return; }
+    setDuzGonder(true); setMesaj("");
+    try {
+      const { data } = await supabase.rpc("musteri_bakim_tarih_talebi", {
+        p_token: token, p_plan_id: duzPlan.id,
+        p_yeni_tarih: duzYeniTarih, p_sebep: duzSebep.trim() || null,
+      });
+      if ((data as any)?.ok) {
+        setMesaj("✅ " + ((data as any).mesaj || "Talebiniz alındı."));
+        setDuzPlan(null); setDuzSebep("");
+        await veriGetir(token);
+      } else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+    } finally { setDuzGonder(false); }
+  };
+
   const pazarlikKarar = async (pid: string, onay: boolean) => {
     const { data } = await supabase.rpc("musteri_pazarlik_karar", {
       p_token: token, p_pazarlik_id: pid, p_onay: onay, p_not: null,
@@ -290,6 +455,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
     window.location.reload();
   };
 
+  // ─── Türetilmiş veriler ───
   const vincler = veri?.vincler || [];
   const kendi = veri?.kendi_makineler || [];
   const biletMak = veri?.bilet_makineleri || [];
@@ -297,10 +463,61 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   const aktif = veri?.aktif_isler || [];
   const bakim = veri?.bakim_takvimi || [];
   const okunmamis = Number(veri?.okunmamis_mesaj || 0);
+
+  const makineToplam = vincler.length + kendi.length;
   const bekleyenTeklif = teklifler.filter((t) => t.durum === "bekliyor" || t.durum === "BEKLIYOR").length;
+  const bekleyenPazarlik = pazarliklar.filter((p) => ["bekliyor", "revize"].includes(String(p.durum || "").toLowerCase())).length;
+  const toplamTutar = servisler.reduce((t: number, s: any) => t + (Number(s.tutar) || 0), 0);
+  const buYil = new Date().getFullYear().toString();
+  const yilToplam = servisler
+    .filter((s: any) => String(s.tarih || "").endsWith(buYil))
+    .reduce((t: number, s: any) => t + (Number(s.tutar) || 0), 0);
+  const sonIslemler = servisler.filter((s: any) => Number(s.tutar) > 0).slice(0, 4);
+
+  const siradakiPlan = bakimTakvim
+    .filter((b: any) => b.durum !== "yapildi" && Number(b.gun_kaldi) >= 0)
+    .sort((a: any, b: any) => Number(a.gun_kaldi) - Number(b.gun_kaldi))[0];
+  const siradakiMakine = bakim
+    .filter((b: any) => Number(b.gun_kaldi) >= 0)
+    .sort((a: any, b: any) => Number(a.gun_kaldi) - Number(b.gun_kaldi))[0];
+  const yaklasanBakim = siradakiPlan || siradakiMakine || null;
+  const yaklasanMetin = !yaklasanBakim
+    ? (sozlesme ? "Bakım planınız aktif" : "Bakım sözleşmeniz bulunmuyor")
+    : Number(yaklasanBakim.gun_kaldi) === 0
+      ? "Bugün planlı bakımınız var"
+      : (yaklasanBakim.sira
+        ? `${yaklasanBakim.sira}. bakım · ${yaklasanBakim.gun_kaldi} gün sonra`
+        : `${yaklasanBakim.model} · ${yaklasanBakim.gun_kaldi} gün sonra`);
+
+  const bakimYillar = Array.from(new Set(
+    bakimTakvim
+      .map((b: any) => String(b.tarih_iso || "").slice(0, 4))
+      .filter((y) => /^\d{4}$/.test(y))
+  )).sort();
+  const varsayilanYil = String(
+    (siradakiPlan?.tarih_iso || bakimTakvim[0]?.tarih_iso || new Date().toISOString()).slice(0, 4)
+  );
+  const secilenYil = bakimYil || varsayilanYil;
+
+  const yilPlanlariHam = bakimTakvim.filter((b: any) => String(b.tarih_iso || "").slice(0, 4) === secilenYil);
+  const yilPlanlari = yilPlanlariHam.length > 0 ? yilPlanlariHam : bakimTakvim;
+
+  const ayDurumu = (ay: number): "plan" | "bitti" | "gec" | null => {
+    const items = bakimTakvim.filter((b: any) =>
+      String(b.tarih_iso || "").slice(0, 4) === secilenYil &&
+      Number(String(b.tarih_iso || "").slice(5, 7)) === ay
+    );
+    if (items.length === 0) return null;
+    if (items.every((b: any) => b.durum === "yapildi")) return "bitti";
+    if (items.some((b: any) => b.durum !== "yapildi" && Number(b.gun_kaldi) < 0)) return "gec";
+    return "plan";
+  };
+
+  const bugunIso = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const mesajTon = mesaj.startsWith("✅") ? "ok" : mesaj.startsWith("⏳") ? "bilgi" : "hata";
 
   const sekmeler: { k: Sekme; ad: string; ikon: any; badge: number }[] = [
-    { k: "ozet", ad: "ÖZET", ikon: TrendingUp, badge: 0 },
+    { k: "ozet", ad: "ÖZET", ikon: Activity, badge: 0 },
     { k: "makine", ad: "MAKİNE", ikon: Package, badge: 0 },
     { k: "servis", ad: "SERVİS", ikon: Wrench, badge: 0 },
     { k: "teklif", ad: "TEKLİF", ikon: Star, badge: bekleyenTeklif },
@@ -309,666 +526,1089 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
     { k: "talep", ad: "TALEP", ikon: Plus, badge: 0 },
   ];
 
+  const hizli: { k: Sekme; ad: string; ikon: any; sinif: string }[] = [
+    { k: "talep", ad: "Talep Aç", ikon: AlertCircle, sinif: "bg-rose-50 text-rose-600" },
+    { k: "sohbet", ad: "Sohbet", ikon: MessageSquare, sinif: "bg-violet-50 text-violet-600" },
+    { k: "teklif", ad: "Teklifler", ikon: Star, sinif: "bg-amber-50 text-amber-600" },
+    { k: "bakim", ad: "Bakım", ikon: Calendar, sinif: "bg-teal-50 text-teal-600" },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      {/* ═══ HEADER ═══ */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 sticky top-0 z-50 shadow-xl">
-        <div className="max-w-2xl mx-auto px-4 pt-3.5 pb-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center font-black text-lg text-slate-900 shrink-0 shadow-lg shadow-amber-500/30">
-                {(veri?.firma || "B").charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="text-white font-black text-[15px] leading-tight truncate">{veri?.firma || "Firma"}</p>
-                <p className="text-slate-400 text-[10px] font-semibold mt-0.5 truncate flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  {veri?.ad_soyad || "Müşteri Portalı"}
-                </p>
-              </div>
+    <div className="min-h-screen bg-[#f4f6fa]" style={{ fontFamily: FONT }}>
+
+      {/* ══════════════════ ÜST BAR ══════════════════ */}
+      <header className="sticky top-0 z-40 bg-[#0b1220]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        <div className="max-w-2xl mx-auto px-3.5 h-16 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 grid place-items-center font-black text-slate-900 text-lg shrink-0 shadow-lg shadow-amber-500/25">
+              {(veri?.firma || "B").charAt(0).toUpperCase()}
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button onClick={() => token && veriGetir(token)}
-                className="bg-white/10 hover:bg-white/20 active:scale-95 p-2.5 rounded-xl transition">
-                <RefreshCw size={15} className={`text-white ${yukleniyor ? "animate-spin" : ""}`} />
-              </button>
-              <button onClick={cikis} className="bg-white/10 hover:bg-rose-500 active:scale-95 p-2.5 rounded-xl transition">
-                <LogOut size={15} className="text-white" />
-              </button>
+            <div className="min-w-0">
+              <p className="text-[8px] font-black tracking-[0.22em] text-slate-500 leading-none">BUVİSAN · MÜŞTERİ</p>
+              <p className="text-white font-black text-[13px] leading-tight truncate mt-1">{veri?.firma || "Firma"}</p>
             </div>
           </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="hidden sm:inline-flex items-center gap-1.5 bg-emerald-400/10 border border-emerald-400/25 pl-1.5 pr-2 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[8px] font-black tracking-wider text-emerald-300">CANLI</span>
+            </span>
+            <button onClick={() => token && veriGetir(token)} aria-label="Yenile"
+              className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 text-white grid place-items-center active:scale-95 transition kucuk">
+              <RefreshCw size={14} className={yukleniyor ? "animate-spin" : ""} />
+            </button>
+            <button onClick={cikis} aria-label="Çıkış"
+              className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 text-white grid place-items-center active:scale-95 transition hover:bg-rose-500/80 kucuk">
+              <LogOut size={14} />
+            </button>
+          </div>
+        </div>
+      </header>
 
-          {/* HIZLI METRİKLER */}
-          <div className="grid grid-cols-3 gap-2 mt-3">
-            <div className="bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Makine</p>
-              <p className="text-white font-black text-sm">{vincler.length + kendi.length}</p>
-            </div>
-            <div className="bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Servis</p>
-              <p className="text-white font-black text-sm">{servisler.length}</p>
-            </div>
-            <div className="bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Aktif</p>
-              <p className="text-white font-black text-sm">{aktif.length}</p>
+      {/* ══════════════════ SEKMELER ══════════════════ */}
+      <div className="sticky z-30 bg-white/85 backdrop-blur-xl border-b border-slate-200/80"
+        style={{ top: "calc(4rem + env(safe-area-inset-top))" }}>
+        <div className="max-w-2xl mx-auto px-2.5">
+          <div className="overflow-x-auto" style={{ scrollbarWidth: "none" } as CSSProperties}>
+            <div className="flex gap-1 py-2 w-max min-w-full">
+              {sekmeler.map((s) => {
+                const Ikon = s.ikon;
+                const sec = sekme === s.k;
+                return (
+                  <button key={s.k} onClick={() => setSekme(s.k)}
+                    className={"relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition " +
+                      (sec
+                        ? "bg-[#0b1220] text-white shadow-lg shadow-slate-900/20"
+                        : "text-slate-500 hover:bg-slate-100")}>
+                    <Ikon size={12} />
+                    {s.ad}
+                    {s.badge > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-rose-500 text-white text-[8px] font-black grid place-items-center">
+                        {s.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto p-4 space-y-3">
-        {mesaj && (
-          <div className={`p-3 rounded-xl text-[11px] font-bold ${mesaj.startsWith("✅") ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"}`}>
-            {mesaj}
-          </div>
-        )}
-
-        <div className="flex gap-1 bg-white rounded-2xl p-1.5 shadow-sm overflow-x-auto">
-          {sekmeler.map((s) => {
-            const Ikon = s.ikon;
-            const sec = sekme === s.k;
-            return (
-              <button key={s.k} onClick={() => setSekme(s.k)}
-                className={`flex-1 min-w-fit px-2.5 py-2.5 rounded-xl text-[10px] font-black flex items-center justify-center gap-1 relative transition ${sec ? "bg-slate-900 text-white" : "text-slate-500"}`}>
-                <Ikon size={12} /> {s.ad}
-                {s.badge > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[8px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center">
-                    {s.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+      {/* ══════════════════ İÇERİK ══════════════════ */}
+      <main className="max-w-2xl mx-auto px-3 pt-3 pb-6">
 
         {yukleniyor && !veri ? (
-          <div className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin text-slate-400 mx-auto" /></div>
-        ) : sekme === "ozet" ? (
-          <>
-            <PushAbonelik kullanici={veri?.firma} rol="musteri" />
-
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-gradient-to-br from-teal-600 to-cyan-600 rounded-2xl p-3.5 text-white">
-                <p className="text-[9px] font-black opacity-80">MAKİNE</p>
-                <p className="text-2xl font-black mt-0.5">{Number(veri?.makine_sayisi ?? 0)}</p>
-              </div>
-              <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl p-3.5 text-white">
-                <p className="text-[9px] font-black opacity-80">SERVİS</p>
-                <p className="text-2xl font-black mt-0.5">{servisler.length}</p>
-              </div>
+          <Iskelet />
+        ) : !veri ? (
+          <Kart>
+            <Bos ikon={ShieldCheck} baslik="Oturum doğrulanamadı"
+              alt="Güvenliğiniz için lütfen yeniden giriş yapın." ton="rose" />
+            <div className="px-4 pb-4">
+              <button onClick={cikis}
+                className="w-full py-3 rounded-xl bg-[#0b1220] text-white text-[11px] font-black active:scale-[0.99] transition">
+                GİRİŞ EKRANINA DÖN
+              </button>
             </div>
+          </Kart>
+        ) : (
+          <motion.div key={sekme} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }} className="space-y-3">
 
-            {/* HESABIM / EKSTRE */}
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-slate-700 to-slate-900 px-4 py-3 flex items-center justify-between">
-                <h3 className="text-white font-black text-sm">💳 HESABIM</h3>
-                <span className="text-[9px] font-bold text-slate-400">{veri?.firma || ""}</span>
-              </div>
-              <div className="p-3 space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-slate-50 rounded-xl p-3">
-                    <p className="text-[8px] font-black text-slate-400 uppercase">TOPLAM HİZMET</p>
-                    <p className="text-lg font-black text-slate-800 mt-0.5">{servisler.length}</p>
-                  </div>
-                  <div className="bg-emerald-50 rounded-xl p-3">
-                    <p className="text-[8px] font-black text-emerald-600 uppercase">TOPLAM TUTAR</p>
-                    <p className="text-lg font-black text-emerald-700 mt-0.5">
-                      {servisler.reduce((t: number, s: any) => t + (Number(s.tutar) || 0), 0).toLocaleString("tr-TR")} ₺
-                    </p>
-                  </div>
-                </div>
-                {(() => {
-                  const buYil = new Date().getFullYear().toString();
-                  const yilToplam = servisler
-                    .filter((s: any) => String(s.tarih || "").endsWith(buYil))
-                    .reduce((t: number, s: any) => t + (Number(s.tutar) || 0), 0);
-                  return yilToplam > 0 ? (
-                    <div className="bg-indigo-50 rounded-xl p-3">
-                      <p className="text-[8px] font-black text-indigo-600 uppercase">{buYil} YILI TOPLAMI</p>
-                      <p className="text-lg font-black text-indigo-700 mt-0.5">{yilToplam.toLocaleString("tr-TR")} ₺</p>
+            {/* ────────────────────────── ÖZET ────────────────────────── */}
+            {sekme === "ozet" && (
+              <>
+                <PushAbonelik kullanici={veri?.firma} rol="musteri" />
+
+                {/* HERO */}
+                <div className="relative overflow-hidden rounded-[26px] bg-[#0b1220] p-4 text-white shadow-[0_22px_50px_-30px_rgba(2,6,23,0.95)]">
+                  <div className="pointer-events-none absolute -right-14 -top-16 w-48 h-48 rounded-full bg-teal-500/25 blur-3xl" />
+                  <div className="pointer-events-none absolute -left-12 -bottom-16 w-44 h-44 rounded-full bg-indigo-500/25 blur-3xl" />
+                  <div className="relative">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[8px] font-black tracking-[0.22em] text-slate-400">MAKİNE PARKINIZ</p>
+                        <div className="flex items-end gap-1.5 mt-1">
+                          <span className="text-[38px] leading-none font-black tracking-tight">{makineToplam}</span>
+                          <span className="text-[10px] font-bold text-slate-400 mb-1.5">adet</span>
+                        </div>
+                        <p className="text-[10px] font-semibold text-slate-300 mt-2 truncate">{yaklasanMetin}</p>
+                      </div>
+                      <div className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 grid place-items-center shrink-0">
+                        <Package size={19} className="text-teal-300" />
+                      </div>
                     </div>
-                  ) : null;
-                })()}
-                {servisler.filter((s: any) => Number(s.tutar) > 0).slice(0, 5).length > 0 && (
-                  <div>
-                    <p className="text-[8px] font-black text-slate-400 uppercase mb-1.5">SON İŞLEMLER</p>
-                    <div className="space-y-1">
-                      {servisler.filter((s: any) => Number(s.tutar) > 0).slice(0, 5).map((s: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-2.5 py-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[9px] font-bold text-slate-600 truncate">{s.aciklama}</p>
-                            <p className="text-[8px] text-slate-400">{s.tarih}</p>
-                          </div>
-                          <p className="text-[10px] font-black text-slate-800 shrink-0">{Number(s.tutar).toLocaleString("tr-TR")} ₺</p>
+
+                    <div className="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-2 mt-4">
+                      {[
+                        { a: "SERVİS", d: servisler.length },
+                        { a: "AÇIK İŞ", d: aktif.length },
+                        { a: "BEKLEYEN", d: bekleyenTeklif + bekleyenPazarlik },
+                      ].map((k) => (
+                        <div key={k.a} className="rounded-2xl bg-white/5 border border-white/10 px-2.5 py-2">
+                          <p className="text-[7px] font-black tracking-[0.16em] text-slate-400">{k.a}</p>
+                          <p className="text-base font-black leading-tight mt-0.5">{k.d}</p>
                         </div>
                       ))}
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3">
-                <h3 className="text-white font-black text-sm">🔧 AKTİF SERVİSLERİM ({aktif.length})</h3>
-              </div>
-              <div className="p-3 space-y-2">
-                {aktif.length === 0 ? <p className="text-center text-slate-400 text-[11px] font-bold py-6">Aktif servis yok</p>
-                  : aktif.map((a: any) => (
-                    <div key={a.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                      <p className="text-xs font-black text-slate-800">{a.firma}</p>
-                      <p className="text-[10px] text-slate-500 mt-1 line-clamp-2">{a.aciklama}</p>
-                      <p className="text-[9px] text-slate-400 font-bold mt-1">{a.tarih}</p>
-                    </div>
-                  ))}
-              </div>
-            </div>
-
-            {bakim.length > 0 && (
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3">
-                  <h3 className="text-white font-black text-sm">📅 BAKIM TAKVİMİM ({bakim.length})</h3>
                 </div>
-                <div className="p-3 space-y-2">
-                  {bakim.slice(0, 5).map((b: any, i: number) => {
-                    const k = Number(b.gun_kaldi || 0);
+
+                {/* HIZLI İŞLEMLER */}
+                <div className="grid grid-cols-[repeat(4,minmax(0,1fr))] gap-2">
+                  {hizli.map((h) => {
+                    const I = h.ikon;
                     return (
-                      <div key={i} className={`rounded-xl p-3 border-2 ${k <= 0 ? "bg-rose-50 border-rose-300" : k <= 30 ? "bg-amber-50 border-amber-300" : "bg-emerald-50 border-emerald-200"}`}>
-                        <p className="text-xs font-black text-slate-800">{b.model}</p>
-                        <div className="flex justify-between mt-1">
-                          <p className="text-[10px] font-bold text-slate-600">{b.tarih}</p>
-                          <span className={`text-[10px] font-black ${k <= 0 ? "text-rose-600" : k <= 30 ? "text-amber-600" : "text-emerald-600"}`}>
-                            {k <= 0 ? `${Math.abs(k)} gün GEÇTİ` : `${k} gün kaldı`}
-                          </span>
-                        </div>
-                      </div>
+                      <button key={h.k} onClick={() => setSekme(h.k)}
+                        className="bg-white rounded-2xl border border-slate-200/80 py-2.5 flex flex-col items-center gap-1.5 active:scale-95 transition shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+                        <span className={"w-8 h-8 rounded-xl grid place-items-center " + h.sinif}><I size={15} /></span>
+                        <span className="text-[9px] font-black text-slate-600">{h.ad}</span>
+                      </button>
                     );
                   })}
                 </div>
-              </div>
-            )}
-          </>
-        ) : sekme === "makine" ? (
-          <>
-            <button onClick={() => { setMakineDuz(null); setMModel(""); setMSeri(""); setMKapasite(""); setMKonum(""); setMakineForm(o => !o); }}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 rounded-2xl text-[11px] font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
-              {makineForm ? <X size={14} /> : <Plus size={14} />} {makineForm ? "İPTAL" : "KENDİ MAKİNEMİ EKLE"}
-            </button>
 
-            <AnimatePresence>
-              {makineForm && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                  className="bg-white border-2 border-emerald-200 rounded-2xl p-4 space-y-2 overflow-hidden">
-                  <input value={mModel} onChange={(e) => setMModel(e.target.value)} placeholder="Model * (örn: 10 TON KÖPRÜLÜ VİNÇ)"
-                    className="w-full p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-emerald-500" />
-                  <div className="grid grid-cols-2 gap-2">
-                    <input value={mSeri} onChange={(e) => setMSeri(e.target.value)} placeholder="Seri No"
-                      className="p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500" />
-                    <input value={mKapasite} onChange={(e) => setMKapasite(e.target.value)} placeholder="Kapasite"
-                      className="p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select value={mTip} onChange={(e) => setMTip(e.target.value)}
-                      className="p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none">
-                      <option value="vinç">Vinç</option>
-                      <option value="asansör">Asansör</option>
-                    </select>
-                    <input value={mKonum} onChange={(e) => setMKonum(e.target.value)} placeholder="Konum"
-                      className="p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500" />
-                  </div>
-                  <button onClick={makineDuz ? duzenleKaydet : makineEkle} disabled={yukleniyor}
-                    className="w-full py-3 bg-emerald-600 text-white rounded-xl text-[11px] font-black flex items-center justify-center gap-2 disabled:bg-slate-300">
-                    {yukleniyor ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} KAYDET
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-4 py-3">
-                <h3 className="text-white font-black text-sm">🏗️ SİSTEMDEKİ MAKİNELERİM ({vincler.length})</h3>
-              </div>
-              <div className="p-3 space-y-2">
-                {vincler.length === 0 ? <p className="text-center text-slate-400 text-[11px] font-bold py-6">Kayıtlı makine yok</p>
-                  : vincler.map((v: any) => (
-                    <div key={v.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                      <p className="text-xs font-black text-slate-800">{v.model}</p>
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {v.kapasite !== "—" && <span className="text-[9px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border">{v.kapasite}</span>}
-                        {v.seri_no !== "—" && <span className="text-[9px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border">{v.seri_no}</span>}
-                        {v.makine_tipi !== "—" && <span className="text-[9px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border">{v.makine_tipi}</span>}
-                      </div>
-                      {v.adres && v.adres !== "—" && <p className="text-[9px] text-slate-400 mt-1">📍 {v.adres}</p>}
-                    </div>
-                  ))}
-              </div>
-            </div>
-
-            {biletMak.length > 0 && (
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3">
-                  <h3 className="text-white font-black text-sm">📋 TALEPLERİMDEN MAKİNELER ({biletMak.length})</h3>
-                </div>
-                <div className="p-3 space-y-2">
-                  {biletMak.map((v: any) => (
-                    <div key={v.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                      <p className="text-xs font-black text-slate-800">{v.model}</p>
-                      <p className="text-[9px] font-bold text-slate-400 mt-1">{v.tarih}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {kendi.length > 0 && (
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3">
-                  <h3 className="text-white font-black text-sm">➕ EKLEDİĞİM MAKİNELER ({kendi.length})</h3>
-                </div>
-                <div className="p-3 space-y-2">
-                  {kendi.map((v: any) => (
-                    <div key={v.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-black text-slate-800">{v.model}</p>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">KAYITLI</span>
-                          <button onClick={() => duzenleAc(v)} className="text-indigo-500 p-1"><Check size={12} /></button>
-                          <button onClick={() => makineSil(v.id)} className="text-rose-500 p-1"><X size={12} /></button>
+                {/* AKTİF SERVİSLER */}
+                <Kart>
+                  <Bolum ikon={Activity} renk="indigo" baslik="AKTİF SERVİSLERİM" sayi={aktif.length} />
+                  {aktif.length === 0 ? (
+                    <Bos ikon={Wrench} baslik="Şu an açık iş yok"
+                      alt="Tüm servis talepleriniz tamamlanmış görünüyor." ton="indigo" />
+                  ) : (
+                    <div className="px-3.5 pb-3.5 space-y-2">
+                      {aktif.map((a: any) => (
+                        <div key={a.id} className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-[12px] font-black text-slate-900 truncate">{a.firma}</p>
+                            <Cip renk="indigo">{String(a.durum || "bekliyor").toUpperCase()}</Cip>
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed line-clamp-2">{a.aciklama}</p>
+                          <p className="text-[9px] font-bold text-slate-400 mt-1.5 flex items-center gap-1">
+                            <Clock size={10} /> {a.tarih}
+                          </p>
                         </div>
-                      </div>
-                      <p className="text-[9px] font-bold text-slate-400 mt-1">{v.tarih}</p>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        ) : sekme === "servis" ? (
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-slate-700 to-slate-800 px-4 py-3">
-              <h3 className="text-white font-black text-sm">📄 SERVİS GEÇMİŞİM ({servisler.length})</h3>
-            </div>
-            <div className="p-3 space-y-2">
-              {servisler.length === 0 ? <p className="text-center text-slate-400 text-[11px] font-bold py-8">Servis kaydı yok</p>
-                : servisler.map((s: any, i: number) => (
-                  <div key={i} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-[10px] font-black text-slate-500">{s.tarih}</p>
-                          {s.form_no && <span className="text-[8px] font-black text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded">{s.form_no}</span>}
-                        </div>
-                        <p className="text-xs font-bold text-slate-700 mt-1 line-clamp-2">{s.aciklama}</p>
-                        {s.malzeme && <p className="text-[9px] text-slate-400 mt-1">📦 {s.malzeme}</p>}
-                        <p className="text-[9px] text-slate-400 mt-1">👤 {s.personel}</p>
+                  )}
+                </Kart>
+
+                {/* YAKLAŞAN BAKIMLAR */}
+                {bakim.length > 0 && (
+                  <Kart>
+                    <Bolum ikon={Calendar} renk="amber" baslik="YAKLAŞAN BAKIMLAR" sayi={bakim.length}
+                      sag={
+                        <button onClick={() => setSekme("bakim")}
+                          className="text-[9px] font-black text-slate-400 flex items-center gap-0.5 active:scale-95 transition kucuk">
+                          Tümü <ChevronRight size={11} />
+                        </button>
+                      } />
+                    <div className="px-3.5 pb-3.5 space-y-2">
+                      {bakim.slice(0, 4).map((b: any, i: number) => {
+                        const k = Number(b.gun_kaldi || 0);
+                        const ton = k <= 0 ? "rose" : k <= 30 ? "amber" : "emerald";
+                        return (
+                          <div key={i} className={"rounded-2xl border p-2.5 " +
+                            (ton === "rose" ? "bg-rose-50/70 border-rose-200"
+                              : ton === "amber" ? "bg-amber-50/70 border-amber-200"
+                                : "bg-emerald-50/60 border-emerald-200")}>
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-[11px] font-black text-slate-800 truncate">{b.model}</p>
+                              <Cip renk={ton}>{k <= 0 ? `${Math.abs(k)} gün geçti` : `${k} gün kaldı`}</Cip>
+                            </div>
+                            <p className="text-[9px] font-bold text-slate-500 mt-1">{b.tarih}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Kart>
+                )}
+
+                {/* HESABIM */}
+                <Kart>
+                  <Bolum ikon={Banknote} renk="emerald" baslik="HESABIM"
+                    sag={<span className="text-[9px] font-bold text-slate-400 truncate max-w-[46%]">{veri?.firma}</span>} />
+                  <div className="px-3.5 pb-3.5 space-y-2">
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 to-[#0b1220] p-3.5 text-white">
+                      <div className="pointer-events-none absolute -right-8 -top-10 w-28 h-28 rounded-full bg-emerald-400/25 blur-2xl" />
+                      <p className="relative text-[8px] font-black tracking-[0.18em] text-slate-400">TOPLAM HİZMET TUTARI</p>
+                      <p className="relative text-[26px] leading-none font-black mt-1">
+                        {para(toplamTutar)} <span className="text-sm font-bold text-slate-400">₺</span>
+                      </p>
+                      <div className="relative flex flex-wrap gap-1.5 mt-3">
+                        <span className="text-[8px] font-black px-2 py-1 rounded-lg bg-white/10 border border-white/10">
+                          {servisler.length} HİZMET
+                        </span>
+                        {yilToplam > 0 && (
+                          <span className="text-[8px] font-black px-2 py-1 rounded-lg bg-emerald-400/15 border border-emerald-400/20 text-emerald-300">
+                            {buYil}: {para(yilToplam)} ₺
+                          </span>
+                        )}
                       </div>
-                      {Number(s.tutar) > 0 && (
-                        <span className="text-xs font-black text-emerald-600 shrink-0">{Number(s.tutar).toLocaleString("tr-TR")} ₺</span>
+                    </div>
+
+                    {sonIslemler.length === 0 ? (
+                      <p className="text-center text-[10px] font-bold text-slate-400 py-3">
+                        Henüz faturalandırılmış hizmet yok.
+                      </p>
+                    ) : (
+                      <div>
+                        {sonIslemler.map((s: any, i: number) => (
+                          <div key={i} className="flex items-center gap-2 py-2 border-b border-slate-100 last:border-0">
+                            <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-500 grid place-items-center shrink-0">
+                              <FileText size={11} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[10px] font-bold text-slate-700 truncate">{s.aciklama}</p>
+                              <p className="text-[9px] text-slate-400">{s.tarih}</p>
+                            </div>
+                            <p className="text-[11px] font-black text-slate-800 shrink-0">{para(s.tutar)} ₺</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </Kart>
+
+                {/* DESTEK */}
+                <div className="rounded-[22px] border border-slate-200/80 bg-white p-3.5 flex items-center gap-3">
+                  <span className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 grid place-items-center shrink-0">
+                    <Phone size={17} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-black text-slate-800">Yardım mı lazım?</p>
+                    <p className="text-[10px] font-semibold text-slate-400">Servis destek hattı · 0224 374 00 01</p>
+                  </div>
+                  <a href="tel:+902243740001"
+                    className="px-3 py-2 rounded-xl bg-teal-600 text-white text-[10px] font-black shrink-0 active:scale-95 transition">
+                    ARA
+                  </a>
+                </div>
+              </>
+            )}
+
+            {/* ────────────────────────── MAKİNE ────────────────────────── */}
+            {sekme === "makine" && (
+              <>
+                <div className="rounded-[22px] border border-slate-200/80 bg-white p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                  <div className="flex items-center gap-3">
+                    <span className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 grid place-items-center shrink-0">
+                      <Package size={18} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12px] font-black text-slate-900">Makine Parkım</p>
+                      <p className="text-[10px] font-semibold text-slate-400">
+                        {vincler.length} kayıtlı · {kendi.length} kendi eklediğiniz
+                      </p>
+                    </div>
+                    <button onClick={() => {
+                      setMakineDuz(null); setMModel(""); setMSeri(""); setMKapasite(""); setMKonum("");
+                      setMakineForm(o => !o);
+                    }}
+                      className={"px-3 py-2 rounded-xl text-[10px] font-black flex items-center gap-1 active:scale-95 transition " +
+                        (makineForm ? "bg-slate-100 text-slate-600" : "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20")}>
+                      {makineForm ? <><X size={12} /> İPTAL</> : <><Plus size={12} /> EKLE</>}
+                    </button>
+                  </div>
+
+                  <AnimatePresence initial={false}>
+                    {makineForm && (
+                      <motion.div initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                        animate={{ opacity: 1, height: "auto", marginTop: 12 }}
+                        exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                        transition={{ duration: 0.22, ease: "easeOut" }} className="overflow-hidden">
+                        <div className="space-y-2 rounded-2xl bg-slate-50 border border-slate-200 p-3">
+                          <input value={mModel} onChange={(e) => setMModel(e.target.value)}
+                            placeholder="Model * (örn: 10 TON KÖPRÜLÜ VİNÇ)"
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
+                          <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2">
+                            <input value={mSeri} onChange={(e) => setMSeri(e.target.value)} placeholder="Seri No"
+                              className="p-3 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
+                            <input value={mKapasite} onChange={(e) => setMKapasite(e.target.value)} placeholder="Kapasite"
+                              className="p-3 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
+                          </div>
+                          <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2">
+                            <select value={mTip} onChange={(e) => setMTip(e.target.value)}
+                              className="p-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-emerald-500">
+                              <option value="vinç">Vinç</option>
+                              <option value="asansör">Asansör</option>
+                            </select>
+                            <input value={mKonum} onChange={(e) => setMKonum(e.target.value)} placeholder="Konum"
+                              className="p-3 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
+                          </div>
+                          <button onClick={makineDuz ? duzenleKaydet : makineEkle} disabled={yukleniyor}
+                            className="w-full py-3 bg-[#0b1220] text-white rounded-xl text-[11px] font-black flex items-center justify-center gap-2 disabled:bg-slate-300 active:scale-[0.99] transition">
+                            {yukleniyor ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                            {makineDuz ? "GÜNCELLE" : "KAYDET"}
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <Kart>
+                  <Bolum ikon={Wrench} renk="teal" baslik="SİSTEMDEKİ MAKİNELERİM" sayi={vincler.length} />
+                  {vincler.length === 0 ? (
+                    <Bos ikon={Package} baslik="Kayıtlı makine yok"
+                      alt="Sistemde adınıza kayıtlı bir makine bulunamadı." ton="teal" />
+                  ) : (
+                    <div className="px-3.5 pb-3.5 space-y-2">
+                      {vincler.map((v: any) => (
+                        <div key={v.id} className="rounded-2xl border border-slate-200/80 bg-white p-3">
+                          <div className="flex items-start gap-2.5">
+                            <span className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 grid place-items-center shrink-0">
+                              <Wrench size={15} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[12px] font-black text-slate-900 leading-tight">{v.model}</p>
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {v.kapasite !== "—" && <Cip>{v.kapasite}</Cip>}
+                                {v.seri_no !== "—" && <Cip>S/N {v.seri_no}</Cip>}
+                                {v.makine_tipi !== "—" && <Cip>{v.makine_tipi}</Cip>}
+                              </div>
+                              {v.adres && v.adres !== "—" && (
+                                <p className="flex items-start gap-1 text-[9px] text-slate-400 mt-1.5 leading-relaxed">
+                                  <MapPin size={10} className="mt-0.5 shrink-0" />
+                                  <span className="line-clamp-2">{v.adres}</span>
+                                </p>
+                              )}
+                              {v.sonraki_bakim && (
+                                <p className="text-[9px] font-black text-amber-600 mt-1.5">
+                                  Sonraki bakım · {String(v.sonraki_bakim).slice(0, 10)}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Kart>
+
+                {kendi.length > 0 && (
+                  <Kart>
+                    <Bolum ikon={Plus} renk="indigo" baslik="EKLEDİĞİM MAKİNELER" sayi={kendi.length} />
+                    <div className="px-3.5 pb-3.5 space-y-2">
+                      {kendi.map((v: any) => (
+                        <div key={v.id} className="rounded-2xl border border-slate-200/80 bg-white p-3">
+                          <div className="flex items-start gap-2.5">
+                            <span className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 grid place-items-center shrink-0">
+                              <Wrench size={15} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-[12px] font-black text-slate-900 truncate">{v.model}</p>
+                                <Cip renk="emerald">KAYITLI</Cip>
+                              </div>
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {v.kapasite && v.kapasite !== "—" && <Cip>{v.kapasite}</Cip>}
+                                {v.seri_no && v.seri_no !== "—" && <Cip>S/N {v.seri_no}</Cip>}
+                                {v.konum && v.konum !== "—" && <Cip>{v.konum}</Cip>}
+                              </div>
+                              <p className="text-[9px] font-bold text-slate-400 mt-1.5">Eklendi · {v.tarih}</p>
+                            </div>
+                            <div className="flex flex-col gap-1 shrink-0">
+                              <button onClick={() => duzenleAc(v)} aria-label="Düzenle"
+                                className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 grid place-items-center active:scale-95 transition kucuk">
+                                <Pencil size={11} />
+                              </button>
+                              <button onClick={() => makineSil(v.id)} aria-label="Sil"
+                                className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-200 text-rose-500 grid place-items-center active:scale-95 transition kucuk">
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Kart>
+                )}
+
+                {biletMak.length > 0 && (
+                  <Kart>
+                    <Bolum ikon={FileText} renk="violet" baslik="TALEPLERİMDEN MAKİNELER" sayi={biletMak.length} />
+                    <div className="px-3.5 pb-3.5 space-y-2">
+                      {biletMak.map((v: any) => (
+                        <div key={v.id} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-3">
+                          <p className="text-[12px] font-black text-slate-900">{v.model}</p>
+                          <p className="text-[9px] font-bold text-slate-400 mt-1">{v.tarih}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </Kart>
+                )}
+              </>
+            )}
+
+            {/* ────────────────────────── SERVİS ────────────────────────── */}
+            {sekme === "servis" && (
+              <Kart>
+                <Bolum ikon={Wrench} renk="indigo" baslik="SERVİS GEÇMİŞİM" sayi={servisler.length} />
+                {servisler.length === 0 ? (
+                  <Bos ikon={FileText} baslik="Servis kaydı yok"
+                    alt="Tamamlanan servisleriniz burada listelenir." ton="indigo" />
+                ) : (
+                  <div className="px-4 pb-4">
+                    <div className="relative">
+                      <div className="absolute left-[7px] top-2 bottom-4 w-px bg-slate-200" />
+                      <div className="space-y-3">
+                        {servisler.map((s: any, i: number) => {
+                          const bakimMi = String(s.tur || "").toLowerCase().includes("bakım");
+                          return (
+                            <div key={i} className="relative pl-6">
+                              <span className={"absolute left-0 top-1 w-[15px] h-[15px] rounded-full border-[3px] bg-white " +
+                                (bakimMi ? "border-teal-500" : "border-indigo-500")} />
+                              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-3">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-[9px] font-black tracking-wide text-slate-400">
+                                      {s.tarih} · {String(s.tur || "Servis").toUpperCase()}
+                                    </p>
+                                    <p className="text-[11px] font-bold text-slate-700 mt-1 leading-relaxed line-clamp-3">
+                                      {s.aciklama}
+                                    </p>
+                                  </div>
+                                  {Number(s.tutar) > 0 && (
+                                    <p className="text-[12px] font-black text-slate-900 shrink-0">{para(s.tutar)} ₺</p>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                  {s.form_no && <Cip><FileText size={8} /> {s.form_no}</Cip>}
+                                  {s.personel && s.personel !== "—" && <Cip>{s.personel}</Cip>}
+                                </div>
+                                {s.malzeme && (
+                                  <p className="text-[9px] text-slate-400 mt-1.5 line-clamp-1 flex items-center gap-1">
+                                    <Package size={9} /> {s.malzeme}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Kart>
+            )}
+
+            {/* ────────────────────────── TEKLİF ────────────────────────── */}
+            {sekme === "teklif" && (
+              <>
+                {pazarliklar.length > 0 && (
+                  <Kart>
+                    <Bolum ikon={MessageSquare} renk="amber" baslik="PAZARLIKLARIM" sayi={pazarliklar.length} />
+                    <div className="px-3.5 pb-3.5 space-y-2">
+                      {pazarliklar.map((p: any) => {
+                        const d = pzDurum(p.durum);
+                        return (
+                          <div key={p.id} className={"rounded-2xl border p-3 " + d.sinif}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[9px] font-black text-slate-500">{p.tarih}</span>
+                              <Cip renk={d.renk}>{d.ad}</Cip>
+                            </div>
+                            <div className="flex items-end gap-2 mt-2">
+                              <div className="min-w-0">
+                                <p className="text-[8px] font-black tracking-wide text-slate-400">TEKLİF</p>
+                                <p className="text-[13px] font-black text-slate-700">{para(p.teklif_tutar)} ₺</p>
+                              </div>
+                              <span className="text-slate-400 text-[11px] pb-0.5">→</span>
+                              <div className="min-w-0">
+                                <p className="text-[8px] font-black tracking-wide text-slate-400">TEKLİFİNİZ</p>
+                                <p className="text-[13px] font-black text-slate-900">{para(p.istenen_tutar)} ₺</p>
+                              </div>
+                              <div className="ml-auto text-right">
+                                <p className="text-[8px] font-black tracking-wide text-slate-400">FARK</p>
+                                <p className="text-[13px] font-black text-rose-600">−{para(p.fark)} ₺</p>
+                              </div>
+                            </div>
+                            {p.mesaj && (
+                              <p className="text-[10px] text-slate-500 mt-2 italic leading-relaxed">“{p.mesaj}”</p>
+                            )}
+                            {p.admin_notu && (
+                              <div className="mt-2 rounded-xl bg-white/80 border border-slate-200 px-2.5 py-2">
+                                <p className="text-[8px] font-black tracking-wide text-slate-400">BUVİSAN CEVABI</p>
+                                <p className="text-[10px] font-bold text-slate-700 mt-0.5">{p.admin_notu}</p>
+                              </div>
+                            )}
+                            {(String(p.durum || "").toLowerCase() === "revize" || String(p.durum || "").toLowerCase() === "bekliyor") && (
+                              <div className="flex gap-1.5 mt-2.5">
+                                <button onClick={() => pazarlikKarar(p.id, false)}
+                                  className="flex-1 py-2.5 rounded-xl bg-white border border-rose-200 text-rose-600 text-[10px] font-black flex items-center justify-center gap-1 active:scale-95 transition">
+                                  <XCircle size={12} /> REDDET
+                                </button>
+                                <button onClick={() => pazarlikKarar(p.id, true)}
+                                  className="flex-[2] py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center gap-1 active:scale-95 transition">
+                                  <CheckCircle2 size={12} /> BU FİYATI KABUL ET
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Kart>
+                )}
+
+                <Kart>
+                  <Bolum ikon={Star} renk="amber" baslik="TEKLİFLERİM" sayi={teklifler.length} />
+                  {teklifler.length === 0 ? (
+                    <Bos ikon={Star} baslik="Henüz teklif yok"
+                      alt="Talebiniz üzerine hazırlanan teklifler burada görünür." ton="amber" />
+                  ) : (
+                    <div className="px-3.5 pb-3.5 space-y-2">
+                      {teklifler.map((t: any, i: number) => {
+                        const d = teklifDurum(t.durum);
+                        const bekliyor = bekliyorMu(t.durum);
+                        return (
+                          <div key={i} className="rounded-2xl border border-slate-200/80 bg-white p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="text-[12px] font-black text-slate-900">{t.baslik}</p>
+                                  <Cip renk={d.renk}>{d.ad}</Cip>
+                                </div>
+                                <p className="text-[9px] font-bold text-slate-400 mt-1">#{t.no} · {t.tarih}</p>
+                                {t.aciklama && (
+                                  <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed line-clamp-2">{t.aciklama}</p>
+                                )}
+                              </div>
+                              {Number(t.tutar) > 0 && (
+                                <div className="text-right shrink-0">
+                                  <p className="text-[8px] font-black tracking-wide text-slate-400">TUTAR</p>
+                                  <p className="text-[14px] font-black text-slate-900">
+                                    {para(t.tutar)} <span className="text-[10px] text-slate-400">₺</span>
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+
+                            <button onClick={() => teklifPdf(t.kaynak, t.id, t.no)}
+                              className="w-full mt-2.5 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-[10px] font-black flex items-center justify-center gap-1.5 active:scale-[0.99] transition">
+                              <FileText size={12} /> TEKLİFİ GÖRÜNTÜLE / PDF
+                            </button>
+
+                            {bekliyor && (
+                              <div className="flex gap-1.5 mt-2">
+                                <button onClick={() => teklifKarar(t.kaynak, t.id, false)}
+                                  className="flex-1 py-2.5 rounded-xl bg-white border border-rose-200 text-rose-600 text-[10px] font-black flex items-center justify-center gap-1 active:scale-95 transition">
+                                  <XCircle size={12} /> REDDET
+                                </button>
+                                <button onClick={() => {
+                                  setPazarlikAcik(t);
+                                  setPzTutar(Math.round(Number(t.tutar) * 0.9));
+                                  setPzMesaj("");
+                                }}
+                                  className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-[10px] font-black flex items-center justify-center gap-1 active:scale-95 transition">
+                                  <MessageSquare size={12} /> PAZARLIK
+                                </button>
+                                <button onClick={() => teklifKarar(t.kaynak, t.id, true)}
+                                  className="flex-[1.3] py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center gap-1 active:scale-95 transition">
+                                  <CheckCircle2 size={12} /> ONAYLA
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Kart>
+              </>
+            )}
+
+            {/* ────────────────────────── BAKIM ────────────────────────── */}
+            {sekme === "bakim" && (
+              <>
+                {sozlesme ? (
+                  <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-teal-900 via-[#0b1220] to-[#0b1220] p-4 text-white shadow-[0_22px_50px_-32px_rgba(2,6,23,0.95)]">
+                    <div className="pointer-events-none absolute -right-12 -top-14 w-40 h-40 rounded-full bg-teal-400/25 blur-3xl" />
+                    <div className="relative">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 grid place-items-center shrink-0">
+                            <FileText size={16} className="text-teal-300" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[8px] font-black tracking-[0.2em] text-teal-300">BAKIM SÖZLEŞMEM</p>
+                            <p className="text-[11px] font-black leading-tight truncate mt-0.5">
+                              {sozlesme.periyot} ayda 1 · yılda {sozlesme.yilda} bakım
+                            </p>
+                          </div>
+                        </div>
+                        <span className={"shrink-0 text-[8px] font-black px-2 py-1 rounded-lg border " +
+                          (Number(sozlesme.gun_kaldi) <= 30
+                            ? "bg-rose-500/15 border-rose-400/30 text-rose-300"
+                            : "bg-emerald-400/15 border-emerald-400/30 text-emerald-300")}>
+                          {Number(sozlesme.gun_kaldi) > 0 ? `${sozlesme.gun_kaldi} gün kaldı` : "süresi doldu"}
+                        </span>
+                      </div>
+
+                      <p className="text-[24px] leading-none font-black mt-3.5">
+                        {para(sozlesme.yillik_toplam)}
+                        <span className="text-[11px] font-bold text-slate-400"> ₺/yıl</span>
+                      </p>
+
+                      <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2 mt-3.5">
+                        {[
+                          { a: "MAKİNE", d: `${sozlesme.makine_sayisi} ${sozlesme.makine_tipi}` },
+                          { a: "BAŞLANGIÇ", d: sozlesme.baslangic },
+                          { a: "BİTİŞ", d: sozlesme.bitis },
+                          { a: "BAKIM HAKKI", d: `${sozlesme.visit_count || sozlesme.yilda} ziyaret` },
+                        ].map((k) => (
+                          <div key={k.a} className="rounded-xl bg-white/5 border border-white/10 px-2.5 py-2">
+                            <p className="text-[7px] font-black tracking-[0.16em] text-slate-400">{k.a}</p>
+                            <p className="text-[10px] font-black mt-0.5 truncate">{k.d}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {sozlesme.dosya_url && (
+                        <a href={sozlesme.dosya_url} target="_blank" rel="noopener noreferrer"
+                          className="mt-3 w-full py-2.5 rounded-xl bg-white text-slate-900 text-[10px] font-black flex items-center justify-center gap-1.5 active:scale-[0.99] transition">
+                          <FileText size={12} /> SÖZLEŞME DOSYASINI AÇ
+                        </a>
                       )}
                     </div>
                   </div>
-                ))}
-            </div>
-          </div>
-        ) : sekme === "teklif" ? (
-          <div className="space-y-2">
-            {pazarliklar.length > 0 && (
-              <div className="bg-white rounded-3xl border-2 border-amber-200 shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3">
-                  <h3 className="text-white font-black text-sm">💰 PAZARLIKLARIM ({pazarliklar.length})</h3>
-                </div>
-                <div className="p-3 space-y-2">
-                  {pazarliklar.map((p: any) => {
-                    const dn = String(p.durum || "").toLowerCase();
-                    const renk = dn === "kabul" ? "bg-emerald-100 text-emerald-700 border-emerald-300"
-                      : dn === "red" ? "bg-rose-100 text-rose-700 border-rose-300"
-                      : dn === "revize" ? "bg-blue-100 text-blue-700 border-blue-300"
-                      : "bg-amber-100 text-amber-700 border-amber-300";
-                    const etiket = dn === "kabul" ? "✅ KABUL EDİLDİ"
-                      : dn === "red" ? "❌ REDDEDİLDİ"
-                      : dn === "revize" ? "📝 REVİZE EDİLDİ"
-                      : "⏳ CEVAP BEKLİYOR";
-                    return (
-                      <div key={p.id} className={"rounded-xl p-3 border-2 " + renk}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[9px] font-black uppercase opacity-80">{p.tarih}</span>
-                          <span className="text-[9px] font-black">{etiket}</span>
-                        </div>
-                        <div className="flex items-center gap-3 mt-2">
-                          <div>
-                            <p className="text-[8px] font-black opacity-70">TEKLİF</p>
-                            <p className="text-[12px] font-black">{Number(p.teklif_tutar || 0).toLocaleString("tr-TR")} ₺</p>
-                          </div>
-                          <span className="opacity-50">→</span>
-                          <div>
-                            <p className="text-[8px] font-black opacity-70">TEKLİFİNİZ</p>
-                            <p className="text-[12px] font-black">{Number(p.istenen_tutar || 0).toLocaleString("tr-TR")} ₺</p>
-                          </div>
-                          <div className="ml-auto text-right">
-                            <p className="text-[8px] font-black opacity-70">FARK</p>
-                            <p className="text-[12px] font-black">−{Number(p.fark || 0).toLocaleString("tr-TR")} ₺</p>
-                          </div>
-                        </div>
-                        {p.mesaj && <p className="text-[10px] mt-2 opacity-80 italic">"{p.mesaj}"</p>}
-                        {p.admin_notu && (
-                          <div className="mt-2 bg-white/70 rounded-lg px-2.5 py-2">
-                            <p className="text-[8px] font-black opacity-60 uppercase">BUVİSAN CEVABI</p>
-                            <p className="text-[10px] font-bold mt-0.5">{p.admin_notu}</p>
-                          </div>
-                        )}
-                        {(dn === "revize" || dn === "bekliyor") && (
-                          <div className="flex gap-1.5 mt-2">
-                            <button onClick={() => pazarlikKarar(p.id, false)}
-                              className="flex-1 py-2 bg-rose-600 text-white rounded-lg text-[10px] font-black flex items-center justify-center gap-1">
-                              <XCircle size={11} /> REDDET
+                ) : (
+                  <Kart>
+                    <Bos ikon={FileText} baslik="Aktif bakım sözleşmeniz yok"
+                      alt="Periyodik bakım sözleşmesi için bize ulaşın: 0224 374 00 01" ton="teal" />
+                    <div className="px-4 pb-4">
+                      <a href="tel:+902243740001"
+                        className="w-full py-3 rounded-xl bg-teal-600 text-white text-[11px] font-black flex items-center justify-center gap-1.5 active:scale-[0.99] transition">
+                        <Phone size={13} /> BİZİ ARAYIN
+                      </a>
+                    </div>
+                  </Kart>
+                )}
+
+                {bakimTakvim.length > 0 && (
+                  <Kart>
+                    <Bolum ikon={Calendar} renk="teal" baslik="BAKIM TAKVİMİM" sayi={bakimTakvim.length} />
+                    <div className="px-3.5 pb-3.5">
+                      {bakimYillar.length > 1 && (
+                        <div className="flex gap-1.5 mb-2.5">
+                          {bakimYillar.map((y) => (
+                            <button key={y} onClick={() => setBakimYil(y)}
+                              className={"px-2.5 py-1.5 rounded-lg text-[9px] font-black border transition " +
+                                (y === secilenYil
+                                  ? "bg-[#0b1220] text-white border-[#0b1220]"
+                                  : "bg-white text-slate-500 border-slate-200")}>
+                              {y}
                             </button>
-                            <button onClick={() => pazarlikKarar(p.id, true)}
-                              className="flex-[2] py-2 bg-emerald-600 text-white rounded-lg text-[10px] font-black flex items-center justify-center gap-1">
-                              <CheckCircle2 size={11} /> BU FİYATI KABUL ET
-                            </button>
-                          </div>
-                        )}
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 12 AYLIK ŞERİT */}
+                      <div className="grid grid-cols-[repeat(6,minmax(0,1fr))] gap-1.5">
+                        {AY_ADLARI.map((ad, i) => {
+                          const d = ayDurumu(i + 1);
+                          return (
+                            <div key={ad}
+                              className={"rounded-xl border py-1.5 text-center " +
+                                (d === "plan" ? "border-teal-200 bg-teal-50"
+                                  : d === "bitti" ? "border-emerald-200 bg-emerald-50"
+                                    : d === "gec" ? "border-rose-200 bg-rose-50"
+                                      : "border-slate-100 bg-slate-50")}>
+                              <p className={"text-[8px] font-black " + (d ? "text-slate-600" : "text-slate-300")}>{ad}</p>
+                              <div className="h-1.5 mt-1 flex justify-center">
+                                {d && (
+                                  <span className={"w-1.5 h-1.5 rounded-full " +
+                                    (d === "plan" ? "bg-teal-500" : d === "bitti" ? "bg-emerald-500" : "bg-rose-500")} />
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+
+                      {/* BAKIM LİSTESİ */}
+                      <div className="space-y-1.5 mt-3">
+                        {yilPlanlari.map((b: any) => {
+                          const bitti = b.durum === "yapildi";
+                          const gec = !bitti && Number(b.gun_kaldi) < 0;
+                          const yakin = !bitti && !gec && Number(b.gun_kaldi) <= 30;
+                          return (
+                            <div key={b.id}
+                              className={"flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 " +
+                                (bitti ? "border-emerald-200 bg-emerald-50/60"
+                                  : gec ? "border-rose-200 bg-rose-50/60"
+                                    : yakin ? "border-amber-200 bg-amber-50/60"
+                                      : "border-slate-200 bg-white")}>
+                              <div className="w-8 h-8 rounded-xl grid place-items-center shrink-0 bg-white border border-slate-200">
+                                {bitti ? <Check size={13} className="text-emerald-600" />
+                                  : gec ? <AlertCircle size={13} className="text-rose-500" />
+                                    : <Calendar size={13} className={yakin ? "text-amber-500" : "text-slate-400"} />}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-black text-slate-900">{b.tarih} · {b.sira}. bakım</p>
+                                <p className={"text-[9px] font-bold " +
+                                  (bitti ? "text-emerald-600" : gec ? "text-rose-600" : yakin ? "text-amber-600" : "text-slate-400")}>
+                                  {bitti ? "Tamamlandı"
+                                    : gec ? `${Math.abs(Number(b.gun_kaldi))} gün geçti`
+                                      : Number(b.gun_kaldi) === 0 ? "Bugün" : `${b.gun_kaldi} gün kaldı`}
+                                </p>
+                              </div>
+                              {!bitti && (
+                                <button onClick={() => { setDuzPlan(b); setDuzYeniTarih(b.tarih_iso || ""); setDuzSebep(""); }}
+                                  className="px-2.5 py-1.5 rounded-lg bg-white border border-indigo-200 text-indigo-600 text-[9px] font-black shrink-0 active:scale-95 transition kucuk">
+                                  TARİH
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </Kart>
+                )}
+
+                {bakimTalepler.length > 0 && (
+                  <Kart>
+                    <Bolum ikon={Send} renk="violet" baslik="TARİH DEĞİŞİKLİK TALEPLERİM" sayi={bakimTalepler.length} />
+                    <div className="px-3.5 pb-3.5 space-y-1.5">
+                      {bakimTalepler.map((t: any) => {
+                        const dn = String(t.durum || "").toLowerCase();
+                        return (
+                          <div key={t.id}
+                            className={"rounded-2xl border px-3 py-2.5 " +
+                              (dn === "onaylandi" ? "bg-emerald-50/60 border-emerald-200"
+                                : dn === "reddedildi" ? "bg-rose-50/60 border-rose-200"
+                                  : "bg-amber-50/60 border-amber-200")}>
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-[10px] font-black text-slate-700">{t.eski} → {t.yeni}</p>
+                              <Cip renk={dn === "onaylandi" ? "emerald" : dn === "reddedildi" ? "rose" : "amber"}>
+                                {dn === "onaylandi" ? "ONAYLANDI" : dn === "reddedildi" ? "RED" : "BEKLİYOR"}
+                              </Cip>
+                            </div>
+                            {t.sebep && <p className="text-[9px] text-slate-500 mt-1">{t.sebep}</p>}
+                            {t.admin_notu && (
+                              <p className="text-[9px] font-bold text-slate-600 mt-1">BUVİSAN: {t.admin_notu}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Kart>
+                )}
+              </>
             )}
 
-            {teklifler.length === 0 ? (
-              <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
-                <Star className="w-10 h-10 text-slate-200 mx-auto mb-2" />
-                <p className="text-xs font-black text-slate-400">Teklif yok</p>
-              </div>
-            ) : teklifler.map((t: any, i: number) => {
-              const dNorm = String(t.durum || "").toLowerCase().trim();
-              const bekliyor = dNorm === "bekliyor" || dNorm === "beklemede" || dNorm === "" || dNorm === "taslak";
-              const onayli = dNorm === "onaylandi" || dNorm === "onayli";
-              const red = dNorm === "reddedildi" || dNorm === "red";
-              return (
-                <div key={i} className="bg-white border border-slate-200 rounded-2xl p-3.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="text-xs font-black text-slate-800">{t.baslik}</p>
-                        <span className="text-[8px] font-black text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{t.no}</span>
-                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${bekliyor ? "bg-amber-100 text-amber-700" : onayli ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-                          {bekliyor ? "BEKLİYOR" : onayli ? "ONAYLANDI" : red ? "REDDEDİLDİ" : String(t.durum || "BEKLİYOR").toUpperCase()}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 mt-1.5 line-clamp-2">{t.aciklama}</p>
-                      <p className="text-[9px] text-slate-400 font-bold mt-1">{t.tarih}</p>
+            {/* ────────────────────────── TALEP ────────────────────────── */}
+            {sekme === "talep" && (
+              <Kart>
+                <div className="p-4 pb-0">
+                  <div className="flex items-center gap-3">
+                    <span className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 grid place-items-center shrink-0">
+                      <AlertCircle size={19} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-black text-slate-900">Arıza / Servis Talebi</p>
+                      <p className="text-[10px] font-semibold text-slate-400">Talebiniz anında ekibimize düşer</p>
                     </div>
-                    {Number(t.tutar) > 0 && (
-                      <p className="text-sm font-black text-emerald-600 shrink-0">{Number(t.tutar).toLocaleString("tr-TR")} ₺</p>
-                    )}
                   </div>
-                  <button onClick={() => teklifPdf(t.kaynak, t.id, t.no)}
-                    className="w-full mt-2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-black flex items-center justify-center gap-1">
-                    📄 TEKLİFİ GÖRÜNTÜLE / PDF
-                  </button>
-                  {bekliyor && (
-                    <div className="flex gap-2 mt-2.5">
-                      <button onClick={() => teklifKarar(t.kaynak, t.id, false)}
-                        className="flex-1 py-2.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[10px] font-black flex items-center justify-center gap-1">
-                        <XCircle size={12} /> REDDET
-                      </button>
-                      <button onClick={() => { setPazarlikAcik(t); setPzTutar(Math.round(Number(t.tutar) * 0.9)); setPzMesaj(""); }}
-                        className="flex-1 py-2.5 bg-amber-500 text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1">
-                        <MessageSquare size={12} /> PAZARLIK
-                      </button>
-                      <button onClick={() => teklifKarar(t.kaynak, t.id, true)}
-                        className="flex-[2] py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1">
-                        <CheckCircle2 size={12} /> ONAYLA
-                      </button>
+                </div>
+
+                <div className="p-4 space-y-3.5">
+                  <div>
+                    <label className="text-[8px] font-black tracking-[0.16em] text-slate-400">TALEP TÜRÜ</label>
+                    <div className="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-2 mt-1.5">
+                      {([
+                        { k: "ariza", ad: "Arıza", ikon: AlertCircle },
+                        { k: "bakim", ad: "Bakım", ikon: Wrench },
+                        { k: "kesif", ad: "Keşif", ikon: Sparkles },
+                      ] as const).map((x) => {
+                        const I = x.ikon;
+                        const sec = tTip === x.k;
+                        return (
+                          <button key={x.k} onClick={() => setTTip(x.k)}
+                            className={"py-2.5 rounded-xl border text-[10px] font-black flex flex-col items-center gap-1 transition " +
+                              (sec
+                                ? "bg-[#0b1220] text-white border-[#0b1220] shadow-lg shadow-slate-900/15"
+                                : "bg-white text-slate-500 border-slate-200")}>
+                            <I size={14} /> {x.ad}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {(vincler.length + kendi.length) > 0 && (
+                    <div>
+                      <label className="text-[8px] font-black tracking-[0.16em] text-slate-400">MAKİNE (OPSİYONEL)</label>
+                      <select value={tMakine} onChange={(e) => setTMakine(e.target.value)}
+                        className="w-full mt-1.5 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100">
+                        <option value="">Makine seçin...</option>
+                        {[...vincler, ...kendi].map((v: any, i: number) => (
+                          <option key={i} value={v.model}>{v.model}</option>
+                        ))}
+                      </select>
                     </div>
                   )}
-                </div>
-              );
-            })}
-          </div>
-        ) : sekme === "bakim" ? (
-          <div className="space-y-2">
-            {/* SOZLESME KARTI */}
-            {sozlesme ? (
-              <div className="bg-white rounded-3xl border-2 border-teal-200 shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-4 py-3">
-                  <h3 className="text-white font-black text-sm">📋 BAKIM SOZLESMEM</h3>
-                  <p className="text-[9px] text-teal-100 font-bold mt-0.5">
-                    {sozlesme.periyot} ayda 1 · Yilda {Math.round(12 / Math.max(1, sozlesme.periyot))} bakim
+
+                  <div>
+                    <label className="text-[8px] font-black tracking-[0.16em] text-slate-400">KONU *</label>
+                    <input value={tKonu} onChange={(e) => setTKonu(e.target.value)}
+                      placeholder="Örn: Vinçten ses geliyor"
+                      className="w-full mt-1.5 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100" />
+                  </div>
+
+                  <div>
+                    <label className="text-[8px] font-black tracking-[0.16em] text-slate-400">AÇIKLAMA</label>
+                    <textarea rows={4} value={tAciklama} onChange={(e) => setTAciklama(e.target.value)}
+                      placeholder="Ne olduğunu detaylı yazın..."
+                      className="w-full mt-1.5 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs resize-none outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100" />
+                  </div>
+
+                  <button onClick={talepGonder} disabled={tGonder}
+                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 text-white text-[11px] font-black flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 disabled:opacity-50 active:scale-[0.99] transition">
+                    {tGonder ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    {tGonder ? "GÖNDERİLİYOR..." : "TALEBİ GÖNDER"}
+                  </button>
+
+                  <p className="text-center text-[9px] font-bold text-slate-400">
+                    Acil durumlar için: 0224 374 00 01
                   </p>
                 </div>
-                <div className="p-3 space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-slate-50 rounded-xl p-2.5">
-                      <p className="text-[8px] font-black text-slate-400 uppercase">MAKINE</p>
-                      <p className="text-sm font-black text-slate-800">{sozlesme.makine_sayisi} {sozlesme.makine_tipi}</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-2.5">
-                      <p className="text-[8px] font-black text-slate-400 uppercase">YILLIK TUTAR</p>
-                      <p className="text-sm font-black text-emerald-700">{Number(sozlesme.yillik_toplam || 0).toLocaleString("tr-TR")} ₺</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-2.5">
-                      <p className="text-[8px] font-black text-slate-400 uppercase">BASLANGIC</p>
-                      <p className="text-[11px] font-bold text-slate-700">{sozlesme.baslangic}</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-2.5">
-                      <p className="text-[8px] font-black text-slate-400 uppercase">BITIS</p>
-                      <p className="text-[11px] font-bold text-slate-700">{sozlesme.bitis}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-1.5">
-                    {sozlesme.dosya_url ? (
-                      <a href={sozlesme.dosya_url} target="_blank" rel="noopener noreferrer"
-                        className="flex-1 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1">
-                        📄 SOZLESME DOSYASI
-                      </a>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center">
-                <Calendar className="w-10 h-10 text-slate-200 mx-auto mb-2" />
-                <p className="text-xs font-black text-slate-400">Aktif bakim sozlesmeniz yok</p>
-                <p className="text-[10px] text-slate-400 mt-1">Sozlesme yapmak icin bizi arayin</p>
-              </div>
+              </Kart>
             )}
 
-            {/* BAKIM TAKVIMI */}
-            {bakimTakvim.length > 0 && (
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-slate-900 px-4 py-3">
-                  <h3 className="text-white font-black text-sm">📅 BAKIM TAKVIMIM ({bakimTakvim.length})</h3>
+            {/* ────────────────────────── SOHBET ────────────────────────── */}
+            {sekme === "sohbet" && (
+              <div className="bg-white rounded-[22px] border border-slate-200/80 overflow-hidden flex flex-col shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_34px_-26px_rgba(15,23,42,0.35)]"
+                style={{ height: "calc(100dvh - 13.5rem)", minHeight: 360 }}>
+                <div className="flex items-center gap-2.5 px-4 py-3 border-b border-slate-100 shrink-0">
+                  <div className="relative shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 grid place-items-center text-slate-900 font-black text-[11px]">
+                      B
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] font-black text-slate-900 leading-tight">BUVİSAN Destek</p>
+                    <p className="text-[9px] font-bold text-emerald-600">Çevrimiçi · genellikle 15 dk içinde</p>
+                  </div>
+                  <Cip renk="violet">{sohbet.length} mesaj</Cip>
                 </div>
-                <div className="p-3 space-y-1.5">
-                  {bakimTakvim.map((b: any) => {
-                    const bitti = b.durum === "yapildi";
-                    const gec = !bitti && Number(b.gun_kaldi) < 0;
-                    const yakin = !bitti && !gec && Number(b.gun_kaldi) <= 30;
+
+                <div ref={sohbetSon} className="flex-1 overflow-y-auto px-3.5 py-3 space-y-2.5 bg-slate-50/60">
+                  {sohbet.length === 0 ? (
+                    <Bos ikon={MessageSquare} baslik="Henüz mesaj yok"
+                      alt="Aşağıdan yazın, ekibimiz en kısa sürede dönsün." ton="violet" />
+                  ) : sohbet.map((m: any) => {
+                    const benim = m.gonderen === "musteri";
                     return (
-                      <div key={b.id} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 border-2 ${bitti ? "bg-emerald-50 border-emerald-200" : gec ? "bg-rose-50 border-rose-200" : yakin ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200"}`}>
-                        <div className={`w-1.5 h-9 rounded-full ${bitti ? "bg-emerald-500" : gec ? "bg-rose-500" : yakin ? "bg-amber-500" : "bg-slate-300"}`} />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-black text-slate-800">{b.tarih}</p>
-                          <p className="text-[9px] font-bold text-slate-500">
-                            {b.sira}. bakim
-                            {bitti ? " · TAMAMLANDI" : gec ? ` · ${Math.abs(Number(b.gun_kaldi))} gun gecti` : ` · ${b.gun_kaldi} gun kaldi`}
+                      <div key={m.id} className={"flex items-end gap-2 " + (benim ? "justify-end" : "justify-start")}>
+                        {!benim && (
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-yellow-300 to-amber-500 grid place-items-center text-[8px] font-black text-slate-900 shrink-0">
+                            B
+                          </div>
+                        )}
+                        <div className={"max-w-[78%] rounded-2xl px-3 py-2 " +
+                          (benim
+                            ? "bg-[#0b1220] text-white rounded-br-sm"
+                            : "bg-white border border-slate-200 text-slate-800 rounded-bl-sm")}>
+                          <p className="text-[11px] leading-relaxed whitespace-pre-wrap">{m.mesaj}</p>
+                          <p className={"text-[8px] font-bold mt-1 " + (benim ? "text-slate-400 text-right" : "text-slate-400")}>
+                            {m.tarih}
                           </p>
                         </div>
-                        {!bitti && (
-                          <button onClick={() => { setDuzPlan(b); setDuzYeniTarih(b.tarih_iso); }}
-                            className="px-2 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-[9px] font-black shrink-0">
-                            TARIH
-                          </button>
-                        )}
                       </div>
                     );
                   })}
+                </div>
+
+                <div className="p-2.5 border-t border-slate-100 bg-white shrink-0">
+                  <div className="flex items-end gap-2">
+                    <input value={yeniMesaj} onChange={(e) => setYeniMesaj(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); mesajGonder(); } }}
+                      placeholder="Mesajınızı yazın..."
+                      className="flex-1 px-3.5 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" />
+                    <button onClick={mesajGonder} disabled={gonderiyor || !yeniMesaj.trim()} aria-label="Gönder"
+                      className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white grid place-items-center shrink-0 disabled:opacity-40 active:scale-95 transition">
+                      {gonderiyor ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* TALEPLERIM */}
-            {bakimTalepler.length > 0 && (
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3">
-                  <h3 className="text-white font-black text-sm">📨 TARIH DEGISIKLIK TALEPLERIM</h3>
-                </div>
-                <div className="p-3 space-y-1.5">
-                  {bakimTalepler.map((t: any) => {
-                    const dn = String(t.durum).toLowerCase();
-                    return (
-                      <div key={t.id} className={`rounded-xl px-3 py-2 border-2 ${dn === "onaylandi" ? "bg-emerald-50 border-emerald-200" : dn === "reddedildi" ? "bg-rose-50 border-rose-200" : "bg-amber-50 border-amber-200"}`}>
-                        <div className="flex items-center justify-between">
-                          <p className="text-[10px] font-black text-slate-700">{t.eski} → {t.yeni}</p>
-                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-white/70">{dn === "onaylandi" ? "ONAYLANDI" : dn === "reddedildi" ? "RED" : "BEKLIYOR"}</span>
-                        </div>
-                        {t.sebep && <p className="text-[9px] text-slate-500 mt-0.5">{t.sebep}</p>}
-                        {t.admin_notu && <p className="text-[9px] font-bold text-slate-600 mt-0.5">BUVISAN: {t.admin_notu}</p>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : sekme === "talep" ? (
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-rose-600 to-red-600 px-4 py-3">
-              <h3 className="text-white font-black text-sm">🛠️ ARIZA / SERVİS TALEBİ</h3>
-              <p className="text-[9px] text-rose-200 font-bold mt-0.5">Talebiniz anında ekibimize düşer</p>
-            </div>
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase">Talep Türü</label>
-                <div className="grid grid-cols-3 gap-2 mt-1">
-                  {([["ariza","Arıza"],["bakim","Bakım"],["kesif","Keşif"]] as const).map(([k, a]) => (
-                    <button key={k} onClick={() => setTTip(k)}
-                      className={`py-2.5 rounded-xl text-[10px] font-black transition ${tTip === k ? "bg-rose-600 text-white" : "bg-slate-50 text-slate-500 border border-slate-200"}`}>
-                      {a}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {(vincler.length + kendi.length) > 0 && (
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase">Makine (opsiyonel)</label>
-                  <select value={tMakine} onChange={(e) => setTMakine(e.target.value)}
-                    className="w-full mt-1 p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-rose-500">
-                    <option value="">Makine seçin...</option>
-                    {[...vincler, ...kendi].map((v: any, i: number) => (
-                      <option key={i} value={v.model}>{v.model}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase">Konu *</label>
-                <input value={tKonu} onChange={(e) => setTKonu(e.target.value)}
-                  placeholder="Örn: Vinçten ses geliyor"
-                  className="w-full mt-1 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-rose-500" />
-              </div>
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase">Açıklama</label>
-                <textarea rows={4} value={tAciklama} onChange={(e) => setTAciklama(e.target.value)}
-                  placeholder="Ne olduğunu detaylı yazın..."
-                  className="w-full mt-1 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs resize-none outline-none focus:border-rose-500" />
-              </div>
-              <button onClick={talepGonder} disabled={tGonder}
-                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white rounded-xl text-[11px] font-black flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20">
-                {tGonder ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                {tGonder ? "GÖNDERİLİYOR..." : "TALEBİ GÖNDER"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col" style={{ height: "calc(100vh - 240px)" }}>
-            <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 shrink-0">
-              <h3 className="text-white font-black text-sm">💬 CANLI DESTEK</h3>
-              <p className="text-[9px] text-violet-200 font-bold mt-0.5">Size en kısa sürede dönüş yapacağız</p>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {sohbet.length === 0 ? (
-                <div className="text-center py-10">
-                  <MessageSquare className="w-10 h-10 text-slate-200 mx-auto mb-2" />
-                  <p className="text-[11px] font-bold text-slate-400">Henüz mesaj yok</p>
-                  <p className="text-[10px] text-slate-400 mt-1">Aşağıdan yazın, hemen cevap verelim</p>
-                </div>
-              ) : sohbet.map((m: any) => {
-                const benim = m.gonderen === "musteri";
-                return (
-                  <div key={m.id} className={`flex ${benim ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${benim ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-800"}`}>
-                      <p className="text-[11px] font-medium leading-relaxed whitespace-pre-wrap">{m.mesaj}</p>
-                      <p className="text-[8px] font-bold mt-1 text-slate-400">{m.tarih}</p>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={sohbetSon} />
-            </div>
-            <div className="border-t border-slate-200 p-3 flex gap-2 shrink-0 bg-white">
-              <input value={yeniMesaj} onChange={(e) => setYeniMesaj(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); mesajGonder(); } }}
-                placeholder="Mesajınızı yazın..."
-                className="flex-1 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs outline-none focus:border-violet-500" />
-              <button onClick={mesajGonder} disabled={gonderiyor || !yeniMesaj.trim()}
-                className="bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 text-white px-4 rounded-xl flex items-center justify-center">
-                {gonderiyor ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              </button>
-            </div>
-          </div>
+          </motion.div>
         )}
 
-        <AnimatePresence>
-          {pazarlikAcik && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
-              <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }}
-                className="bg-white rounded-3xl w-full max-w-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 flex items-center justify-between">
-                  <h3 className="text-white font-black text-xs uppercase">💬 PAZARLIK TEKLİFİ</h3>
-                  <button onClick={() => setPazarlikAcik(null)} className="text-white/80"><X size={18} /></button>
-                </div>
-                <div className="p-4 space-y-3">
-                  <div className="bg-slate-50 rounded-xl p-3">
-                    <p className="text-[9px] font-black text-slate-400 uppercase">Mevcut Teklif</p>
-                    <p className="text-lg font-black text-slate-800 mt-0.5">{Number(pazarlikAcik.tutar || 0).toLocaleString("tr-TR")} ₺</p>
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase">Teklif Etmek İstediğiniz Tutar *</label>
-                    <input type="number" value={pzTutar} onChange={(e) => setPzTutar(Number(e.target.value) || 0)}
-                      className="w-full mt-1 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm font-black outline-none focus:border-amber-500" />
-                    {pzTutar > 0 && pzTutar < Number(pazarlikAcik.tutar || 0) && (
-                      <p className="text-[10px] font-bold text-emerald-600 mt-1">
-                        İndirim: {(Number(pazarlikAcik.tutar || 0) - pzTutar).toLocaleString("tr-TR")} ₺ (%{Math.round((1 - pzTutar / Number(pazarlikAcik.tutar || 1)) * 100)})
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase">Mesajınız (opsiyonel)</label>
-                    <textarea rows={3} value={pzMesaj} onChange={(e) => setPzMesaj(e.target.value)}
-                      placeholder="Örn: Peşin ödemede bu fiyatı yapabilir misiniz?"
-                      className="w-full mt-1 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs resize-none outline-none focus:border-amber-500" />
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setPazarlikAcik(null)}
-                      className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-[11px] font-black">İPTAL</button>
-                    <button onClick={pazarlikGonder} disabled={pzGonder}
-                      className="flex-[2] py-3 bg-amber-500 text-white rounded-xl text-[11px] font-black flex items-center justify-center gap-1.5 disabled:bg-slate-300">
-                      {pzGonder ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} GÖNDER
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <p className="text-center text-[9px] font-bold text-slate-400 py-4">
+          BUVİSAN Vinç &amp; Asansör Servis · 0224 374 00 01
+        </p>
+      </main>
 
-        <p className="text-center text-[9px] text-slate-400 font-bold py-3">BUVİSAN Vinç Servis · 0224 374 00 01</p>
-      </div>
+      {/* ══════════════════ BİLDİRİM ══════════════════ */}
+      <AnimatePresence>
+        {mesaj && (
+          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-x-3 z-[1000] mx-auto max-w-md"
+            style={{ top: "calc(8.25rem + env(safe-area-inset-top))" }}>
+            <div className={"flex items-start gap-2 p-3 rounded-2xl border shadow-xl shadow-slate-900/10 text-[11px] font-bold " +
+              (mesajTon === "ok" ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : mesajTon === "bilgi" ? "bg-white border-slate-200 text-slate-700"
+                  : "bg-rose-50 border-rose-200 text-rose-800")}>
+              {mesajTon === "ok" ? <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
+                : mesajTon === "bilgi" ? <Loader2 size={14} className="shrink-0 mt-0.5 animate-spin" />
+                  : <AlertCircle size={14} className="shrink-0 mt-0.5" />}
+              <span className="leading-relaxed flex-1">{mesaj.replace(/^[✅❌⚠️⏳]\s*/, "")}</span>
+              <button onClick={() => setMesaj("")} aria-label="Kapat" className="shrink-0 opacity-60 kucuk">
+                <X size={13} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ══════════════════ PAZARLIK PENCERESİ ══════════════════ */}
+      <AnimatePresence>
+        {pazarlikAcik && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[999] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
+            onClick={() => setPazarlikAcik(null)}>
+            <motion.div initial={{ y: 40, opacity: 0.5 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 340, damping: 32 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full sm:max-w-sm bg-white rounded-t-[26px] sm:rounded-[26px] overflow-hidden max-h-[92dvh] overflow-y-auto"
+              style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+              <div className="sm:hidden w-10 h-1 rounded-full bg-slate-200 mx-auto mt-2.5" />
+
+              <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 grid place-items-center">
+                    <MessageSquare size={14} />
+                  </span>
+                  <h3 className="text-[12px] font-black text-slate-900">Pazarlık Teklifi</h3>
+                </div>
+                <button onClick={() => setPazarlikAcik(null)} aria-label="Kapat"
+                  className="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 grid place-items-center active:scale-95 transition kucuk">
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-3">
+                <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-[8px] font-black tracking-[0.16em] text-slate-400">MEVCUT TEKLİF</p>
+                    <p className="text-lg font-black text-slate-900 mt-0.5">{para(pazarlikAcik.tutar)} ₺</p>
+                  </div>
+                  <span className="text-[8px] font-black px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-400">
+                    #{pazarlikAcik.no || "—"}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-[8px] font-black tracking-[0.16em] text-slate-400">TEKLİF ETMEK İSTEDİĞİNİZ TUTAR *</label>
+                  <input type="number" value={pzTutar} onChange={(e) => setPzTutar(Number(e.target.value) || 0)}
+                    className="w-full mt-1.5 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" />
+                  {pzTutar > 0 && pzTutar < Number(pazarlikAcik.tutar || 0) && (
+                    <p className="text-[10px] font-bold text-emerald-600 mt-1.5">
+                      İndirim: {para(Number(pazarlikAcik.tutar || 0) - pzTutar)} ₺
+                      (%{Math.round((1 - pzTutar / Number(pazarlikAcik.tutar || 1)) * 100)})
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-[8px] font-black tracking-[0.16em] text-slate-400">MESAJINIZ (OPSİYONEL)</label>
+                  <textarea rows={3} value={pzMesaj} onChange={(e) => setPzMesaj(e.target.value)}
+                    placeholder="Örn: Peşin ödemede bu fiyatı yapabilir misiniz?"
+                    className="w-full mt-1.5 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs resize-none outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100" />
+                </div>
+
+                <div className="flex gap-2 pt-0.5">
+                  <button onClick={() => setPazarlikAcik(null)}
+                    className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 text-[11px] font-black active:scale-95 transition">
+                    İPTAL
+                  </button>
+                  <button onClick={pazarlikGonder} disabled={pzGonder}
+                    className="flex-[2] py-3 rounded-xl bg-amber-500 text-white text-[11px] font-black flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-95 transition">
+                    {pzGonder ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} GÖNDER
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ══════════════════ TARİH DEĞİŞİKLİĞİ PENCERESİ ══════════════════ */}
+      <AnimatePresence>
+        {duzPlan && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[999] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
+            onClick={() => setDuzPlan(null)}>
+            <motion.div initial={{ y: 40, opacity: 0.5 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 340, damping: 32 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full sm:max-w-sm bg-white rounded-t-[26px] sm:rounded-[26px] overflow-hidden max-h-[92dvh] overflow-y-auto"
+              style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+              <div className="sm:hidden w-10 h-1 rounded-full bg-slate-200 mx-auto mt-2.5" />
+
+              <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 grid place-items-center">
+                    <Calendar size={14} />
+                  </span>
+                  <h3 className="text-[12px] font-black text-slate-900">Bakım Tarihi Değişikliği</h3>
+                </div>
+                <button onClick={() => setDuzPlan(null)} aria-label="Kapat"
+                  className="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 grid place-items-center active:scale-95 transition kucuk">
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-3">
+                <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3">
+                  <p className="text-[8px] font-black tracking-[0.16em] text-slate-400">PLANLANAN BAKIM</p>
+                  <p className="text-sm font-black text-slate-900 mt-0.5">
+                    {duzPlan.tarih} · {duzPlan.sira}. bakım
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-[8px] font-black tracking-[0.16em] text-slate-400">YENİ TARİH *</label>
+                  <input type="date" min={bugunIso} value={duzYeniTarih}
+                    onChange={(e) => setDuzYeniTarih(e.target.value)}
+                    className="w-full mt-1.5 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
+                </div>
+
+                <div>
+                  <label className="text-[8px] font-black tracking-[0.16em] text-slate-400">SEBEP (OPSİYONEL)</label>
+                  <textarea rows={3} value={duzSebep} onChange={(e) => setDuzSebep(e.target.value)}
+                    placeholder="Örn: O gün tesis kapalı olacak"
+                    className="w-full mt-1.5 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs resize-none outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
+                </div>
+
+                <div className="rounded-xl bg-teal-50 border border-teal-200 px-3 py-2.5">
+                  <p className="text-[9px] font-bold text-teal-800 leading-relaxed">
+                    Talebiniz BUVİSAN onayına düşer. Onaylandığında takviminiz otomatik güncellenir.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button onClick={() => setDuzPlan(null)}
+                    className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 text-[11px] font-black active:scale-95 transition">
+                    İPTAL
+                  </button>
+                  <button onClick={tarihTalepGonder} disabled={duzGonder}
+                    className="flex-[2] py-3 rounded-xl bg-teal-600 text-white text-[11px] font-black flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-95 transition">
+                    {duzGonder ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} TALEP GÖNDER
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
