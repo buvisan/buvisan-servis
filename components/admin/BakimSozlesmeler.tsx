@@ -7,6 +7,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { sozlesmeHtml } from "@/lib/sozlesmeHtml";
+import { yazdirVeyaPaylas } from "@/lib/yazdirPaylas";
 import {
   Plus, X, Loader2, FileText, Trash2, AlertTriangle, CheckCircle2,
   Clock, Building2, Calendar, RefreshCw, ExternalLink,
@@ -114,6 +116,28 @@ export default function BakimSozlesmeler() {
       setCPeriyot(3); setCSure(1); setCDosya(null); setCTip("vinç");
       await getir();
     } finally { setKaydediliyor(false); }
+  };
+
+  const sozlesmePdf = async (s: Sozlesme) => {
+    try {
+      setMesaj("⏳ Sözleşme hazırlanıyor...");
+      await yazdirVeyaPaylas(sozlesmeHtml(s), {
+        baslik: "Bakım Sözleşmesi - " + s.company_name,
+        dosyaAdi: "sozlesme-" + String(s.company_name || "firma").replace(/\s+/g, "-").toLowerCase(),
+      });
+      setMesaj("");
+    } catch (e: any) {
+      setMesaj("❌ " + (e?.message || "PDF hatası"));
+    }
+  };
+
+  const asamaDegistir = async (s: Sozlesme) => {
+    const yeni = s.asama === "teklif" ? "anlasildi" : "teklif";
+    const { data } = await supabase.rpc("sozlesme_asama_degistir", {
+      p_id: s.id, p_asama: yeni,
+    });
+    if ((data as any)?.ok) { setMesaj("✅ " + (data as any).mesaj); await getir(); }
+    else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
   };
 
   const sil = async (id: string, firma: string) => {
@@ -243,6 +267,17 @@ export default function BakimSozlesmeler() {
                 </div>
 
                 <div className="flex gap-1.5 mt-2.5">
+                  <button onClick={() => sozlesmePdf(s)}
+                    className="flex-1 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-[10px] font-black flex items-center justify-center gap-1">
+                    📄 SÖZLEŞME PDF
+                  </button>
+                  <button onClick={() => asamaDegistir(s)}
+                    className={`px-3 py-2 rounded-lg text-[10px] font-black border ${s.asama === "teklif" ? "bg-amber-50 text-amber-700 border-amber-300" : "bg-emerald-50 text-emerald-700 border-emerald-300"}`}>
+                    {s.asama === "teklif" ? "TEKLİF → ANLAŞILDI" : "ANLAŞILDI ✓"}
+                  </button>
+                </div>
+
+                <div className="flex gap-1.5 mt-1.5">
                   {s.contract_file_url ? (
                     <a href={s.contract_file_url} target="_blank" rel="noopener noreferrer"
                       className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[10px] font-black flex items-center justify-center gap-1">
