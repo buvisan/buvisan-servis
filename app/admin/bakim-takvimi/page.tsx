@@ -9,6 +9,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { FileText } from 'lucide-react';
+import BakimSozlesmeler from '@/components/admin/BakimSozlesmeler';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
@@ -163,7 +165,19 @@ export default function BakimTakvimiPage() {
             </div>
           </div>
 
-          {/* ABONELİK FIRSATI BANTI */}
+          {/* 📋 BAKIM SÖZLEŞMELERİ */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-slate-900 text-white p-2 rounded-xl"><FileText size={16} /></div>
+            <div>
+              <h2 className="text-sm font-black text-slate-800 uppercase tracking-wide">BAKIM SÖZLEŞMELERİ</h2>
+              <p className="text-[10px] text-slate-500 font-medium">Sözleşme ekle · takip et · dosya yükle</p>
+            </div>
+          </div>
+          <BakimSozlesmeler />
+        </div>
+
+        {/* ABONELİK FIRSATI BANTI */}
           {firsatPotansiyel > 0 && (
             <div className="bg-gradient-to-r from-violet-600 to-purple-700 rounded-3xl p-4 md:p-5 mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
               <div>
