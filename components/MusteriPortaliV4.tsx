@@ -14,10 +14,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Loader2, LogOut, Wrench, RefreshCw, Send, MessageSquare, Plus, X,
   Check, CheckCircle2, XCircle, Star, Package, TrendingUp, Eye, EyeOff,
-  ShieldCheck, UserPlus,
+  ShieldCheck, UserPlus, Calendar,
 } from "lucide-react";
 
-type Sekme = "ozet" | "makine" | "servis" | "teklif" | "sohbet" | "talep";
+type Sekme = "ozet" | "makine" | "servis" | "teklif" | "sohbet" | "talep" | "bakim";
 
 export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: string }) {
   const [token, setToken] = useState(baslangicToken || "");
@@ -30,6 +30,11 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   const [tTip, setTTip] = useState("ariza");
   const [tMakine, setTMakine] = useState("");
   const [tGonder, setTGonder] = useState(false);
+  const [bakimTakvim, setBakimTakvim] = useState<any[]>([]);
+  const [sozlesme, setSozlesme] = useState<any>(null);
+  const [bakimTalepler, setBakimTalepler] = useState<any[]>([]);
+  const [duzPlan, setDuzPlan] = useState<any | null>(null);
+  const [duzYeniTarih, setDuzYeniTarih] = useState("");
   const [sekme, setSekme] = useState<Sekme>("ozet");
   const [yukleniyor, setYukleniyor] = useState(false);
   const [mesaj, setMesaj] = useState("");
@@ -54,11 +59,14 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   const veriGetir = useCallback(async (tk: string) => {
     setYukleniyor(true);
     try {
-      const [p, t, s, pz] = await Promise.all([
+      const [p, t, s, pz, bk, sz, bt] = await Promise.all([
         supabase.rpc("musteri_portal_v6", { p_token: tk }),
         supabase.rpc("musteri_teklifleri", { p_token: tk }),
         supabase.rpc("musteri_sohbet_getir", { p_token: tk }),
         supabase.rpc("musteri_pazarliklarim", { p_token: tk }),
+        supabase.rpc("musteri_bakim_takvimi", { p_token: tk, p_yil: null }),
+        supabase.rpc("musteri_sozlesmem", { p_token: tk }),
+        supabase.rpc("musteri_bakim_taleplerim", { p_token: tk }),
       ]);
       if (!(p.data as any)?.ok) {
         setMesaj((p.data as any)?.mesaj || "Oturum geçersiz");
@@ -71,6 +79,9 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
       setTeklifler(anaTeklif.length > 0 ? anaTeklif : ayriTeklif);
       setSohbet((s.data as any[]) || []);
       setPazarliklar((pz.data as any[]) || []);
+      setBakimTakvim(((bk.data as any)?.takvim) || []);
+      setSozlesme(((sz.data as any)?.var ? sz.data : null));
+      setBakimTalepler((bt.data as any[]) || []);
     } finally { setYukleniyor(false); }
   }, []);
 
@@ -293,6 +304,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
     { k: "servis", ad: "SERVİS", ikon: Wrench, badge: 0 },
     { k: "teklif", ad: "TEKLİF", ikon: Star, badge: bekleyenTeklif },
     { k: "sohbet", ad: "SOHBET", ikon: MessageSquare, badge: okunmamis },
+    { k: "bakim", ad: "BAKIM", ikon: Calendar, badge: bakimTakvim.filter((b: any) => b.durum === "planlandi" && b.gun_kaldi >= 0 && b.gun_kaldi <= 30).length },
     { k: "talep", ad: "TALEP", ikon: Plus, badge: 0 },
   ];
 
@@ -686,6 +698,113 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                 </div>
               );
             })}
+          </div>
+        ) : sekme === "bakim" ? (
+          <div className="space-y-2">
+            {/* SOZLESME KARTI */}
+            {sozlesme ? (
+              <div className="bg-white rounded-3xl border-2 border-teal-200 shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-4 py-3">
+                  <h3 className="text-white font-black text-sm">📋 BAKIM SOZLESMEM</h3>
+                  <p className="text-[9px] text-teal-100 font-bold mt-0.5">
+                    {sozlesme.periyot} ayda 1 · Yilda {Math.round(12 / Math.max(1, sozlesme.periyot))} bakim
+                  </p>
+                </div>
+                <div className="p-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-slate-50 rounded-xl p-2.5">
+                      <p className="text-[8px] font-black text-slate-400 uppercase">MAKINE</p>
+                      <p className="text-sm font-black text-slate-800">{sozlesme.makine_sayisi} {sozlesme.makine_tipi}</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-2.5">
+                      <p className="text-[8px] font-black text-slate-400 uppercase">YILLIK TUTAR</p>
+                      <p className="text-sm font-black text-emerald-700">{Number(sozlesme.yillik_toplam || 0).toLocaleString("tr-TR")} ₺</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-2.5">
+                      <p className="text-[8px] font-black text-slate-400 uppercase">BASLANGIC</p>
+                      <p className="text-[11px] font-bold text-slate-700">{sozlesme.baslangic}</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-2.5">
+                      <p className="text-[8px] font-black text-slate-400 uppercase">BITIS</p>
+                      <p className="text-[11px] font-bold text-slate-700">{sozlesme.bitis}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-1.5">
+                    {sozlesme.dosya_url ? (
+                      <a href={sozlesme.dosya_url} target="_blank" rel="noopener noreferrer"
+                        className="flex-1 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1">
+                        📄 SOZLESME DOSYASI
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center">
+                <Calendar className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                <p className="text-xs font-black text-slate-400">Aktif bakim sozlesmeniz yok</p>
+                <p className="text-[10px] text-slate-400 mt-1">Sozlesme yapmak icin bizi arayin</p>
+              </div>
+            )}
+
+            {/* BAKIM TAKVIMI */}
+            {bakimTakvim.length > 0 && (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="bg-slate-900 px-4 py-3">
+                  <h3 className="text-white font-black text-sm">📅 BAKIM TAKVIMIM ({bakimTakvim.length})</h3>
+                </div>
+                <div className="p-3 space-y-1.5">
+                  {bakimTakvim.map((b: any) => {
+                    const bitti = b.durum === "yapildi";
+                    const gec = !bitti && Number(b.gun_kaldi) < 0;
+                    const yakin = !bitti && !gec && Number(b.gun_kaldi) <= 30;
+                    return (
+                      <div key={b.id} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 border-2 ${bitti ? "bg-emerald-50 border-emerald-200" : gec ? "bg-rose-50 border-rose-200" : yakin ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200"}`}>
+                        <div className={`w-1.5 h-9 rounded-full ${bitti ? "bg-emerald-500" : gec ? "bg-rose-500" : yakin ? "bg-amber-500" : "bg-slate-300"}`} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-black text-slate-800">{b.tarih}</p>
+                          <p className="text-[9px] font-bold text-slate-500">
+                            {b.sira}. bakim
+                            {bitti ? " · TAMAMLANDI" : gec ? ` · ${Math.abs(Number(b.gun_kaldi))} gun gecti` : ` · ${b.gun_kaldi} gun kaldi`}
+                          </p>
+                        </div>
+                        {!bitti && (
+                          <button onClick={() => { setDuzPlan(b); setDuzYeniTarih(b.tarih_iso); }}
+                            className="px-2 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-[9px] font-black shrink-0">
+                            TARIH
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* TALEPLERIM */}
+            {bakimTalepler.length > 0 && (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3">
+                  <h3 className="text-white font-black text-sm">📨 TARIH DEGISIKLIK TALEPLERIM</h3>
+                </div>
+                <div className="p-3 space-y-1.5">
+                  {bakimTalepler.map((t: any) => {
+                    const dn = String(t.durum).toLowerCase();
+                    return (
+                      <div key={t.id} className={`rounded-xl px-3 py-2 border-2 ${dn === "onaylandi" ? "bg-emerald-50 border-emerald-200" : dn === "reddedildi" ? "bg-rose-50 border-rose-200" : "bg-amber-50 border-amber-200"}`}>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-black text-slate-700">{t.eski} → {t.yeni}</p>
+                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-white/70">{dn === "onaylandi" ? "ONAYLANDI" : dn === "reddedildi" ? "RED" : "BEKLIYOR"}</span>
+                        </div>
+                        {t.sebep && <p className="text-[9px] text-slate-500 mt-0.5">{t.sebep}</p>}
+                        {t.admin_notu && <p className="text-[9px] font-bold text-slate-600 mt-0.5">BUVISAN: {t.admin_notu}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         ) : sekme === "talep" ? (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
