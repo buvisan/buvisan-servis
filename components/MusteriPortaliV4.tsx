@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { yazdirVeyaPaylas } from "@/lib/yazdirPaylas";
 import PushAbonelik from "@/components/PushAbonelik";
 import { teklifHtml, satisHtml } from "@/lib/formHtml";
+import { sozlesmeHtml } from "@/lib/sozlesmeHtml";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Loader2, LogOut, Wrench, RefreshCw, Send, MessageSquare, Plus, X,
@@ -190,12 +191,15 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   const [pzTutar, setPzTutar] = useState(0);
   const [pzMesaj, setPzMesaj] = useState("");
   const [pzGonder, setPzGonder] = useState(false);
+  const [servisListe, setServisListe] = useState<any[]>([]);
+  const [servisDetay, setServisDetay] = useState<any | null>(null);
+  const [detayYuk, setDetayYuk] = useState(false);
   const sohbetSon = useRef<HTMLDivElement | null>(null);
 
   const veriGetir = useCallback(async (tk: string) => {
     setYukleniyor(true);
     try {
-      const [p, t, s, pz, bk, sz, bt] = await Promise.all([
+      const [p, t, s, pz, bk, sz, bt, sv] = await Promise.all([
         supabase.rpc("musteri_portal_v6", { p_token: tk }),
         supabase.rpc("musteri_teklifleri", { p_token: tk }),
         supabase.rpc("musteri_sohbet_getir", { p_token: tk }),
@@ -203,6 +207,8 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
         supabase.rpc("musteri_bakim_takvimi", { p_token: tk, p_yil: null }),
         supabase.rpc("musteri_sozlesmem", { p_token: tk }),
         supabase.rpc("musteri_bakim_taleplerim", { p_token: tk }),
+        // 🆕 fiyatsız servis listesi (SQL 203). Yoksa aşağıda v6 listesine düşer.
+        supabase.rpc("musteri_servislerim", { p_token: tk }),
       ]);
       if (!(p.data as any)?.ok) {
         setMesaj((p.data as any)?.mesaj || "Oturum geçersiz");
@@ -220,6 +226,9 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
       setBakimTakvim(bkData.sozlesme_var ? (bkData.takvim || []) : []);
       setSozlesme(((sz.data as any)?.var ? sz.data : null));
       setBakimTalepler((bt.data as any[]) || []);
+      // Servis listesi: yeni (fiyatsız) RPC → yoksa v6 listesi (eski davranış)
+      const yeniListe = Array.isArray(sv.data) ? (sv.data as any[]) : [];
+      setServisListe(yeniListe.length > 0 ? yeniListe : (((p.data as any)?.servisler || []) as any[]));
     } finally { setYukleniyor(false); }
   }, []);
 
@@ -447,6 +456,57 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
     const { data } = await supabase.rpc("musteri_vinc_sil", { p_token: token, p_id: id });
     if ((data as any)?.ok) { setMesaj("✅ Silindi"); await veriGetir(token); }
     else setMesaj("❌ " + ((data as any)?.mesaj || "Hata"));
+  };
+
+  // 📄 Sözleşme PDF — admin panelindeki ile AYNI şablon (lib/sozlesmeHtml)
+  const sozlesmePdf = async () => {
+    if (!sozlesme) return;
+    try {
+      setMesaj("⏳ Sözleşme hazırlanıyor...");
+      const iso = (v: any) => {
+        const s = String(v || "");
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+        const p = s.split(".");
+        return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : s;
+      };
+      const html = sozlesmeHtml({
+        id: sozlesme.id,
+        company_name: sozlesme.firma,
+        hitap_adi: sozlesme.hitap,
+        machine_count: sozlesme.makine_sayisi,
+        price_per_machine: sozlesme.makine_fiyat,
+        service_price: sozlesme.servis_fiyat,
+        maintenance_period_months: sozlesme.periyot,
+        machine_type: sozlesme.makine_tipi,
+        start_date: iso(sozlesme.baslangic_iso || sozlesme.baslangic),
+        end_date: iso(sozlesme.bitis_iso || sozlesme.bitis),
+      });
+      await yazdirVeyaPaylas(html, {
+        baslik: "Bakım Sözleşmesi - " + (sozlesme.firma || ""),
+        dosyaAdi: "sozlesme-" + String(sozlesme.firma || "buvisan").replace(/\s+/g, "-").toLowerCase(),
+        cokSayfali: true,
+      });
+      setMesaj("");
+    } catch (e: any) {
+      setMesaj("❌ " + (e?.message || "PDF hatası"));
+    }
+  };
+
+  // 🔍 Servis formu detayı — satıra tıklayınca (fiyat sadece burada görünür)
+  const detayAc = async (row: any) => {
+    setServisDetay(row);
+    if (!row?.id || !row?.kaynak) return; // eski listede detay satırın kendisinde
+    setDetayYuk(true);
+    try {
+      const { data, error } = await supabase.rpc("musteri_servis_detay", {
+        p_token: token, p_kaynak: row.kaynak, p_id: row.id,
+      });
+      if (!error && (data as any)?.ok) {
+        // kullanıcı bu sırada pencereyi kapattıysa / başka forma geçtiyse karışma
+        setServisDetay((onceki: any) => (onceki && onceki.id === row.id ? { ...row, ...(data as any) } : onceki));
+      } else if ((data as any)?.mesaj) setMesaj("❌ " + (data as any).mesaj);
+    } catch { /* yoksay */ }
+    finally { setDetayYuk(false); }
   };
 
   const cikis = () => {
@@ -943,45 +1003,46 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
             {/* ────────────────────────── SERVİS ────────────────────────── */}
             {sekme === "servis" && (
               <Kart>
-                <Bolum ikon={Wrench} renk="indigo" baslik="SERVİS GEÇMİŞİM" sayi={servisler.length} />
-                {servisler.length === 0 ? (
+                <Bolum ikon={Wrench} renk="indigo" baslik="SERVİS GEÇMİŞİM" sayi={servisListe.length}
+                  sag={<span className="text-[9px] font-bold text-slate-400">forma tıkla → detay</span>} />
+                {servisListe.length === 0 ? (
                   <Bos ikon={FileText} baslik="Servis kaydı yok"
                     alt="Tamamlanan servisleriniz burada listelenir." ton="indigo" />
                 ) : (
-                  <div className="px-4 pb-4">
+                  <div className="px-3.5 pb-3.5">
                     <div className="relative">
-                      <div className="absolute left-[7px] top-2 bottom-4 w-px bg-slate-200" />
-                      <div className="space-y-3">
-                        {servisler.map((s: any, i: number) => {
+                      <div className="absolute left-[7px] top-3 bottom-4 w-px bg-slate-200" />
+                      <div className="space-y-2.5">
+                        {servisListe.map((s: any, i: number) => {
                           const bakimMi = String(s.tur || "").toLowerCase().includes("bakım");
+                          const malzemeVar = !!s.malzeme_var || !!s.malzeme;
                           return (
-                            <div key={i} className="relative pl-6">
-                              <span className={"absolute left-0 top-1 w-[15px] h-[15px] rounded-full border-[3px] bg-white " +
+                            <div key={s.id || i} className="relative pl-6">
+                              <span className={"absolute left-0 top-4 w-[15px] h-[15px] rounded-full border-[3px] bg-white " +
                                 (bakimMi ? "border-teal-500" : "border-indigo-500")} />
-                              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-3">
-                                <div className="flex items-start justify-between gap-2">
+                              <button onClick={() => detayAc(s)}
+                                className="w-full text-left rounded-2xl border border-slate-200/80 bg-white p-3 transition active:scale-[0.99] hover:border-indigo-300 hover:shadow-[0_6px_20px_-14px_rgba(15,23,42,0.4)]">
+                                <div className="flex items-start gap-2.5">
+                                  <span className={"w-8 h-8 rounded-xl grid place-items-center shrink-0 " +
+                                    (bakimMi ? "bg-teal-50 text-teal-600" : "bg-indigo-50 text-indigo-600")}>
+                                    {bakimMi ? <Calendar size={14} /> : <Wrench size={14} />}
+                                  </span>
                                   <div className="min-w-0 flex-1">
                                     <p className="text-[9px] font-black tracking-wide text-slate-400">
                                       {s.tarih} · {String(s.tur || "Servis").toUpperCase()}
                                     </p>
-                                    <p className="text-[11px] font-bold text-slate-700 mt-1 leading-relaxed line-clamp-3">
+                                    <p className="text-[11px] font-bold text-slate-700 mt-1 leading-relaxed line-clamp-2">
                                       {s.aciklama}
                                     </p>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                      {s.form_no && <Cip><FileText size={8} /> {s.form_no}</Cip>}
+                                      {s.personel && s.personel !== "—" && <Cip>{s.personel}</Cip>}
+                                      {malzemeVar && <Cip renk="amber"><Package size={8} /> Malzeme</Cip>}
+                                    </div>
                                   </div>
-                                  {Number(s.tutar) > 0 && (
-                                    <p className="text-[12px] font-black text-slate-900 shrink-0">{para(s.tutar)} ₺</p>
-                                  )}
+                                  <ChevronRight size={15} className="text-slate-300 shrink-0 mt-1" />
                                 </div>
-                                <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                                  {s.form_no && <Cip><FileText size={8} /> {s.form_no}</Cip>}
-                                  {s.personel && s.personel !== "—" && <Cip>{s.personel}</Cip>}
-                                </div>
-                                {s.malzeme && (
-                                  <p className="text-[9px] text-slate-400 mt-1.5 line-clamp-1 flex items-center gap-1">
-                                    <Package size={9} /> {s.malzeme}
-                                  </p>
-                                )}
-                              </div>
+                              </button>
                             </div>
                           );
                         })}
@@ -1163,12 +1224,18 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                         ))}
                       </div>
 
-                      {sozlesme.dosya_url && (
-                        <a href={sozlesme.dosya_url} target="_blank" rel="noopener noreferrer"
-                          className="mt-3 w-full py-2.5 rounded-xl bg-white text-slate-900 text-[10px] font-black flex items-center justify-center gap-1.5 active:scale-[0.99] transition">
-                          <FileText size={12} /> SÖZLEŞME DOSYASINI AÇ
-                        </a>
-                      )}
+                      <div className="mt-3 space-y-1.5">
+                        <button onClick={sozlesmePdf}
+                          className="w-full py-2.5 rounded-xl bg-yellow-400 text-slate-900 text-[10px] font-black flex items-center justify-center gap-1.5 active:scale-[0.99] transition">
+                          <FileText size={12} /> SÖZLEŞME PDF'İNİ GÖRÜNTÜLE
+                        </button>
+                        {sozlesme.dosya_url && (
+                          <a href={sozlesme.dosya_url} target="_blank" rel="noopener noreferrer"
+                            className="w-full py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-[10px] font-black flex items-center justify-center gap-1.5 active:scale-[0.99] transition">
+                            <FileText size={12} /> İMZALI SÖZLEŞME DOSYASI
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -1181,6 +1248,13 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                         <Phone size={13} /> BİZİ ARAYIN
                       </a>
                     </div>
+                  </Kart>
+                )}
+
+                {sozlesme && bakimTakvim.length === 0 && (
+                  <Kart>
+                    <Bos ikon={Calendar} baslik="Bakım takvimi henüz oluşturulmamış"
+                      alt="Sözleşmeniz aktif. Bakım planı oluşturulunca burada görünecek." ton="amber" />
                   </Kart>
                 )}
 
@@ -1603,6 +1677,147 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                     {duzGonder ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} TALEP GÖNDER
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ══════════════════ SERVİS FORMU DETAYI ══════════════════ */}
+      <AnimatePresence>
+        {servisDetay && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[999] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
+            onClick={() => setServisDetay(null)}>
+            <motion.div initial={{ y: 40, opacity: 0.5 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 340, damping: 32 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full sm:max-w-md bg-white rounded-t-[26px] sm:rounded-[26px] overflow-hidden max-h-[92dvh] overflow-y-auto"
+              style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+
+              <div className="sm:hidden w-10 h-1 rounded-full bg-slate-200 mx-auto mt-2.5" />
+
+              <div className="flex items-start justify-between gap-2 px-4 pt-3 pb-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 grid place-items-center shrink-0">
+                    <FileText size={15} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[8px] font-black tracking-[0.18em] text-slate-400">SERVİS FORMU</p>
+                    <p className="text-[12px] font-black text-slate-900 truncate">{servisDetay.form_no || "—"}</p>
+                  </div>
+                </div>
+                <button onClick={() => setServisDetay(null)} aria-label="Kapat"
+                  className="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 grid place-items-center active:scale-95 transition kucuk">
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="px-4 pb-4 space-y-3">
+                <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2">
+                  {[
+                    { a: "TARİH", d: servisDetay.tarih || "—" },
+                    { a: "TÜR", d: servisDetay.tur || "Servis" },
+                    { a: "MAKİNE", d: servisDetay.makine || "—" },
+                    { a: "TEKNİSYEN", d: servisDetay.personel || "—" },
+                  ].map((k) => (
+                    <div key={k.a} className="rounded-xl bg-slate-50 border border-slate-200 px-2.5 py-2">
+                      <p className="text-[7px] font-black tracking-[0.16em] text-slate-400">{k.a}</p>
+                      <p className="text-[10px] font-black text-slate-800 mt-0.5 truncate">{k.d}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {detayYuk && (
+                  <p className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                    <Loader2 size={11} className="animate-spin" /> Detay yükleniyor...
+                  </p>
+                )}
+
+                <div>
+                  <p className="text-[8px] font-black tracking-[0.16em] text-slate-400">YAPILAN İŞ</p>
+                  <p className="text-[11px] text-slate-700 leading-relaxed mt-1 whitespace-pre-wrap">
+                    {servisDetay.aciklama || "—"}
+                  </p>
+                </div>
+
+                {servisDetay.yapilan_isler && (
+                  <div>
+                    <p className="text-[8px] font-black tracking-[0.16em] text-slate-400">DETAYLI İŞLEM</p>
+                    <p className="text-[11px] text-slate-700 leading-relaxed mt-1 whitespace-pre-wrap">
+                      {servisDetay.yapilan_isler}
+                    </p>
+                  </div>
+                )}
+
+                {servisDetay.malzeme && (
+                  <div className="rounded-xl bg-amber-50/70 border border-amber-200 px-3 py-2.5">
+                    <p className="text-[8px] font-black tracking-[0.16em] text-amber-700">KULLANILAN MALZEME</p>
+                    <p className="text-[10px] text-amber-900 leading-relaxed mt-1 whitespace-pre-wrap">{servisDetay.malzeme}</p>
+                  </div>
+                )}
+
+                {servisDetay.makine_bilgileri && Object.keys(servisDetay.makine_bilgileri).length > 0 && (
+                  <div>
+                    <p className="text-[8px] font-black tracking-[0.16em] text-slate-400">MAKİNE BİLGİLERİ</p>
+                    <div className="mt-1.5 rounded-xl border border-slate-200 overflow-hidden">
+                      {Object.entries(servisDetay.makine_bilgileri)
+                        .filter(([, v]) => v)
+                        .slice(0, 12)
+                        .map(([k, v]) => (
+                          <div key={k} className="flex items-center justify-between gap-2 px-2.5 py-1.5 border-b border-slate-100 last:border-0">
+                            <p className="text-[9px] font-black text-slate-400 uppercase">{String(k).replace(/_/g, " ")}</p>
+                            <p className="text-[10px] font-bold text-slate-700 text-right truncate">{String(v)}</p>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {Array.isArray(servisDetay.maddeler) && servisDetay.maddeler.length > 0 && (
+                  <div>
+                    <p className="text-[8px] font-black tracking-[0.16em] text-slate-400">
+                      KONTROL LİSTESİ ({Number(servisDetay.onay || 0)} onay · {Number(servisDetay.ret || 0)} ret)
+                    </p>
+                    <div className="mt-1.5 rounded-xl border border-slate-200 overflow-hidden">
+                      {servisDetay.maddeler.map((m: any, i: number) => (
+                        <div key={i} className="flex items-start gap-2 px-2.5 py-1.5 border-b border-slate-100 last:border-0">
+                          {String(m?.sonuc) === "ret"
+                            ? <XCircle size={11} className="text-rose-500 shrink-0 mt-0.5" />
+                            : String(m?.sonuc) === "onay"
+                              ? <Check size={11} className="text-emerald-600 shrink-0 mt-0.5" />
+                              : <span className="w-[11px] h-[11px] rounded-full border border-slate-300 shrink-0 mt-0.5" />}
+                          <p className="text-[10px] text-slate-600 leading-snug">{m?.madde || m?.ad || "—"}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {servisDetay.musteri_yorumu && (
+                  <div>
+                    <p className="text-[8px] font-black tracking-[0.16em] text-slate-400">YORUMUNUZ</p>
+                    <p className="text-[10px] text-slate-600 italic mt-1">“{servisDetay.musteri_yorumu}”</p>
+                  </div>
+                )}
+
+                {/* 💰 FİYAT — sadece detayda görünür */}
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3">
+                  <p className="text-[8px] font-black tracking-[0.16em] text-slate-400">SERVİS BEDELİ</p>
+                  {Number(servisDetay.tutar) > 0 ? (
+                    <p className="text-[21px] leading-none font-black text-slate-900 mt-1">
+                      {para(servisDetay.tutar)} <span className="text-[11px] font-bold text-slate-400">₺</span>
+                    </p>
+                  ) : (
+                    <p className="text-[11px] font-bold text-slate-400 mt-1.5">
+                      Bu iş için ayrıca bedel yansıtılmamış.
+                    </p>
+                  )}
+                </div>
+
+                <p className="text-center text-[9px] font-bold text-slate-400">
+                  BUVİSAN Vinç &amp; Asansör Servis · 0224 374 00 01
+                </p>
               </div>
             </motion.div>
           </motion.div>
