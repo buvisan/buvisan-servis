@@ -141,6 +141,17 @@ Commit: `96d67b1` · `npm run build` ✅
 - SQL çalışmadan da bozulmaz: yeni RPC yoksa eski `musteri_portal_v6` listesine düşer
   (fiyat yine listede gizli, detayda satır verisinden gösterilir)
 
+**4) "Yılda 1 bakım" seçilse bile 4 bakım oluşuyordu — KÖK NEDEN (commit `82d5289`)**
+- `BakimSozlesmeler.tsx` içindeki `cYilda` state'i **hiçbir input'a bağlı değildi**
+  (sadece `useState(4)`) ve her kayıtta `p_yilda: 4` gönderiliyordu.
+- SQL de `periyot = 12 / yilda` yaptığı için seçilen 12 ay → **3 aya** düşüyordu.
+  Yani ne seçersen seç: `visits_per_year = 4`, `periyot = 3` kaydediliyordu.
+- Artık `p_yilda = round(12 / seçilen periyot)` → "1 kez/yıl" gerçekten **1 bakım**.
+- **Mevcut yanlış sözleşmeler:** admin bakım ekranındaki kartta
+  **"Yılda [N] bakım"** kutusundan düzelt → `takvim_yenile` takvimi yeniden kurar
+  (yapılmış bakımlar korunur, silinen sadece "planlandı" olanlardır).
+- Müşteri tarafı otomatik düzelir: sözleşme kartı "Yılda 1 bakım · 12 ayda 1" + takvim 1 kayıt.
+
 ---
 
 ## 📊 VERİTABANI DURUMU
