@@ -50,7 +50,6 @@ export default function BakimSozlesmeler() {
   const [cHitap, setCHitap] = useState("");
   const [cServis, setCServis] = useState("");
   const [cTip, setCTip] = useState("vinç");
-  const [cYilda, setCYilda] = useState(4);
   const [cAsama, setCAsama] = useState<"teklif"|"anlasildi">("anlasildi");
 
   const getir = useCallback(async () => {
@@ -76,6 +75,11 @@ export default function BakimSozlesmeler() {
     if (!cFirma.trim()) { setMesaj("⚠️ Firma adı zorunludur."); return; }
     setKaydediliyor(true); setMesaj("");
     try {
+      // ⚠️ YILDA KAÇ BAKIM = seçilen periyottan TÜRETİLİR (tek doğru kaynak: periyot/ay).
+      //    Eskiden buraya sabit 4 gönderiliyordu → "1 kez/yıl" seçilse bile
+      //    4 bakım + 3 aylık periyot kaydediliyordu.
+      const yildaHesapla = Math.max(1, Math.round(12 / Number(cPeriyot || 3)));
+
       let dosyaUrl: string | null = null;
 
       if (cDosya) {
@@ -101,7 +105,7 @@ export default function BakimSozlesmeler() {
         p_sure_yil: Number(cSure) || 1,
         p_dosya_url: dosyaUrl,
         p_notlar: null,
-        p_yilda: Number(cYilda) || 4,
+        p_yilda: yildaHesapla,
         p_asama: cAsama,
       });
 
@@ -129,6 +133,37 @@ export default function BakimSozlesmeler() {
       setMesaj("");
     } catch (e: any) {
       setMesaj("❌ " + (e?.message || "PDF hatası"));
+    }
+  };
+
+  // Yılda kaç bakım — takvim_yenile() PERİYODU (ay) tek doğru kaynak alır
+  const yildaSayi = (s: Sozlesme) =>
+    Math.max(1, Number(s.visits_per_year) || Math.floor(12 / Math.max(1, Number(s.maintenance_period_months) || 3)));
+
+  // Mevcut sözleşmedeki "yılda kaç bakım"ı düzeltir + takvimi yeniden oluşturur
+  const periyotDegistir = async (s: Sozlesme, yilda: number) => {
+    const periyot = Math.max(1, Math.round(12 / yilda));
+    if (!confirm(`${s.company_name}\n\nYılda ${yilda} bakım (${periyot} ayda 1) olarak ayarlanacak.\nTakvim yeniden oluşturulacak (yapılmış bakımlar korunur).\n\nDevam?`)) {
+      await getir();   // seçim kutusu DB'deki gerçek değere geri dönsün
+      return;
+    }
+    setMesaj("⏳ Takvim yenileniyor...");
+    try {
+      const { error } = await supabase.from("maintenance_contracts").update({
+        maintenance_period_months: periyot,
+        visits_per_year: yilda,
+        visit_count: yilda,
+        yearly_total: Number(s.machine_count || 0) * Number(s.price_per_machine || 0) * yilda,
+      }).eq("id", s.id);
+      if (error) { setMesaj("❌ " + error.message); await getir(); return; }
+
+      const { data } = await supabase.rpc("takvim_yenile", { p_sozlesme_id: s.id });
+      if ((data as any)?.ok) setMesaj("✅ " + ((data as any).mesaj || "Güncellendi"));
+      else setMesaj("❌ " + ((data as any)?.mesaj || "Takvim yenilenemedi"));
+      await getir();
+    } catch (e: any) {
+      setMesaj("❌ " + (e?.message || "Hata"));
+      await getir();
     }
   };
 
@@ -229,7 +264,7 @@ export default function BakimSozlesmeler() {
                         {bitti ? "SÜRESİ BİTTİ" : `${g} GÜN KALDI`}
                       </span>
                       <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                        YILDA {Math.floor(12 / Math.max(1, s.maintenance_period_months || 3))} BAKIM
+                        YILDA {yildaSayi(s)} BAKIM
                       </span>
                       {s.asama === "teklif" && (
                         <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
@@ -265,6 +300,23 @@ export default function BakimSozlesmeler() {
                     <p className="text-[8px] font-black text-slate-400 uppercase">Bitiş</p>
                     <p className="text-[10px] font-bold text-slate-600">{s.end_date || "—"}</p>
                   </div>
+                </div>
+
+                {/* ⚙️ YILDA KAÇ BAKIM — düzeltilebilir (takvim yeniden oluşur) */}
+                <div className="mt-2 flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+                  <span className="text-[8px] font-black text-slate-400 uppercase shrink-0">Yılda</span>
+                  <select value={yildaSayi(s)} onChange={(e) => periyotDegistir(s, Number(e.target.value))}
+                    className="bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[10px] font-black text-slate-700 outline-none">
+                    {Array.from(new Set([1, 2, 3, 4, 6, 12, yildaSayi(s)])).sort((a, b) => a - b).map((n) => (
+                      <option key={n} value={n}>{n} bakım</option>
+                    ))}
+                  </select>
+                  <span className="text-[8px] font-bold text-slate-400">
+                    ({Math.max(1, Math.round(12 / yildaSayi(s)))} ayda 1)
+                  </span>
+                  <span className="ml-auto text-[8px] font-black text-slate-400">
+                    {s.asama === "teklif" ? "TEKLİF — takvim yok" : "TAKVİM: " + Number(s.visits_per_year || 0)}
+                  </span>
                 </div>
 
                 <div className="flex gap-1.5 mt-2.5">

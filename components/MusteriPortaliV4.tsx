@@ -1193,7 +1193,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                           <div className="min-w-0">
                             <p className="text-[8px] font-black tracking-[0.2em] text-teal-300">BAKIM SÖZLEŞMEM</p>
                             <p className="text-[11px] font-black leading-tight truncate mt-0.5">
-                              {sozlesme.periyot} ayda 1 · yılda {sozlesme.yilda} bakım
+                              Yılda {sozlesme.yilda} bakım · {sozlesme.periyot} ayda 1
                             </p>
                           </div>
                         </div>

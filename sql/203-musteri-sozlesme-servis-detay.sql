@@ -27,6 +27,7 @@ as $$
 declare
   v_h record;
   v_s record;
+  v_yilda integer;
 begin
   select * into v_h from public.musteri_hesaplar
   where token = p_token and token_son > now() and durum = 'onaylandi' limit 1;
@@ -49,6 +50,13 @@ begin
     return jsonb_build_object('ok', true, 'var', false);
   end if;
 
+  -- Yılda kaç bakım: takvimde gerçekten kaç ziyaret varsa o (visits_per_year),
+  -- yoksa periyottan hesaplanır. (takvim_yenile de aynı mantığı kullanır)
+  v_yilda := greatest(1, least(12, coalesce(
+               nullif(v_s.visits_per_year, 0),
+               round(12.0 / greatest(1, coalesce(nullif(v_s.maintenance_period_months,0), 3)))::integer
+             )));
+
   return jsonb_build_object('ok', true, 'var', true,
     'id', v_s.id,
     'firma', v_s.company_name,
@@ -57,14 +65,14 @@ begin
     'makine_tipi', coalesce(v_s.machine_type,'vinç'),
     'makine_fiyat', coalesce(v_s.price_per_machine,0),
     'servis_fiyat', coalesce(v_s.service_price,0),
-    'periyot', coalesce(v_s.maintenance_period_months,0),
-    'yilda', greatest(1, round(12.0 / greatest(1, coalesce(v_s.maintenance_period_months,3)))::integer),
+    'periyot', greatest(1, round(12.0 / v_yilda)::integer),
+    'yilda', v_yilda,
     'baslangic', to_char(v_s.start_date,'DD.MM.YYYY'),
     'bitis', to_char(v_s.end_date,'DD.MM.YYYY'),
     'baslangic_iso', to_char(v_s.start_date,'YYYY-MM-DD'),
     'bitis_iso', to_char(v_s.end_date,'YYYY-MM-DD'),
     'yillik_toplam', coalesce(v_s.yearly_total,0),
-    'visit_count', coalesce(v_s.visit_count,0),
+    'visit_count', coalesce(v_s.visit_count, v_yilda),
     'dosya_url', coalesce(v_s.contract_file_url,''),
     'gun_kaldi', (v_s.end_date - current_date)::integer
   );
