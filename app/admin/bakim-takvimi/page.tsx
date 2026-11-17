@@ -9,8 +9,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FileText } from 'lucide-react';
+import { FileText, Calendar } from 'lucide-react';
 import BakimSozlesmeler from '@/components/admin/BakimSozlesmeler';
+import BakimTakvimiYeni from '@/components/admin/BakimTakvimiYeni';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
@@ -175,6 +176,21 @@ export default function BakimTakvimiPage() {
             </div>
           </div>
           <BakimSozlesmeler />
+        </div>
+
+        {/* 📅 BAKIM TAKVİMİ — YIL BAZLI */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-teal-600 text-white p-2 rounded-xl"><Calendar size={16} /></div>
+            <div>
+              <h2 className="text-sm font-black text-slate-800 uppercase tracking-wide">BAKIM TAKVİMİ</h2>
+              <p className="text-[10px] text-slate-500 font-medium">Yıl seç · tarih değiştir · yapıldı işaretle</p>
+            </div>
+          </div>
+          <BakimTakvimiYeni />
+        </div>
+
+        <div className="hidden">
         </div>
 
         {/* ABONELİK FIRSATI BANTI */}
