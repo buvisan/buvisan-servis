@@ -185,3 +185,14 @@ select
     where table_schema = 'public' and table_name = 'hatirlatma_gonderim') as tablo_ok,
   (select count(*) from information_schema.routines
     where routine_schema = 'public' and routine_name = 'hatirlatma_uret') as fonksiyon_ok;
+
+
+-- ─── 5) MIGRATION KAYDI (205 kurulduysa) ───
+do $$
+begin
+  perform public.migration_isaretle('204-hatirlatma-motoru.sql', 'hatırlatma motoru');
+  raise notice '✅ 204 kaydedildi';
+exception when others then
+  raise notice 'migration kaydı atlandı (205 çalıştırılmamış olabilir)';
+end $$;
+

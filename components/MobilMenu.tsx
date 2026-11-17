@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, CalendarDays, Construction, FileText, Menu, X,
-  Package, TrendingUp, Car, Map, ClipboardList, CalendarClock, Ban, Bot, Plus, ChevronRight, Wallet, BookOpen, Mic, MapPin, ShieldCheck, Bell
+  Package, TrendingUp, Car, Map, ClipboardList, CalendarClock, Ban, Bot, Plus, ChevronRight, Wallet, BookOpen, Mic, MapPin, ShieldCheck, Bell, HardDrive
 } from 'lucide-react';
 
 const ANA_MENU = [
@@ -27,6 +27,7 @@ const ANA_MENU = [
 const DIGER_MENU = [
   { yol: '/admin/veri-sagligi', ad: 'Veri Sağlığı', aciklama: 'Tutarsızlıkları bul, düzelt', ikon: ShieldCheck, renk: 'bg-rose-50 text-rose-600' },
   { yol: '/admin/hatirlatmalar', ad: 'Hatırlatmalar', aciklama: 'Bakım/teklif/sözleşme uyarıları', ikon: Bell, renk: 'bg-violet-50 text-violet-600' },
+  { yol: '/admin/sistem', ad: 'Sistem & Yedek', aciklama: 'Migration takibi, veri yedeği', ikon: HardDrive, renk: 'bg-slate-100 text-slate-600' },
   { yol: '/admin/cari', ad: 'Cari Hesap & Tahsilat', aciklama: 'Borç/alacak, tahsilat, bakiye', ikon: Wallet, renk: 'bg-emerald-50 text-emerald-600' },
   { yol: '/admin/ariza-kutuphanesi', ad: 'Arıza Kütüphanesi', aciklama: 'Geçmiş çözümler, AI teşhis', ikon: BookOpen, renk: 'bg-violet-50 text-violet-600' },
   { yol: '/admin/ses-kayitlari', ad: 'Ses Kayıtları', aciklama: 'Dinle, yazıya çevir, ara', ikon: Mic, renk: 'bg-rose-50 text-rose-600' },

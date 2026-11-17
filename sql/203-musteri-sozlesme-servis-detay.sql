@@ -362,3 +362,13 @@ select
      where routine_schema = 'public'
        and routine_name in ('musteri_sozlesmem','musteri_bakim_takvimi',
                             'musteri_servislerim','musteri_servis_detay'))        as fonksiyon_sayisi;  -- 4
+
+
+-- ─── 6) MIGRATION KAYDI (205 kurulduysa) ───
+do $$
+begin
+  perform public.migration_isaretle('203-musteri-sozlesme-servis-detay.sql', 'sözleşme hitap eşleşmesi + servis detayı');
+  raise notice '✅ 203 kaydedildi';
+exception when others then
+  raise notice 'migration kaydı atlandı (205 çalıştırılmamış olabilir)';
+end $$;

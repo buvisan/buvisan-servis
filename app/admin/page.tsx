@@ -22,7 +22,7 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, CalendarDays, Play, ClipboardList, Wallet, BookOpen, Inbox, Trophy, Sparkles, Users, ShieldCheck, Bell
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, CalendarDays, Play, ClipboardList, Wallet, BookOpen, Inbox, Trophy, Sparkles, Users, ShieldCheck, Bell, HardDrive
 } from 'lucide-react';
 
 const PERSONEL_LISTESI = [
@@ -347,6 +347,10 @@ export default function AdminPanel() {
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/hatirlatmalar')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-violet-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
                     <div className="bg-violet-50 text-violet-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors"><Bell size={20}/></div>
                     <div><h3 className="font-bold text-slate-700 text-sm">Hatırlatmalar</h3><p className="text-[10px] text-slate-400">Bakım & özet uyarıları</p></div>
+                </motion.button>
+                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/sistem')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-slate-300 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
+                    <div className="bg-slate-100 text-slate-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-slate-700 group-hover:text-white transition-colors"><HardDrive size={20}/></div>
+                    <div><h3 className="font-bold text-slate-700 text-sm">Sistem &amp; Yedek</h3><p className="text-[10px] text-slate-400">SQL & veri yedeği</p></div>
                 </motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/planlayici')} className="bg-gradient-to-br from-indigo-600 to-blue-700 p-5 rounded-2xl shadow-md border border-indigo-500 hover:shadow-xl transition-all group text-left flex flex-col justify-between h-32 relative overflow-hidden">
                     <div className="absolute -right-4 -bottom-4 opacity-10"><CalendarDays size={80}/></div>

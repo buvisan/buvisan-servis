@@ -208,6 +208,40 @@ Admin Panel → “Veri Sağlığı” (kalkan ikonu) veya mobil menü.
 
 ---
 
+## 🟢 v8 — SİSTEM & YEDEK
+
+`/admin/sistem` · ⚠️ **SQL `205-migration-kaydi.sql` çalıştırılmalı.**
+
+**1) Migration takibi**
+- `schema_migrations(dosya, uygulandi_at, not)` + `migration_isaretle(dosya, not)` RPC
+- `lib/sql-manifest.json` → repodaki 205 SQL dosyasının envanteri
+  (`npm run sql:liste` ile yenilenir)
+- Ekran: kayıtlı migration'lar, sezgisel “bekleyen” listesi, manuel işaretleme
+- **Kural:** her yeni SQL dosyasının sonuna kendini kaydeden blok eklenir:
+  ```sql
+  do $$
+  begin
+    perform public.migration_isaretle('206-yeni.sql', 'kısa not');
+  exception when others then
+    raise notice 'migration kaydı atlandı';
+  end $$;
+  ```
+  (205 çalışmadan bu blok hata vermez — sessizce atlanır.)
+
+**2) Yedek (JSON)**
+- `app/api/yedek/route.ts` → `POST` yedek al · `GET ?islem=liste` · `GET ?islem=indir&dosya=…` (5 dk imzalı link)
+- Hedef: **özel (private) `yedekler` bucket** — `yedek/YYYY-MM-DD_HHmm.json`
+- 16 tablo denenir, olmayan tablo `atlanan` listesine yazılır; 25 MB üstü yedek reddedilir
+- Yetki: yönetici oturumu **veya** `CRON_SECRET` (açık erişim YOK)
+- Cron: `{ "path": "/api/yedek", "schedule": "30 3 * * *" }` → **06:30 TR**
+  ⚠️ Otomatik yedek için Vercel’de **`CRON_SECRET`** env değişkeni tanımlı olmalı
+  (Vercel cron bu değeri `Authorization: Bearer …` olarak kendisi gönderir).
+  Tanımlı değilse yedek sadece elle “YEDEK AL” ile alınır.
+
+**3) Ekran ayrıca gösterir:** canlı tablo sayaçları, hatırlatma motorunun son üretimi, bekleyen push sayısı.
+
+---
+
 ## 📊 VERİTABANI DURUMU
 
 ### Kritik Tablolar
@@ -235,10 +269,13 @@ En son çalıştırılan: 202-musteri-bakim-fix.sql
    • musteri_servislerim() + musteri_servis_detay() → servis formu detayı
    • Kontrol: tam_unvan_eslesme=0, hitap_eslesme=95, fonksiyon_sayisi=4
 
-⏳ SIRADA: 204-hatirlatma-motoru.sql  ← ÇALIŞTIRILMALI (hatırlatma motoru)
-   • hatirlatma_gonderim tablosu + hatirlatma_uret() fonksiyonu
-   • Kontrol: tablo_ok=1, fonksiyon_ok=1
-   • Bu SQL çalışmadan /admin/hatirlatmalar boş kalır ve cron hata verir
+⏳ SIRADA: 204-hatirlatma-motoru.sql + 205-migration-kaydi.sql  ← ÇALIŞTIRILMALI
+   • 204: hatirlatma_gonderim tablosu + hatirlatma_uret() fonksiyonu
+          Kontrol: tablo_ok=1, fonksiyon_ok=1
+   • 205: schema_migrations tablosu + migration_isaretle()
+          Kontrol: tablo_ok=1, fonksiyon_ok=1, kayitli_migration=1
+   • İkisi de kendini kaydeder; 204'ten önce 205 çalıştırılırsa da sorun olmaz
+   • Bu SQL'ler çalışmadan /admin/hatirlatmalar ve /admin/sistem eksik görünür
 ```
 
 ### ⚠️ SQL Editor Kuralı
@@ -290,6 +327,7 @@ app/admin/musteri-hesaplari/page.tsx → Müşteri yönetim
 app/admin/satis/page.tsx            → Malzeme satışı
 app/admin/veri-sagligi/page.tsx     → Veri Sağlığı (tutarsızlık + onarım)
 app/admin/hatirlatmalar/page.tsx    → Hatırlatma merkezi (kuyruk + geçmiş)
+app/admin/sistem/page.tsx           → Sistem & yedek (migration + yedek)
 app/musteri/page.tsx                → Müşteri portalı (giriş)
 ```
 
