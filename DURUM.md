@@ -253,21 +253,23 @@ Admin Panel → “Veri Sağlığı” (kalkan ikonu) veya mobil menü.
 
 ---
 
-## 🟢 v8.1 — Personel ekranı: tüm işler görünür
+## 🟢 v8.1 — Personel ekranı: biten iş gizlenir, sayaç tam
 
-**Sorun:** Planlayıcı 18 Kasım'da **9 iş** gösteriyor, personel ekranı **5 iş** gösteriyordu.
-**Kök neden:** `components/GununPlani.tsx` içindeki `bitenMi()` filtresi, "yapıldı" veya iş emri
-"tamamlandı" olan randevuları listeden **tamamen siliyordu** (4 iş kayboluyordu).
+**Sorun:** Planlayıcı **9 iş** gösteriyor, personel ekranı **5 iş** gösteriyordu → "işler kayıp" hissi.
+**Kök neden:** `components/GununPlani.tsx` içindeki `bitenMi()` filtresi "yapıldı/tamamlandı" işleri
+listeden siliyordu; ama başlıktaki ve sekmedeki **sayı da** filtrelenmiş listeden geliyordu (5).
+Yani doğru davranış (biten işi gizle) + yanlış sayı (toplam yerine açık) birleşmişti.
 
-**Düzeltme:**
-- Liste artık **tümünü** gösterir → planlayıcıdaki sayı ile birebir aynı.
-- Biten işler: **soluk kart + yeşil "YAPILDI" rozeti** + "Bu iş tamamlandı 👍" (yanlış anlaşılma yok).
-- Sıralama: **açık işler önce** (randevu sırasıyla), bitenler en altta.
-- Başlık: `Bugün 9 iş · 5 açık · Senin X`.
-- `bitti` artık `bitenMi(r)` ile belirlenir → randevu "yapıldı" **veya** iş emri "tamamlandı" ikisi de rozet alır.
+**Nihai davranış (kullanıcı kararı):**
+- **Listede SADECE açık işler** var — "yapıldı" veya iş emri "tamamlandı" olanlar listeden kalkar.
+- **Sayaçlar toplamı gösterir:** başlık `Bugün 9 randevu · 5 açık · Senin X`, sekme rozetleri açık sayıyı verir.
+- Biten iş varsa yeşil şerit: **“4 iş tamamlandı — listeden kaldırıldı (planlayıcıda görünür)”**.
+- Hepsi bittiyse boş durum: “Açık iş kalmadı 🎉 · N iş tamamlandı”.
+- `bitti` = `bitenMi(r)` (randevu yapıldı **veya** iş emri tamamlandı; `devam_ediyor` ise açık sayılır).
 
-⚠️ **Rota (GununRotasi) bilinçli olarak biten işleri çıkarır** — "biten işe araç gitmez" kuralı.
-İstenirse rota da tümünü gösterecek şekilde değiştirilebilir.
+⚠️ **Rota (GununRotasi)** da biten işleri çıkarır — “biten işe araç gitmez”.
+⚠️ Bu bileşen yalnızca **bugün + yarın** sorgular; **geçmiş günlerin gidilmemiş işleri burada görünmez**
+   (istenirse “GECİKMİŞ” sekmesi eklenebilir — geçen 30 günün tamamlanmamış randevuları).
 
 ---
 

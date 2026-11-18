@@ -129,7 +129,7 @@ export default function GununPlani({
   const bugunListe = useMemo(() => kayitlar.filter((r) => String(r.randevu_tarihi).slice(0, 10) === bugun), [kayitlar, bugun]);
   const yarinListe = useMemo(() => kayitlar.filter((r) => String(r.randevu_tarihi).slice(0, 10) === yarin), [kayitlar, yarin]);
 
-  // Açık işler önce (randevu sırasıyla), bitenler en altta
+  // Açık işler önce (randevu sırasıyla)
   const sirala = useCallback((liste: any[]) => {
     return [...liste].sort((a, b) => {
       const ba = bitenMi(a) ? 1 : 0;
@@ -139,10 +139,18 @@ export default function GununPlani({
     });
   }, [bitenMi]);
 
-  const gosterilecek = sirala(acikGun === 'bugun' ? bugunListe : yarinListe);
+  // ✅ LİSTEDE SADECE AÇIK İŞLER — "yapıldı/tamamlandı" olanlar listeden kalkar.
+  //    Sayaçlar ise TOPLAMI gösterir → planlayıcı (9) ile çelişki olmaz.
+  const acikListe = useCallback((liste: any[]) => sirala(liste.filter((r) => !bitenMi(r))), [sirala, bitenMi]);
 
-  const benimBugun = bugunListe.filter(benimMi).length;
+  const gosterilecek = acikListe(acikGun === 'bugun' ? bugunListe : yarinListe);
+
   const acikBugun = bugunListe.filter((r) => !bitenMi(r)).length;
+  const acikYarin = yarinListe.filter((r) => !bitenMi(r)).length;
+  const bitenBugun = bugunListe.length - acikBugun;
+  const bitenYarin = yarinListe.length - acikYarin;
+  const benimBugun = bugunListe.filter((r) => !bitenMi(r) && benimMi(r)).length;
+  const gunBiten = acikGun === 'bugun' ? bitenBugun : bitenYarin;
 
   // Planda gecen tum personel isimleri (eslesme olmazsa secim icin)
   const tumIsimler = useMemo(() => {
@@ -173,7 +181,7 @@ export default function GununPlani({
             <div>
               <h2 className="text-white font-black text-sm tracking-tight leading-none">SERVİS PLANI</h2>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-                Bugün {bugunListe.length} iş · {acikBugun} açık · Senin {benimBugun}
+                Bugün {bugunListe.length} randevu · {acikBugun} açık · Senin {benimBugun}
               </p>
             </div>
           </div>
@@ -210,7 +218,7 @@ export default function GununPlani({
           >
             BUGÜN
             <span className={`text-[10px] px-2 py-0.5 rounded-full ${acikGun === 'bugun' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-500'}`}>
-              {bugunListe.length}
+              {acikBugun}
             </span>
           </button>
           <button
@@ -219,10 +227,20 @@ export default function GununPlani({
           >
             YARIN
             <span className={`text-[10px] px-2 py-0.5 rounded-full ${acikGun === 'yarin' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-500'}`}>
-              {yarinListe.length}
+              {acikYarin}
             </span>
           </button>
         </div>
+
+        {/* TAMAMLANANLAR LİSTEDE YOK — sayı farkı kafa karıştırmasın */}
+        {gunBiten > 0 && (
+          <div className="px-4 py-2 bg-emerald-50/60 border-b border-emerald-100">
+            <p className="text-[10px] font-bold text-emerald-700 flex items-center gap-1.5">
+              <CheckCircle2 size={11} className="shrink-0" />
+              {gunBiten} iş tamamlandı — listeden kaldırıldı (planlayıcıda görünür)
+            </p>
+          </div>
+        )}
 
         <div className="p-3 bg-slate-50">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">
@@ -237,9 +255,13 @@ export default function GununPlani({
           ) : gosterilecek.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center border border-dashed border-slate-300">
               <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-              <p className="text-sm font-bold text-slate-600">Planlanmış iş yok</p>
+              <p className="text-sm font-bold text-slate-600">
+                {gunBiten > 0 ? 'Açık iş kalmadı 🎉' : 'Planlanmış iş yok'}
+              </p>
               <p className="text-[11px] text-slate-400 mt-1">
-                {acikGun === 'bugun' ? 'Bugün için randevu bulunmuyor.' : 'Yarın için randevu bulunmuyor.'}
+                {gunBiten > 0
+                  ? `${gunBiten} iş tamamlandı, hepsi listeden kaldırıldı.`
+                  : (acikGun === 'bugun' ? 'Bugün için randevu bulunmuyor.' : 'Yarın için randevu bulunmuyor.')}
               </p>
             </div>
           ) : (
