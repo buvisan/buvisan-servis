@@ -5,6 +5,7 @@
 // ----------------------------------------------------------------------------
 //  Otomatik hatırlatma motorunun gözü burada:
 //    • Bakımdan 7 / 1 gün önce  → MÜŞTERİYE (portal sohbeti + push)
+//    • 3 gündür cevapsız teklif → MÜŞTERİYE (sohbet + push → /teklif-odasi/<id>) + admin özeti
 //    • Her pazartesi 06:00      → ADMIN'e haftalık özet
 //    • Portal hesabı yoksa      → ADMIN'e düşer
 //
@@ -20,7 +21,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import {
   Bell, BellRing, RefreshCw, Loader2, Play, Send, Clock, Users,
-  CheckCircle2, AlertTriangle, CalendarClock, Info, Sparkles,
+  CheckCircle2, AlertTriangle, CalendarClock, Info, Sparkles, ExternalLink,
 } from 'lucide-react';
 
 type KuyrukKaydi = {
@@ -59,12 +60,14 @@ const ROL_ETIKET: Record<string, { ad: string; sinif: string }> = {
 
 const TIP_ETIKET: Record<string, string> = {
   bakim: 'BAKIM',
+  teklif: 'TEKLİF',
   ozet: 'HAFTALIK ÖZET',
 };
 
 export default function HatirlatmalarPage() {
   const [kuyruk, setKuyruk] = useState<KuyrukKaydi[]>([]);
   const [kayitlar, setKayitlar] = useState<Gonderim[]>([]);
+  const [teklifler, setTeklifler] = useState<any[]>([]);
   const [cihaz, setCihaz] = useState(0);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [calisiyor, setCalisiyor] = useState(false);
@@ -76,14 +79,17 @@ export default function HatirlatmalarPage() {
     setYukleniyor(true);
     setHata('');
     try {
-      const [q, g, c] = await Promise.all([
+      const [q, g, c, t] = await Promise.all([
         supabase.from('bildirim_kuyrugu').select('*').order('created_at', { ascending: false }).limit(200),
         supabase.from('hatirlatma_gonderim').select('anahtar,tip,created_at').order('created_at', { ascending: false }).limit(100),
         supabase.from('push_abonelikler').select('id', { count: 'exact', head: true }).eq('aktif', true),
+        supabase.from('offers').select('id,status,total_price,created_at,offer_date').limit(500),
       ]);
       if (q.error) setHata(q.error.message);
+      if (t.error) setMesaj('⚠️ Teklifler okunamadı: ' + t.error.message);
       setKuyruk((q.data as any[]) || []);
       setKayitlar((g.data as any[]) || []);
+      setTeklifler((t.data as any[]) || []);
       setCihaz(Number(c.count) || 0);
     } catch (e: any) {
       setHata(e?.message || 'Veri alınamadı');
@@ -132,6 +138,23 @@ export default function HatirlatmalarPage() {
 
   const bekleyen = kuyruk.filter((k) => (k.durum || 'bekliyor') === 'bekliyor').length;
   const bugun = kuyruk.filter((k) => String(k.created_at || '').slice(0, 10) === new Date().toISOString().slice(0, 10)).length;
+
+  // ─── Teklif takibi (kapanma oranı + 3 günü geçenler) ───
+  const tDurum = (s: any) => String(s ?? '').toLowerCase().trim();
+  const tBekleyen = teklifler.filter((t) => ['bekliyor', 'beklemede', ''].includes(tDurum(t.status)));
+  const tOnay = teklifler.filter((t) => ['onaylandi', 'onayli', 'kabul'].includes(tDurum(t.status)));
+  const tRed = teklifler.filter((t) => ['reddedildi', 'red', 'iptal'].includes(tDurum(t.status)));
+  const kapanmaOran = (tOnay.length + tRed.length) > 0
+    ? Math.round((tOnay.length / (tOnay.length + tRed.length)) * 100)
+    : 0;
+  const ucGun = tBekleyen
+    .map((t) => {
+      const iso = String(t.offer_date || t.created_at || '').slice(0, 10);
+      const gun = iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 864e5) : 0;
+      return { ...t, gun, iso };
+    })
+    .filter((t) => t.gun >= 3)
+    .sort((a, b) => b.gun - a.gun);
 
   return (
     <div className="min-h-screen bg-slate-50/60 p-4 md:p-8 font-sans text-slate-800 pb-28 lg:pb-8">
@@ -211,10 +234,11 @@ export default function HatirlatmalarPage() {
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
           <Sparkles size={12} /> Aktif kurallar
         </p>
-        <div className="grid md:grid-cols-3 gap-2 mt-3">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
           {[
             { ikon: CalendarClock, baslik: 'Bakımdan 7 gün önce', alt: 'Müşteriye portal mesajı + push', renk: 'bg-teal-50 text-teal-600' },
             { ikon: Bell, baslik: 'Bakımdan 1 gün önce', alt: 'Müşteriye son hatırlatma', renk: 'bg-amber-50 text-amber-600' },
+            { ikon: Send, baslik: 'Teklif 3 gün cevapsız', alt: 'Müşteriye + admin’e hatırlatma', renk: 'bg-violet-50 text-violet-600' },
             { ikon: Users, baslik: 'Her pazartesi 06:00', alt: 'Admin’e haftalık özet', renk: 'bg-indigo-50 text-indigo-600' },
           ].map((k, i) => {
             const I = k.ikon;
@@ -233,6 +257,59 @@ export default function HatirlatmalarPage() {
           Günde 1 kez <b>06:00</b>'da Vercel Cron otomatik çalıştırır. Aynı hatırlatma ikinci kez üretilmez.
           Portal hesabı olmayan müşteride bildirim admin'e düşer.
         </p>
+      </div>
+
+      {/* TEKLİF TAKİBİ */}
+      <div className="bg-white rounded-3xl border border-slate-200 p-4 mb-3">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 grid place-items-center shrink-0">
+            <Send size={16} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-black text-slate-800">Teklif Takibi</h2>
+            <p className="text-[10px] font-medium text-slate-400">3 gündür cevapsız teklif → müşteriye hatırlatma</p>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-[8px] font-black text-slate-400 uppercase">Kapanma oranı</p>
+            <p className="text-lg font-black text-slate-800 leading-none">{kapanmaOran}%</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {[
+            { e: 'BEKLEYEN', v: tBekleyen.length, r: 'bg-amber-50 border-amber-200 text-amber-700' },
+            { e: '3+ GÜN', v: ucGun.length, r: 'bg-rose-50 border-rose-200 text-rose-700' },
+            { e: 'ONAYLANAN', v: tOnay.length, r: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+            { e: 'REDDEDİLEN', v: tRed.length, r: 'bg-slate-50 border-slate-200 text-slate-600' },
+          ].map((k, i) => (
+            <div key={i} className={`rounded-2xl border px-3 py-2 ${k.r}`}>
+              <p className="text-[8px] font-black uppercase tracking-wide">{k.e}</p>
+              <p className="text-lg font-black leading-tight">{k.v}</p>
+            </div>
+          ))}
+        </div>
+
+        {ucGun.length > 0 && (
+          <div className="mt-3 rounded-2xl border border-slate-200 overflow-hidden">
+            {ucGun.slice(0, 6).map((t) => (
+              <div key={t.id} className="flex items-center gap-2 px-2.5 py-2 border-b border-slate-100 last:border-0">
+                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 shrink-0">
+                  {t.gun} gün
+                </span>
+                <p className="text-[10px] font-bold text-slate-600 truncate flex-1">
+                  #{String(t.id).slice(0, 6).toUpperCase()} · {Number(t.total_price || 0).toLocaleString('tr-TR')} ₺ (KDV hariç)
+                </p>
+                <a href={`/teklif-odasi/${t.id}`} target="_blank" rel="noopener noreferrer"
+                  className="shrink-0 text-[9px] font-black text-slate-500 hover:text-slate-800 flex items-center gap-1">
+                  <ExternalLink size={10} /> AÇ
+                </a>
+              </div>
+            ))}
+            {ucGun.length > 6 && (
+              <p className="text-[9px] font-bold text-slate-400 px-2.5 py-1.5">+ {ucGun.length - 6} teklif daha</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* SEKMELER */}

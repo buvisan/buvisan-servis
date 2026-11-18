@@ -206,6 +206,16 @@ Admin Panel → “Veri Sağlığı” (kalkan ikonu) veya mobil menü.
 
 **Tekrar koruması:** her hatırlatma `hatirlatma_gonderim.anahtar` (unique) ile bir kez kaydedilir → aynı bakım için iki kez bildirim gitmez.
 
+### v7.1 — Teklif takibi (SQL `206-teklif-takip.sql`)
+3 gündür cevapsız teklif → **müşteriye** portal mesajı + push, **admin'e** tek özet bildirim.
+- Push hedefi: `/teklif-odasi/<id>` (public teklif sayfası → tek dokunuşla açılır)
+- Mesajda tutar **"KDV hariç"** ibaresiyle yazılır
+- Tekrar anahtarı: `teklif:3:<offer_id>` (aynı teklif için ikinci kez gitmez)
+- `206` dosyası `hatirlatma_uret()` fonksiyonunu **tamamen yeniler** (bakım + teklif + haftalık özet birlikte)
+- `/admin/hatirlatmalar` ekranına **Teklif Takibi** paneli eklendi:
+  bekleyen · 3+ gün · onaylanan · reddedilen · **kapanma oranı** + 3 günü geçen teklif listesi (`/teklif-odasi` linkleriyle)
+
+
 ---
 
 ## 🟢 v8 — SİSTEM & YEDEK
@@ -270,13 +280,11 @@ En son çalıştırılan: 202-musteri-bakim-fix.sql
    • musteri_servislerim() + musteri_servis_detay() → servis formu detayı
    • Kontrol: tam_unvan_eslesme=0, hitap_eslesme=95, fonksiyon_sayisi=4
 
-⏳ SIRADA: 204-hatirlatma-motoru.sql + 205-migration-kaydi.sql  ← ÇALIŞTIRILMALI
-   • 204: hatirlatma_gonderim tablosu + hatirlatma_uret() fonksiyonu
-          Kontrol: tablo_ok=1, fonksiyon_ok=1
-   • 205: schema_migrations tablosu + migration_isaretle()
-          Kontrol: tablo_ok=1, fonksiyon_ok=1, kayitli_migration=1
-   • İkisi de kendini kaydeder; 204'ten önce 205 çalıştırılırsa da sorun olmaz
-   • Bu SQL'ler çalışmadan /admin/hatirlatmalar ve /admin/sistem eksik görünür
+⏳ SIRADA: 204-hatirlatma-motoru.sql + 205-migration-kaydi.sql + 206-teklif-takip.sql
+   • 204: hatirlatma_gonderim tablosu + hatirlatma_uret()  → tablo_ok=1, fonksiyon_ok=1
+   • 205: schema_migrations + migration_isaretle()          → tablo_ok=1, fonksiyon_ok=1
+   • 206: teklif takibi (motor v2, 204'ün yerine geçer)      → uc_gun_bekleyen, fonksiyon_ok=1
+   • Sıra önemli değil ama 204 → 205 → 206 en temizi; hepsi kendini kaydeder
 ```
 
 ### ⚠️ SQL Editor Kuralı
