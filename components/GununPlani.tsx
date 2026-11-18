@@ -48,16 +48,19 @@ export default function GununPlani({
   onRaporAc: (ticket: any) => void;
 }) {
   const [kayitlar, setKayitlar] = useState<any[]>([]);
+  const [gecikmisKayitlar, setGecikmisKayitlar] = useState<any[]>([]);
   const [biletler, setBiletler] = useState<Record<string, any>>({});
   const [bakimTip, setBakimTip] = useState<'vinc'|'asansor'|null>(null);
   const [bakimKayit, setBakimKayit] = useState<any>(null);
   const [bakimSayaci, setBakimSayaci] = useState(0);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [benimAdim, setBenimAdim] = useState('');
-  const [acikGun, setAcikGun] = useState<'bugun' | 'yarin'>('bugun');
+  const [acikGun, setAcikGun] = useState<'bugun' | 'yarin' | 'gecikmis'>('bugun');
 
   const bugun = isoTarih(new Date());
   const yarin = isoTarih(new Date(Date.now() + 86400000));
+  // Gecikmiş işler: son 30 günün tamamlanmamış randevuları
+  const gecmisSinir = isoTarih(new Date(Date.now() - 30 * 86400000));
 
   // Kayitli isim tercihi varsa onu, yoksa profil adini kullan
   useEffect(() => {
@@ -69,20 +72,35 @@ export default function GununPlani({
   const verileriGetir = useCallback(async () => {
     setYukleniyor(true);
     try {
-      const { data, error } = await supabase
-        .from('randevular')
-        .select('*')
-        .in('randevu_tarihi', [bugun, yarin])
-        .neq('durum', 'iptal')
-        .order('randevu_tarihi', { ascending: true })
-        .order('slot', { ascending: true });
+      // 1) Bugün + yarın   2) Son 30 günün tamamlanmamış (gecikmiş) randevuları
+      const [aRes, gRes] = await Promise.all([
+        supabase
+          .from('randevular')
+          .select('*')
+          .in('randevu_tarihi', [bugun, yarin])
+          .neq('durum', 'iptal')
+          .order('randevu_tarihi', { ascending: true })
+          .order('slot', { ascending: true }),
+        supabase
+          .from('randevular')
+          .select('*')
+          .gte('randevu_tarihi', gecmisSinir)
+          .lt('randevu_tarihi', bugun)
+          .neq('durum', 'iptal')
+          .neq('durum', 'yapildi')
+          .order('randevu_tarihi', { ascending: true })
+          .order('slot', { ascending: true }),
+      ]);
 
-      if (error) { console.warn('Plan alinamadi:', error.message); setKayitlar([]); return; }
+      if (aRes.error) console.warn('Plan alinamadi:', aRes.error.message);
 
-      const liste = data || [];
+      const liste = (aRes.data || []) as any[];
+      const gecikmis = (gRes.data || []) as any[];
+
       setKayitlar(liste);
+      setGecikmisKayitlar(gecikmis);
 
-      const idler = liste.map((r: any) => r.ticket_id).filter(Boolean);
+      const idler = [...liste, ...gecikmis].map((r: any) => r.ticket_id).filter(Boolean);
       if (idler.length > 0) {
         const { data: tData } = await supabase.from('service_tickets').select('*, cranes(*)').in('id', idler);
         const harita: Record<string, any> = {};
@@ -94,7 +112,7 @@ export default function GununPlani({
     } finally {
       setYukleniyor(false);
     }
-  }, [bugun, yarin]);
+  }, [bugun, yarin, gecmisSinir]);
 
   useEffect(() => { verileriGetir(); }, [verileriGetir]);
 
@@ -143,14 +161,30 @@ export default function GununPlani({
   //    Sayaçlar ise TOPLAMI gösterir → planlayıcı (9) ile çelişki olmaz.
   const acikListe = useCallback((liste: any[]) => sirala(liste.filter((r) => !bitenMi(r))), [sirala, bitenMi]);
 
-  const gosterilecek = acikListe(acikGun === 'bugun' ? bugunListe : yarinListe);
+  // ⏰ GECİKMİŞ: son 30 günden kalan, hâlâ yapılmamış işler (en eski = en çok geciken önce)
+  //    Sıralama sorgudan geliyor (tarih → slot); burada yeniden sıralamıyoruz.
+  const gecikmisListe = useMemo(
+    () => gecikmisKayitlar.filter((r) => !bitenMi(r)),
+    [gecikmisKayitlar, bitenMi]
+  );
+
+  const gosterilecek = acikGun === 'gecikmis'
+    ? gecikmisListe
+    : acikListe(acikGun === 'bugun' ? bugunListe : yarinListe);
 
   const acikBugun = bugunListe.filter((r) => !bitenMi(r)).length;
   const acikYarin = yarinListe.filter((r) => !bitenMi(r)).length;
   const bitenBugun = bugunListe.length - acikBugun;
   const bitenYarin = yarinListe.length - acikYarin;
   const benimBugun = bugunListe.filter((r) => !bitenMi(r) && benimMi(r)).length;
-  const gunBiten = acikGun === 'bugun' ? bitenBugun : bitenYarin;
+  const gunBiten = acikGun === 'bugun' ? bitenBugun : acikGun === 'yarin' ? bitenYarin : 0;
+
+  // Gecikmiş liste boşalırsa (hepsi yapıldı) sekmeyi kapat
+  useEffect(() => {
+    if (acikGun === 'gecikmis' && gecikmisListe.length === 0 && !yukleniyor) {
+      setAcikGun('bugun');
+    }
+  }, [acikGun, gecikmisListe.length, yukleniyor]);
 
   // Planda gecen tum personel isimleri (eslesme olmazsa secim icin)
   const tumIsimler = useMemo(() => {
@@ -212,24 +246,31 @@ export default function GununPlani({
 
         {/* GÜN SEKMELERİ */}
         <div className="flex gap-1 p-2 bg-slate-50 border-b border-slate-100">
-          <button
-            onClick={() => setAcikGun('bugun')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${acikGun === 'bugun' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
-          >
-            BUGÜN
-            <span className={`text-[10px] px-2 py-0.5 rounded-full ${acikGun === 'bugun' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-500'}`}>
-              {acikBugun}
-            </span>
-          </button>
-          <button
-            onClick={() => setAcikGun('yarin')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${acikGun === 'yarin' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
-          >
-            YARIN
-            <span className={`text-[10px] px-2 py-0.5 rounded-full ${acikGun === 'yarin' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-500'}`}>
-              {acikYarin}
-            </span>
-          </button>
+          {[
+            { k: 'bugun' as const, ad: 'BUGÜN', sayi: acikBugun, aktif: 'text-blue-600', pasif: 'text-slate-500' },
+            { k: 'yarin' as const, ad: 'YARIN', sayi: acikYarin, aktif: 'text-blue-600', pasif: 'text-slate-500' },
+            ...(gecikmisListe.length > 0
+              ? [{ k: 'gecikmis' as const, ad: 'GECİKMİŞ', sayi: gecikmisListe.length, aktif: 'text-rose-600', pasif: 'text-rose-500' }]
+              : []),
+          ].map((t) => {
+            const sec = acikGun === t.k;
+            return (
+              <button
+                key={t.k}
+                onClick={() => setAcikGun(t.k)}
+                className={`flex-1 py-2.5 rounded-xl text-[11px] font-black transition flex items-center justify-center gap-1.5 ${sec ? `bg-white ${t.aktif} shadow-sm` : t.pasif}`}
+              >
+                {t.ad}
+                <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                  t.k === 'gecikmis'
+                    ? 'bg-rose-100 text-rose-700'
+                    : sec ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-500'
+                }`}>
+                  {t.sayi}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* TAMAMLANANLAR LİSTEDE YOK — sayı farkı kafa karıştırmasın */}
@@ -244,7 +285,9 @@ export default function GununPlani({
 
         <div className="p-3 bg-slate-50">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">
-            {tarihYaz(acikGun === 'bugun' ? bugun : yarin)}
+            {acikGun === 'gecikmis'
+              ? `GECİKMİŞ İŞLER · SON 30 GÜN (${gecikmisListe.length})`
+              : tarihYaz(acikGun === 'bugun' ? bugun : yarin)}
           </p>
 
           {yukleniyor ? (
@@ -275,6 +318,10 @@ export default function GununPlani({
                 const devamEdiyor = (bilet?.pipeline_status === 'devam_ediyor') || (bilet?.status === 'devam_ediyor');
                 const bitti = bitenMi(r);   // randevu "yapıldı" VEYA iş emri "tamamlandı"
                 const personeller = String(r.atanan_personel || '').split(' - ').map((x) => x.trim()).filter(Boolean);
+                // ⏰ Gecikme: randevu tarihi geçmişse kaç gün
+                const tarihIso = String(r.randevu_tarihi || '').slice(0, 10);
+                const gecikmisGun = Math.max(0, Math.round((new Date(bugun).getTime() - new Date(tarihIso).getTime()) / 86400000));
+                const tarihKisa = tarihIso ? `${tarihIso.slice(8, 10)}.${tarihIso.slice(5, 7)}` : '';
 
                 return (
                   <motion.div
@@ -283,8 +330,9 @@ export default function GununPlani({
                     animate={{ opacity: 1, y: 0 }}
                     className={`bg-white rounded-2xl p-4 border-2 shadow-sm transition ${
                       bitti ? 'border-emerald-200 opacity-80'
-                        : benim ? 'border-blue-500 ring-2 ring-blue-100'
-                          : 'border-slate-200'
+                        : gecikmisGun > 0 ? 'border-rose-300'
+                          : benim ? 'border-blue-500 ring-2 ring-blue-100'
+                            : 'border-slate-200'
                     }`}
                   >
                     {/* ÜST SATIR */}
@@ -296,6 +344,11 @@ export default function GununPlani({
                         <span className={`text-[9px] font-black px-2 py-1 rounded-lg border flex items-center gap-1 ${tip.sinif}`}>
                           <TipIkon size={10} /> {tip.ad}
                         </span>
+                        {gecikmisGun > 0 && (
+                          <span className="bg-rose-600 text-white text-[9px] font-black px-2 py-1 rounded-lg flex items-center gap-1">
+                            <CalendarClock size={10} /> {tarihKisa} · {gecikmisGun} GÜN GECİKTİ
+                          </span>
+                        )}
                         {benim && (
                           <span className="bg-blue-600 text-white text-[9px] font-black px-2 py-1 rounded-lg animate-pulse">
                             SEN
