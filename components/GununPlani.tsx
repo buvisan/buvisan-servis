@@ -115,21 +115,34 @@ export default function GununPlani({
     return kisiler.some((k) => isimEslesiyor(k, benimAdim));
   }, [benimAdim]);
 
-  // ✅ BİTEN İŞLER LİSTEDEN KALKAR (personel kafası karışmasın)
+  // ✅ TÜM İŞLER GÖRÜNÜR — bitenler listeden KALKMAZ, sadece soluk + "YAPILDI" görünür.
+  //    Böylece planlayıcıdaki "9/20 randevu" ile personel ekranındaki sayı eşleşir.
   const bitenMi = useCallback((r: any) => {
     const t = r.ticket_id ? (biletler[r.ticket_id] || {}) : {};
     const devam = t.pipeline_status === 'devam_ediyor' || t.status === 'devam_ediyor';
-    if (devam) return false;   // DEVAM EDİYOR ise listede kalır
+    if (devam) return false;   // DEVAM EDİYOR ise açık iş sayılır
     if (r.durum === 'yapildi') return true;
     if (t.pipeline_status === 'tamamlandi' || t.status === 'tamamlandi') return true;
     return false;
   }, [biletler]);
 
-  const bugunListe = useMemo(() => kayitlar.filter((r) => String(r.randevu_tarihi).slice(0, 10) === bugun && !bitenMi(r)), [kayitlar, bugun, bitenMi]);
-  const yarinListe = useMemo(() => kayitlar.filter((r) => String(r.randevu_tarihi).slice(0, 10) === yarin && !bitenMi(r)), [kayitlar, yarin, bitenMi]);
-  const gosterilecek = acikGun === 'bugun' ? bugunListe : yarinListe;
+  const bugunListe = useMemo(() => kayitlar.filter((r) => String(r.randevu_tarihi).slice(0, 10) === bugun), [kayitlar, bugun]);
+  const yarinListe = useMemo(() => kayitlar.filter((r) => String(r.randevu_tarihi).slice(0, 10) === yarin), [kayitlar, yarin]);
+
+  // Açık işler önce (randevu sırasıyla), bitenler en altta
+  const sirala = useCallback((liste: any[]) => {
+    return [...liste].sort((a, b) => {
+      const ba = bitenMi(a) ? 1 : 0;
+      const bb = bitenMi(b) ? 1 : 0;
+      if (ba !== bb) return ba - bb;
+      return Number(a.slot || 0) - Number(b.slot || 0);
+    });
+  }, [bitenMi]);
+
+  const gosterilecek = sirala(acikGun === 'bugun' ? bugunListe : yarinListe);
 
   const benimBugun = bugunListe.filter(benimMi).length;
+  const acikBugun = bugunListe.filter((r) => !bitenMi(r)).length;
 
   // Planda gecen tum personel isimleri (eslesme olmazsa secim icin)
   const tumIsimler = useMemo(() => {
@@ -160,7 +173,7 @@ export default function GununPlani({
             <div>
               <h2 className="text-white font-black text-sm tracking-tight leading-none">SERVİS PLANI</h2>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-                Bugün {bugunListe.length} iş · Senin {benimBugun}
+                Bugün {bugunListe.length} iş · {acikBugun} açık · Senin {benimBugun}
               </p>
             </div>
           </div>
@@ -238,7 +251,7 @@ export default function GununPlani({
                 const bilet = r.ticket_id ? biletler[r.ticket_id] : null;
                 // ⏸️ DEVAM EDİYOR ise iş BİTMİŞ sayılmaz — tekrar form açılabilsin
                 const devamEdiyor = (bilet?.pipeline_status === 'devam_ediyor') || (bilet?.status === 'devam_ediyor');
-                const bitti = r.durum === 'yapildi' && !devamEdiyor;
+                const bitti = bitenMi(r);   // randevu "yapıldı" VEYA iş emri "tamamlandı"
                 const personeller = String(r.atanan_personel || '').split(' - ').map((x) => x.trim()).filter(Boolean);
 
                 return (
