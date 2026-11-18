@@ -268,8 +268,15 @@ Yani doğru davranış (biten işi gizle) + yanlış sayı (toplam yerine açık
 - `bitti` = `bitenMi(r)` (randevu yapıldı **veya** iş emri tamamlandı; `devam_ediyor` ise açık sayılır).
 
 ⚠️ **Rota (GununRotasi)** da biten işleri çıkarır — “biten işe araç gitmez”.
-⚠️ Bu bileşen yalnızca **bugün + yarın** sorgular; **geçmiş günlerin gidilmemiş işleri burada görünmez**
-   (istenirse “GECİKMİŞ” sekmesi eklenebilir — geçen 30 günün tamamlanmamış randevuları).
+
+### v8.2 — “GECİKMİŞ” sekmesi (commit `435c6cb`)
+- Bileşen artık **iki sorgu** yapar: (1) bugün + yarın, (2) **son 30 günün** tamamlanmamış randevuları.
+- GECİKMİŞ sekmesi **yalnızca gecikmiş iş varsa** görünür; rozet = gecikmiş iş sayısı.
+- Kartlarda kırmızı rozet **“12.11 · 6 GÜN GECİKTİ”**, kart kenarı kırmızı.
+- Sıralama: **en eski (en çok geciken) önce**; iş bitince listeden düşer, liste boşalınca sekme kaybolur.
+- “Tamamlanmamış” = randevu `durum` ∈ {planlandi, ertelendi} **ve** iş emri ‘tamamlandi’ değil
+  (`devam_ediyor` açık sayılır → listede kalır).
+- `randevular.durum` NOT NULL (planlandi/yapildi/iptal/ertelendi) → `erteleme` satırları da gecikmiş sayılır.
 
 ---
 
