@@ -70,9 +70,20 @@ async function bucketHazirla() {
 }
 
 function dosyaAdi() {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${KLASOR}/${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`;
+  // Dosya adı Türkiye saatine göre (Vercel UTC çalışır → kullanıcı TR saati görsün)
+  try {
+    const p = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Europe/Istanbul',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(new Date()); // "2026-11-18 09:08"
+    const [gun, saat] = p.split(' ');
+    return `${KLASOR}/${gun}_${saat.replace(':', '')}.json`;
+  } catch {
+    const d = new Date();
+    const s = (n: number) => String(n).padStart(2, '0');
+    return `${KLASOR}/${d.getFullYear()}-${s(d.getMonth() + 1)}-${s(d.getDate())}_${s(d.getHours())}${s(d.getMinutes())}.json`;
+  }
 }
 
 async function yedekAl() {
@@ -178,7 +189,11 @@ async function indir(dosya: string) {
   if (!dosya || !dosya.startsWith(`${KLASOR}/`)) {
     return NextResponse.json({ ok: false, mesaj: 'Geçersiz dosya adı' }, { status: 400 });
   }
-  const { data, error } = await db.storage.from(BUCKET).createSignedUrl(dosya, 300);
+  // download → tarayıcı JSON'u açmak yerine DOSYA olarak indirir
+  const { data, error } = await db.storage
+    .from(BUCKET)
+    .createSignedUrl(dosya, 300, { download: dosya.split('/').pop() || 'yedek.json' });
+
   if (error || !data?.signedUrl) {
     return NextResponse.json({ ok: false, mesaj: error?.message || 'Link oluşturulamadı' }, { status: 500 });
   }

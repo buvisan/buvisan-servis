@@ -155,7 +155,15 @@ export default function SistemPage() {
       });
       const j: any = await r.json().catch(() => null);
       if (!j?.ok || !j.url) { setMesaj('❌ ' + (j?.mesaj || 'İndirme linki alınamadı')); return; }
-      window.open(j.url, '_blank', 'noopener');
+      // JSON tarayıcıda açılmasın → dosya olarak indir (boş sekme açmadan)
+      const a = document.createElement('a');
+      a.href = j.url;
+      a.download = dosya.split('/').pop() || 'yedek.json';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setMesaj('✅ Yedek indiriliyor: ' + (dosya.split('/').pop() || ''));
     } finally {
       setIslem('');
     }
