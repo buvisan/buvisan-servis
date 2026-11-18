@@ -24,7 +24,7 @@ import {
   Play, Download, ShieldCheck, FileCode2, Info, Bell,
 } from 'lucide-react';
 
-type Migration = { dosya: string; uygulandi_at: string | null; not: string | null };
+type Migration = { dosya: string; uygulandi_at: string | null; notlar: string | null };
 type Yedek = { dosya: string; ad: string; boyut: number; boyut_mb: number; tarih: string | null };
 
 const no = (ad: string) => parseInt(String(ad).split('-')[0], 10) || 0;
@@ -82,7 +82,7 @@ export default function SistemPage() {
     setHata('');
     try {
       // 1) Migration kayıtları
-      const m = await supabase.from('schema_migrations').select('dosya,uygulandi_at,not').order('uygulandi_at', { ascending: false });
+      const m = await supabase.from('schema_migrations').select('dosya,uygulandi_at,notlar').order('uygulandi_at', { ascending: false });
       if (m.error) {
         setMigrationYok(true);
         setMigrations([]);

@@ -15,6 +15,8 @@
 --             raise notice 'migration kaydı atlandı';
 --           end $$;
 --
+--  ⚠️ NOT: kolon adı "not" OLAMAZ (SQL rezerve kelimesi) → "notlar" kullanılır.
+--
 --  KULLANIM: Supabase SQL Editor'de bir kez çalıştır (204'ten sonra).
 -- ============================================================================
 
@@ -23,7 +25,7 @@
 create table if not exists public.schema_migrations (
   dosya        text primary key,
   uygulandi_at timestamptz default now(),
-  not          text
+  notlar       text
 );
 
 alter table public.schema_migrations enable row level security;
@@ -48,11 +50,11 @@ begin
     return jsonb_build_object('ok', false, 'mesaj', 'Dosya adı zorunlu.');
   end if;
 
-  insert into public.schema_migrations (dosya, not)
+  insert into public.schema_migrations (dosya, notlar)
   values (trim(p_dosya), nullif(trim(coalesce(p_not, '')), ''))
   on conflict (dosya) do update
     set uygulandi_at = now(),
-        not = excluded.not;
+        notlar = excluded.notlar;
 
   return jsonb_build_object('ok', true, 'mesaj', trim(p_dosya) || ' kaydedildi.');
 exception when others then
