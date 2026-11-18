@@ -253,6 +253,24 @@ Admin Panel → “Veri Sağlığı” (kalkan ikonu) veya mobil menü.
 
 ---
 
+## 🟢 v8.1 — Personel ekranı: tüm işler görünür
+
+**Sorun:** Planlayıcı 18 Kasım'da **9 iş** gösteriyor, personel ekranı **5 iş** gösteriyordu.
+**Kök neden:** `components/GununPlani.tsx` içindeki `bitenMi()` filtresi, "yapıldı" veya iş emri
+"tamamlandı" olan randevuları listeden **tamamen siliyordu** (4 iş kayboluyordu).
+
+**Düzeltme:**
+- Liste artık **tümünü** gösterir → planlayıcıdaki sayı ile birebir aynı.
+- Biten işler: **soluk kart + yeşil "YAPILDI" rozeti** + "Bu iş tamamlandı 👍" (yanlış anlaşılma yok).
+- Sıralama: **açık işler önce** (randevu sırasıyla), bitenler en altta.
+- Başlık: `Bugün 9 iş · 5 açık · Senin X`.
+- `bitti` artık `bitenMi(r)` ile belirlenir → randevu "yapıldı" **veya** iş emri "tamamlandı" ikisi de rozet alır.
+
+⚠️ **Rota (GununRotasi) bilinçli olarak biten işleri çıkarır** — "biten işe araç gitmez" kuralı.
+İstenirse rota da tümünü gösterecek şekilde değiştirilebilir.
+
+---
+
 ## 📊 VERİTABANI DURUMU
 
 ### Kritik Tablolar
