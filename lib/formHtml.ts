@@ -564,6 +564,24 @@ function musteriNotlari(metin: any): string {
   return kalan.some((satir) => satir.trim()) ? kalan.join("\n") : "";
 }
 
+/** Kayıtlardan gelebilecek sayıları ("35", "35,5", 35.5) güvenle number'a çevirir. */
+function sayiCevir(v: any): number {
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  if (v === null || v === undefined) return 0;
+  const s = String(v).trim();
+  if (!s) return 0;
+  const n = s.includes(",")
+    ? Number(s.replace(/\./g, "").replace(",", "."))
+    : Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Kuruş (2 ondalık) yuvarlama — 1.005 gibi kayan nokta sapmalarını da temizler. */
+function kurusla(n: any): number {
+  const v = Number(n) || 0;
+  return Math.round(Number((v * 100).toFixed(6))) / 100;
+}
+
 /** Kalem altı açıklamasını müşteriye dönük sade metne çevirir (tutarlar KDV hariç). */
 function musteriDetay(detay: any): string {
   const ham = detay === null || detay === undefined ? "" : String(detay);
@@ -581,37 +599,69 @@ function musteriDetay(detay: any): string {
   const iscilik = d.match(/^(\d+)\s*teknisyen\s*[×x]\s*([\d.,]+)\s*saat/i);
   if (iscilik) return `${iscilik[1]} teknisyen × ${iscilik[2]} saat (KDV hariç)`;
 
+  // Yol satırı: "120 km × 19,50 ₺/km (KDV hariç)" → "120 km (KDV hariç)"
+  // km birim ücreti MALİYET bilgisidir; müşteriye basılmaz.
+  const yol = d.match(/^([\d.,]+)\s*km\s*[×x]/i);
+  if (yol) return `${yol[1]} km (KDV hariç)`;
+
   return ham; // kural tutmadı → eski kayıtlardaki metin aynen basılır
 }
 
 export function teklifHtml(t: any, kalemler: any[]): string {
   const liste = (kalemler || []).length > 0 ? kalemler : jsonDizi(t?.items);
-  const toplam = liste.reduce((s: number, k: any) => {
+
+  // ─── KÂR MARJI → KALEMLERE DAĞITIM ───
+  // Fiyat motoru (akıllı analiz) kalemleri MALİYET (KDV hariç) olarak yazar,
+  // GENEL TOPLAM ise satış fiyatıdır. Aradaki fark açıklamasız kalmasın diye marj
+  // varsa HER KALEM satış fiyatıyla basılır:  satış = maliyet × (1 + marj/100).
+  // Ham maliyet hiçbir yerde gösterilmez.
+  // Marj alanı olmayan eski tekliflerde (teklifler ekranı) davranış aynıdır:
+  // kalemler kayıttaki hâliyle basılır, GENEL TOPLAM tek satır olarak kalır.
+  const marj = Math.max(0, sayiCevir(t?.kar_marji));
+  const marjVar = marj > 0;
+  const carpan = marjVar ? 1 + marj / 100 : 1;
+
+  // Kayıttaki (maliyet) kalemler — yalnızca HESAP için, hiçbir yere basılmaz.
+  const satirlar = liste.map((k: any) => {
     const adet = Number(k?.adet) || 1;
     const bf = Number(k?.birim_fiyat) || 0;
     const tt = Number(k?.toplam) || adet * bf;
-    return s + tt;
-  }, 0);
-  const genel = Number(t?.total_price) || toplam;
+    return { k, adet, bf, tt };
+  });
+  const maliyetToplam = satirlar.reduce((top: number, s) => top + s.tt, 0);
 
-  // ─── FİYAT MOTORU (akıllı analiz) ek alanları ───
-  // Hepsi OPSİYONEL: eski tekliflerde (teklifler ekranı) bu alanlar yoksa
-  // şablon aynen eskisi gibi tek satır GENEL TOPLAM gösterir.
-  // Tutarlar KDV hariçtir.
-  const araToplam = Number(t?.ara_toplam) || 0;
-  const karMarji = Number(t?.kar_marji) || 0;
-  // Kâr marjı satırı müşteriye GÖSTERİLMEZ; karTutari yalnızca eski
-  // kayıtlardaki ARA TOPLAM satırı görünürlüğünü birebir korumak için tutulur.
-  const karTutari = karMarji > 0
-    ? (Number(t?.kar_tutari) || Math.round(araToplam * karMarji) / 100)
-    : 0;
-  const araToplamSatiri = araToplam > 0 || karTutari > 0;
+  // Basılacak (satış) kalemler: marj yoksa değerler birebir korunur.
+  // Birim fiyat ve tutar ayrı ayrı 2 ondalığa (kuruşa) yuvarlanır. Tutar, BASILAN
+  // satış birim fiyatı × miktar olarak hesaplanır → müşteri satırda çarpınca tutar.
+  // Birim fiyatı olmayan (kapalı tutar) satırda tutar doğrudan marjlanır.
+  const basilan = satirlar.map((s) => {
+    const bfSatis = marjVar ? kurusla(s.bf * carpan) : s.bf;
+    const ttSatis = !marjVar ? s.tt
+      : s.bf > 0 ? kurusla(bfSatis * s.adet)
+      : kurusla(s.tt * carpan);
+    return { ...s, bf: bfSatis, tt: ttSatis };
+  });
 
-  // ARA TOPLAM = kalemlerin toplamı (KDV hariç) · GENEL TOPLAM = satış fiyatı.
-  // Marj satırı kaldırıldığı için ara toplam ASLA "genel toplam - kâr tutarı"
-  // diye türetilmez; tablodaki kalemlerin kendi toplamı yazılır ki satırlar
-  // tutsun. Marj alanı olmayan eski kayıtlarda satır zaten çıkmaz (görünüm aynı).
-  const araToplamGoster = toplam > 0 ? toplam : araToplam;
+  const kalemToplam = marjVar
+    ? kurusla(basilan.reduce((top: number, s) => top + s.tt, 0))
+    : maliyetToplam;
+
+  // GENEL TOPLAM: kayıttaki satış fiyatı (KDV hariç); yoksa kalemlerin toplamı.
+  const genelHam = sayiCevir(t?.total_price) || (marjVar ? kalemToplam : maliyetToplam);
+  const genel = marjVar ? kurusla(genelHam) : genelHam;
+
+  // Kuruş farkı dağıtımı: kalem tutarları 2 ondalığa yuvarlandıktan sonra
+  // toplamları GENEL TOPLAM'a BİREBİR eşit olmalı. Fark çıkarsa standart
+  // yuvarlama dağıtımıyla SON kaleme eklenir/çıkarılır → PDF'te kuruş farkı
+  // görünmez. (Tek adetli satırda birim fiyat = tutar kalır.)
+  if (marjVar && basilan.length > 0) {
+    const fark = kurusla(genel - kalemToplam);
+    if (fark !== 0) {
+      const son = basilan[basilan.length - 1];
+      son.tt = kurusla(son.tt + fark);
+      if (son.adet === 1) son.bf = son.tt;
+    }
+  }
 
   // Notlar: maliyet dökümü ve "uygulanan kâr marjı" satırları müşteriye
   // gösterilmez. KDV ibaresi, geçerlilik tarihi ve kapsam satırları kalır.
@@ -647,24 +697,17 @@ export function teklifHtml(t: any, kalemler: any[]): string {
       <th style="width:118px;text-align:right">Tutar</th>
     </tr></thead>
     <tbody>
-      ${liste.length > 0
-        ? liste.map((k: any) => {
-            const adet = Number(k?.adet) || 1;
-            const bf = Number(k?.birim_fiyat) || 0;
-            const tt = Number(k?.toplam) || adet * bf;
-            const detay = musteriDetay(k?.detay);
+      ${basilan.length > 0
+        ? basilan.map((s) => {
+            const detay = musteriDetay(s.k?.detay);
             return `<tr>
-              <td><b>${esc(k?.ad || k?.description || "—")}</b>${detay ? `<div style="font-size:9.5px;color:#64748b;margin-top:3px;font-weight:500">${esc(detay)}</div>` : ""}</td>
-              <td class="orta">${adet}</td>
-              <td class="sag">${para(bf)}</td>
-              <td class="sag"><b>${para(tt)}</b></td>
+              <td><b>${esc(s.k?.ad || s.k?.description || "—")}</b>${detay ? `<div style="font-size:9.5px;color:#64748b;margin-top:3px;font-weight:500">${esc(detay)}</div>` : ""}</td>
+              <td class="orta">${s.adet}</td>
+              <td class="sag">${para(s.bf)}</td>
+              <td class="sag"><b>${para(s.tt)}</b></td>
             </tr>`;
           }).join("")
         : `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:16px">Kalem bulunmuyor</td></tr>`}
-      ${araToplamSatiri ? `<tr>
-        <td colspan="3" class="sag" style="font-weight:800;background:#f8fafc">ARA TOPLAM</td>
-        <td class="sag" style="font-weight:800;background:#f8fafc">${para(araToplamGoster)}</td>
-      </tr>` : ""}
       <tr class="toplam">
         <td colspan="3" class="sag">GENEL TOPLAM</td>
         <td class="sag">${para(genel)}</td>
