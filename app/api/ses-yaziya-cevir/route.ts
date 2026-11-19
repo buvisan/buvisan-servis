@@ -16,7 +16,9 @@ import { adminMi, yetkiYok } from '@/lib/api-yetki';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-const MODEL = 'gemini-2.0-flash';
+// ⚠️ gemini-2.0-flash Google tarafından kapatıldı → API 404 NOT_FOUND dönüyordu.
+//    Model adı env ile değiştirilebilir (GEMINI_SES_MODEL).
+const MODEL = process.env.GEMINI_SES_MODEL || 'gemini-3.5-flash-lite';
 
 export async function POST(req: NextRequest) {
   // ⚠️ DİKKAT: adminMi() bir NESNE döndürür ({ ok: true/false }).

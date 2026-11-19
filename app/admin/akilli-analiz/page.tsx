@@ -4,7 +4,7 @@
 //  🤖 AKILLI ANALİZ MERKEZİ — Foto AI + Dinamik Fiyat + Anomali Alarmı
 // ----------------------------------------------------------------------------
 //  Veri: fiyat_onerisi() · anomali_tara() · foto_analiz_gecmisi() · foto_analiz_kaydet()
-//  AI  : /api/foto-analiz (Gemini Vision) — yönetici korumalı
+//  AI  : /api/foto-analiz (Gemini + yedek sağlayıcı zinciri) — yönetici korumalı
 //  İlke: her bölüm bağımsız, biri hata verse diğerleri çalışır
 //  Para: bu ekrandaki TÜM tutarlar KDV HARİÇTİR
 // ============================================================================
@@ -196,6 +196,10 @@ export default function AkilliAnalizPage() {
     if (!onizleme) { mesajYaz('Önce fotoğraf seçin.'); return; }
     setAnalizYuk(true);
     setMesaj(null);
+    // Sunucu tarafı 25 sn'de cevap verir; ağ/bağlantı takılırsa ekran sonsuza
+    // kadar beklemesin diye istemci tarafında 30 sn'lik bir üst sınır var.
+    const denetleyici = new AbortController();
+    const zamanAsimi = setTimeout(() => denetleyici.abort(), 30_000);
     try {
       const { data: oturum } = await supabase.auth.getSession();
       const token = oturum?.session?.access_token;
@@ -211,6 +215,7 @@ export default function AkilliAnalizPage() {
           musteri: musteri.trim() || null,
           aciklama: notr.trim() || null,
         }),
+        signal: denetleyici.signal,
       });
 
       // Sunucu JSON dışında bir şey dönerse (HTML hata sayfası vb.) patlamasın
@@ -245,8 +250,13 @@ export default function AkilliAnalizPage() {
       }
       await gecmisGetir();
     } catch (e: any) {
-      mesajYaz('Bağlantı hatası: ' + (e?.message || 'bilinmeyen'));
+      if (e?.name === 'AbortError') {
+        mesajYaz('Analiz 30 saniyede tamamlanmadı. Fotoğraf büyük olabilir — tekrar deneyin.');
+      } else {
+        mesajYaz('Bağlantı hatası: ' + (e?.message || 'bilinmeyen'));
+      }
     } finally {
+      clearTimeout(zamanAsimi);
       setAnalizYuk(false);
     }
   };
