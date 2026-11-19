@@ -22,7 +22,7 @@ import {
   LogOut, Plus, List, MapPin, AlertCircle, CheckCircle2, Clock, 
   Camera, LayoutDashboard, Globe, Wrench, ChevronRight, Activity, 
   Package, FileText, TrendingUp, User, Building2, Save, X, Phone, 
-  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarClock, CalendarDays, Play, ClipboardList, Wallet, BookOpen, Inbox, Trophy, Sparkles, Users, ShieldCheck, Bell, HardDrive
+  AlertTriangle, Truck, Settings, CheckSquare, Square, Trash2, Loader2, Car, Video, Mic, Image as ImageIcon, Edit2, Map, Search, Eye, Printer, FileCheck, Ban, CalendarDays, Play, ClipboardList, Wallet, BookOpen, Inbox, Trophy, Sparkles, Users, ShieldCheck, Bell, HardDrive
 } from 'lucide-react';
 
 const PERSONEL_LISTESI = [
@@ -335,10 +335,6 @@ export default function AdminPanel() {
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/mimli-sirketler')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-red-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
                     <div className="bg-red-50 text-red-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-colors"><Ban size={20}/></div>
                     <div><h3 className="font-bold text-slate-700 text-sm">Mimli Şirketler</h3><p className="text-[10px] text-slate-400">Gidilmeyecek yerler</p></div>
-                </motion.button>
-                <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/bakim-takvimi')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-teal-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
-                    <div className="bg-teal-50 text-teal-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors"><CalendarClock size={20}/></div>
-                    <div><h3 className="font-bold text-slate-700 text-sm">Bakım Takibi</h3><p className="text-[10px] text-slate-400">Periyodik bakımlar</p></div>
                 </motion.button>
                 <motion.button whileHover={{ y: -3 }} onClick={() => router.push('/admin/veri-sagligi')} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-rose-200 hover:shadow-md transition-all group text-left flex flex-col justify-between h-32">
                     <div className="bg-rose-50 text-rose-600 w-10 h-10 rounded-xl flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors"><ShieldCheck size={20}/></div>

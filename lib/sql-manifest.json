@@ -204,5 +204,6 @@
   "203-musteri-sozlesme-servis-detay.sql",
   "204-hatirlatma-motoru.sql",
   "205-migration-kaydi.sql",
-  "206-teklif-takip.sql"
+  "206-teklif-takip.sql",
+  "207-akilli-analiz-musteri-fix.sql"
 ]
