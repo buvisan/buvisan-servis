@@ -205,5 +205,6 @@
   "204-hatirlatma-motoru.sql",
   "205-migration-kaydi.sql",
   "206-teklif-takip.sql",
-  "207-akilli-analiz-musteri-fix.sql"
+  "207-akilli-analiz-musteri-fix.sql",
+  "208-fiyat-motoru.sql"
 ]

@@ -557,6 +557,16 @@ export function teklifHtml(t: any, kalemler: any[]): string {
   }, 0);
   const genel = Number(t?.total_price) || toplam;
 
+  // ─── FİYAT MOTORU (akıllı analiz) ek alanları ───
+  // Hepsi OPSİYONEL: eski tekliflerde (teklifler ekranı) bu alanlar yoksa
+  // şablon aynen eskisi gibi tek satır GENEL TOPLAM gösterir.
+  // Tutarlar KDV hariçtir.
+  const araToplam = Number(t?.ara_toplam) || 0;
+  const karMarji = Number(t?.kar_marji) || 0;
+  const karTutari = karMarji > 0
+    ? (Number(t?.kar_tutari) || Math.round(araToplam * karMarji) / 100)
+    : 0;
+
   const baslik =
     t?.template_type === "bakim" ? "PERİYODİK BAKIM SÖZLEŞMESİ"
     : t?.template_type === "siparis" ? "SİPARİŞ FORMU"
@@ -569,7 +579,7 @@ export function teklifHtml(t: any, kalemler: any[]): string {
 
   <div class="baslik">
     <h1>${baslik}</h1>
-    <div class="alt">Teklif Tarihi: <b>${tarih(t?.offer_date || t?.created_at)}</b>${t?.valid_until ? ` &nbsp;·&nbsp; Geçerlilik: ${tarih(t.valid_until)}` : ""}</div>
+    <div class="alt">${t?.teklif_no ? `Teklif No: <b>${esc(t.teklif_no)}</b> &nbsp;·&nbsp; ` : ""}Teklif Tarihi: <b>${tarih(t?.offer_date || t?.created_at)}</b>${t?.valid_until ? ` &nbsp;·&nbsp; Geçerlilik: ${tarih(t.valid_until)}` : ""}</div>
   </div>
 
   <div class="bilgi-kutu"><table>
@@ -599,12 +609,24 @@ export function teklifHtml(t: any, kalemler: any[]): string {
             </tr>`;
           }).join("")
         : `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:16px">Kalem bulunmuyor</td></tr>`}
+      ${araToplam > 0 || karTutari > 0 ? `<tr>
+        <td colspan="3" class="sag" style="font-weight:800;background:#f8fafc">ARA TOPLAM</td>
+        <td class="sag" style="font-weight:800;background:#f8fafc">${para(araToplam > 0 ? araToplam : toplam)}</td>
+      </tr>` : ""}
+      ${karTutari > 0 ? `<tr>
+        <td colspan="3" class="sag" style="font-weight:700">KÂR MARJI (%${esc(Math.round(karMarji * 100) / 100)})</td>
+        <td class="sag" style="font-weight:800;color:#059669">+ ${para(karTutari)}</td>
+      </tr>` : ""}
       <tr class="toplam">
         <td colspan="3" class="sag">GENEL TOPLAM</td>
         <td class="sag">${para(genel)}</td>
       </tr>
     </tbody>
   </table></div>
+
+  <div style="margin:-6px 0 18px;text-align:right;font-size:9px;font-weight:800;color:#64748b;letter-spacing:0.4px;text-transform:uppercase">
+    Tüm tutarlar KDV hariçtir
+  </div>
 
   <div class="bolum">
     <div class="bolum-baslik">Notlar ve Şartlar</div>

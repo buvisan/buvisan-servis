@@ -1,33 +1,139 @@
 'use client';
 
 // ============================================================================
-//  🤖 AKILLI ANALİZ MERKEZİ — Foto AI + Dinamik Fiyat + Anomali Alarmı
+//  🤖 AKILLI ANALİZ MERKEZİ — Foto AI + FİYAT MOTORU + Anomali Alarmı
 // ----------------------------------------------------------------------------
 //  Veri: fiyat_onerisi() · anomali_tara() · foto_analiz_gecmisi() · foto_analiz_kaydet()
-//  AI  : /api/foto-analiz (Gemini + yedek sağlayıcı zinciri) — yönetici korumalı
+//        fiyat_motoru_ayar() (208) · eleman_saat_maliyeti() (96) · offers
+//  AI  : /api/foto-analiz (Gemini + yedek sağlayıcı zinciri)
+//        /api/malzeme-fiyat (Gemini google_search grounding + tahmin yedeği)
 //  İlke: her bölüm bağımsız, biri hata verse diğerleri çalışır
 //  Para: bu ekrandaki TÜM tutarlar KDV HARİÇTİR
 // ============================================================================
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { teklifHtml } from '@/lib/formHtml';
+import { yazdirVeyaPaylas } from '@/lib/yazdirPaylas';
 import {
   Sparkles, Loader2, RefreshCw, ArrowLeft, AlertTriangle, Camera,
   Calculator, TrendingUp, CheckCircle2, X, Upload, Shield, Clock,
-  Package, Lightbulb, History, Zap
+  Package, Lightbulb, History, Zap,
+  Plus, Trash2, Search, Percent, FileText, ExternalLink, Globe, Users, Truck
 } from 'lucide-react';
 
 const para = (n: any) => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+// Birim fiyatlar kuruşlu olabilir → en fazla 2 hane (tutarlar KDV hariç)
+const para2 = (n: any) => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+
 
 // Güvenli sayı: null / undefined / "" / NaN → varsayılan
 const sayi = (n: any, varsayilan = 0) => {
   const v = Number(n);
   return Number.isFinite(v) ? v : varsayilan;
 };
+// Para hesabı için kuruşa yuvarla (tutarlar KDV hariç)
+const kurus = (n: any) => Math.round(sayi(n) * 100) / 100;
 // Güven yüzdesi → 0-100 arası tam sayı (bant genişliği NaN olmasın)
 const yuzde = (n: any) => Math.max(0, Math.min(100, Math.round(sayi(n))));
+
+// ----------------------------------------------------------------------------
+//  💰 FİYAT MOTORU — SABİTLER / TİPLER
+// ----------------------------------------------------------------------------
+//  Tüm tutarlar KDV HARİÇ. Aciliyet, maliyet üzerine %25 çarpan olarak eklenir.
+//  Personel saat ücreti: 208 → fiyat_motoru_ayar(), yoksa 96 →
+//  eleman_saat_maliyeti(), o da yoksa aşağıdaki varsayılan (env ile değiştirilir).
+// ----------------------------------------------------------------------------
+const ACILLIK_ORANI = 0.25;          // acil iş → maliyet × 1.25
+const MARJ_VARSAYILAN = 40;          // önerilen kâr marjı (%)
+const MARJ_MIN = 0;
+const MARJ_MAKS = 200;
+const DUSUK_MARJ = 20;               // bunun altına düşünce uyarı
+const SAAT_UCRETI_VARSAYILAN = (() => {
+  const v = Number(process.env.NEXT_PUBLIC_PERSONEL_SAAT_UCRETI);
+  return Number.isFinite(v) && v > 0 ? v : 345;   // ₺/saat (2 kişi × SGK dahil ort.)
+})();
+const KM_BIRIM_VARSAYILAN = (() => {
+  const v = Number(process.env.NEXT_PUBLIC_KM_BIRIM);
+  return Number.isFinite(v) && v > 0 ? v : 12;    // ₺/km
+})();
+const GUNLUK_SAAT = 8;               // "gün" seçilirse saat = gün × 8
+
+type MalzemeTipi = {
+  id: string;
+  ad: string;
+  adet: number;
+  /** KDV hariç birim fiyat — bulunamadıysa null (0 DEĞİL) */
+  birim: number | null;
+  kaynak: 'google' | 'tahmini' | null;
+  guven: number;
+  bulundu: boolean;
+  /** kullanıcı elle yazdı mı? */
+  elle: boolean;
+  not: string | null;
+};
+
+type DigerTuru = { id: string; ad: string; tutar: number | null };
+
+const yeniId = () =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `s-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const bosMalzeme = (): MalzemeTipi => ({
+  id: yeniId(), ad: '', adet: 1, birim: null, kaynak: null,
+  guven: 0, bulundu: false, elle: false, not: null,
+});
+const bosDiger = (): DigerTuru => ({ id: yeniId(), ad: '', tutar: null });
+
+/** Malzeme adı eşleştirme anahtarı (Türkçe harf/noktalama farkını yok sayar) */
+const adAnahtar = (s: any) =>
+  String(s || '')
+    .toLocaleLowerCase('tr-TR')
+    .replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ç/g, 'c')
+    .replace(/[^a-z0-9]/g, '');
+
+/** Kaynak rozeti — Google / Tahmini / Elle / fiyat yok · sabit etiket (personel/mesafe) */
+function KaynakRozet({ kaynak, guven, elle, bulundu, etiket }: {
+  kaynak: 'google' | 'tahmini' | null; guven: number; elle: boolean; bulundu: boolean; etiket?: string;
+}) {
+  if (etiket) {
+    return (
+      <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-slate-100 text-slate-600 border-slate-200 whitespace-nowrap">
+        {etiket}
+      </span>
+    );
+  }
+  if (!bulundu) {
+    return (
+      <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-rose-50 text-rose-600 border-rose-200 whitespace-nowrap">
+        FİYAT YOK
+      </span>
+    );
+  }
+  if (elle) {
+    return (
+      <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-slate-100 text-slate-600 border-slate-200 whitespace-nowrap">
+        ELLE
+      </span>
+    );
+  }
+  if (kaynak === 'google') {
+    return (
+      <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200 whitespace-nowrap inline-flex items-center gap-0.5">
+        <Globe size={8} /> GOOGLE
+      </span>
+    );
+  }
+  return (
+    <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 whitespace-nowrap">
+      TAHMİNİ %{yuzde(guven)}
+    </span>
+  );
+}
 
 const ACILLIK_RENK: Record<string, string> = {
   'KRİTİK': 'bg-rose-100 text-rose-700 border-rose-300',
@@ -95,13 +201,31 @@ export default function AkilliAnalizPage() {
   const [musteri, setMusteri] = useState('');
   const [notr, setNotr] = useState('');
 
-  // Fiyat
+  // ─── FİYAT MOTORU GİRDİLERİ (tutarlar KDV hariç) ───
   const [fIsTipi, setFIsTipi] = useState('');
   const [fMusteri, setFMusteri] = useState('');
   const [fMesafe, setFMesafe] = useState('');
   const [fAcil, setFAcil] = useState(false);
-  const [fiyat, setFiyat] = useState<any>(null);
+
+  const [malzemeler, setMalzemeler] = useState<MalzemeTipi[]>(() => [bosMalzeme()]);
+  const [digerler, setDigerler] = useState<DigerTuru[]>([]);
+
+  const [teknisyen, setTeknisyen] = useState(2);
+  const [sureTuru, setSureTuru] = useState<'saat' | 'gun'>('saat');
+  const [sure, setSure] = useState(3);
+  const [saatUcreti, setSaatUcreti] = useState(SAAT_UCRETI_VARSAYILAN);
+  const [saatUcretiKaynak, setSaatUcretiKaynak] = useState<'ayar' | 'varsayilan' | 'elle'>('varsayilan');
+  const [kmBirim, setKmBirim] = useState(KM_BIRIM_VARSAYILAN);
+
+  const [marj, setMarj] = useState(MARJ_VARSAYILAN);
+  const [marjElle, setMarjElle] = useState(false);
+
   const [fiyatYuk, setFiyatYuk] = useState(false);
+  const [fiyatUyari, setFiyatUyari] = useState<string | null>(null);
+  const [referans, setReferans] = useState<any>(null);
+  const [musteriListe, setMusteriListe] = useState<string[]>([]);
+  const [teklifYuk, setTeklifYuk] = useState(false);
+  const [olusanTeklif, setOlusanTeklif] = useState<{ id: string; kod: string } | null>(null);
 
   // Anomali
   const [anomali, setAnomali] = useState<any>(null);
@@ -160,6 +284,489 @@ export default function AkilliAnalizPage() {
   }, []);
 
   useEffect(() => { anomaliGetir(); gecmisGetir(); }, [anomaliGetir, gecmisGetir]);
+
+  // ══════════════════════════════════════════════════════════════════════
+  //  💰 FİYAT MOTORU — AYARLAR / MÜŞTERİ ÖNERİLERİ
+  // ══════════════════════════════════════════════════════════════════════
+  //  Personel saat ücreti üç kademede okunur:
+  //    1) fiyat_motoru_ayar()  → 208 SQL (tek çağrı, maaş + SGK + km)
+  //    2) eleman_saat_maliyeti() / maliyet_ayar() → 96 SQL (eski kurulum)
+  //    3) varsayılan (NEXT_PUBLIC_PERSONEL_SAAT_UCRETI / NEXT_PUBLIC_KM_BIRIM)
+  //  Hiçbirinde çökmez; ekranda hangi kaynağın kullanıldığı yazar.
+  // ══════════════════════════════════════════════════════════════════════
+  const ayarlariGetir = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('fiyat_motoru_ayar');
+      if (!error && data && typeof data === 'object') {
+        const ucret = Number((data as any).saat_ucreti);
+        const km = Number((data as any).km_birim);
+        if (ucret > 0) { setSaatUcreti(kurus(ucret)); setSaatUcretiKaynak('ayar'); }
+        if (km > 0) setKmBirim(kurus(km));
+        return;
+      }
+    } catch { /* 208 çalıştırılmamış olabilir → eski fonksiyonlar */ }
+
+    try {
+      const { data } = await supabase.rpc('eleman_saat_maliyeti', {});
+      const ucret = Number(data);
+      if (ucret > 0) { setSaatUcreti(kurus(ucret)); setSaatUcretiKaynak('ayar'); }
+    } catch { /* yoksay */ }
+
+    try {
+      const { data } = await supabase.rpc('maliyet_ayar');
+      const km = Number((data as any)?.km_birim);
+      if (km > 0) setKmBirim(kurus(km));
+    } catch { /* yoksay */ }
+  }, []);
+
+  // Müşteri autocomplete: portal hesapları + geçmiş teklifler (cranes'e dokunulmaz)
+  const musterileriGetir = useCallback(async () => {
+    try {
+      const [hesaplar, teklifler] = await Promise.all([
+        supabase.from('musteri_hesaplar').select('firma_adi').limit(400),
+        supabase.from('offers').select('customer_name').limit(400),
+      ]);
+      const kume = new Set<string>();
+      (hesaplar.data || []).forEach((r: any) => {
+        const a = String(r?.firma_adi || '').trim();
+        if (a) kume.add(a);
+      });
+      (teklifler.data || []).forEach((r: any) => {
+        const a = String(r?.customer_name || '').trim();
+        if (a) kume.add(a);
+      });
+      setMusteriListe(Array.from(kume).sort((a, b) => a.localeCompare(b, 'tr')).slice(0, 300));
+    } catch { /* autocomplete opsiyonel — hata ekrana basılmaz */ }
+  }, []);
+
+  useEffect(() => { ayarlariGetir(); musterileriGetir(); }, [ayarlariGetir, musterileriGetir]);
+
+  // ─── HESAP (tamamı client-side → marj değişince ANINDA güncellenir) ───
+  const hesaplar = useMemo(() => {
+    const malzemeToplam = malzemeler.reduce(
+      (t, m) => t + Math.max(0, sayi(m.adet, 0)) * Math.max(0, sayi(m.birim, 0)),
+      0
+    );
+    const sureSaat = sureTuru === 'gun' ? Math.max(0, sayi(sure)) * GUNLUK_SAAT : Math.max(0, sayi(sure));
+    const teknisyenSayi = Math.max(0, sayi(teknisyen));
+    const iscilik = teknisyenSayi * sureSaat * Math.max(0, sayi(saatUcreti));
+    const km = Math.max(0, sayi(fMesafe));
+    const yol = km * Math.max(0, sayi(kmBirim));
+    const digerToplam = digerler.reduce((t, d) => t + Math.max(0, sayi(d.tutar)), 0);
+
+    const araMaliyet = malzemeToplam + iscilik + yol + digerToplam;
+    const aciliyetTutar = fAcil ? araMaliyet * ACILLIK_ORANI : 0;
+    const maliyet = araMaliyet + aciliyetTutar;
+    const marjYuzde = Math.max(MARJ_MIN, Math.min(MARJ_MAKS, sayi(marj)));
+    const kar = maliyet * (marjYuzde / 100);
+    const satis = maliyet + kar;
+
+    return {
+      malzemeToplam: kurus(malzemeToplam),
+      iscilik: kurus(iscilik),
+      yol: kurus(yol),
+      digerToplam: kurus(digerToplam),
+      araMaliyet: kurus(araMaliyet),
+      aciliyetTutar: kurus(aciliyetTutar),
+      maliyet: kurus(maliyet),
+      kar: kurus(kar),
+      satis: kurus(satis),
+      sureSaat: kurus(sureSaat),
+      teknisyenSayi,
+      km,
+      marjYuzde,
+      malzemeKalem: malzemeler.filter((m) => m.ad.trim() && sayi(m.birim) > 0).length,
+      digerKalem: digerler.filter((d) => d.ad.trim() && sayi(d.tutar) > 0).length,
+    };
+  }, [malzemeler, digerler, teknisyen, sureTuru, sure, saatUcreti, fMesafe, kmBirim, fAcil, marj]);
+
+  // Önerilen marj: geçmiş işlerin tahmini kâr oranı (fiyat_onerisi) → yoksa %40
+  const onerilenMarj = useMemo(() => {
+    const onerilen = Number(referans?.tahmini_kar_orani);
+    const taban = Number.isFinite(onerilen) && onerilen >= 5 && onerilen <= 120
+      ? Math.round(onerilen)
+      : MARJ_VARSAYILAN;
+    return Math.max(10, Math.min(120, taban));
+  }, [referans]);
+
+  // ─── MALZEME / DİĞER GİDER SATIR İŞLEMLERİ ───
+  const malzemeEkle = () => setMalzemeler((p) => (p.length >= 24 ? p : [...p, bosMalzeme()]));
+  const malzemeSil = (id: string) =>
+    setMalzemeler((p) => (p.length <= 1 ? p.map((m) => (m.id === id ? bosMalzeme() : m)) : p.filter((m) => m.id !== id)));
+  const malzemeAlan = (id: string, alan: 'ad' | 'adet', deger: any) =>
+    setMalzemeler((p) => p.map((m) => (m.id === id ? { ...m, [alan]: deger } : m)));
+  // Elle fiyat girişi → kaynak "elle", satır bulundu sayılır
+  const malzemeFiyat = (id: string, ham: string) =>
+    setMalzemeler((p) => p.map((m) => {
+      if (m.id !== id) return m;
+      if (ham.trim() === '') return { ...m, birim: null, bulundu: false, elle: false, kaynak: null, guven: 0 };
+      const deger = Math.max(0, sayi(ham));
+      return { ...m, birim: kurus(deger), bulundu: deger > 0, elle: true };
+    }));
+
+  const digerEkle = () => setDigerler((p) => [...p, bosDiger()]);
+  const digerSil = (id: string) => setDigerler((p) => p.filter((d) => d.id !== id));
+  const digerAlan = (id: string, alan: 'ad' | 'tutar', deger: any) =>
+    setDigerler((p) => p.map((d) => (d.id === id ? { ...d, [alan]: deger } : d)));
+
+  // ─── MALZEME FİYAT ARAŞTIRMASI (AI · satırlar sunucuda PARALEL) ───
+  const fiyatArastir = async () => {
+    const temiz = malzemeler
+      .map((m) => ({ id: m.id, ad: m.ad.trim(), adet: Math.max(1, Math.round(sayi(m.adet, 1))) }))
+      .filter((m) => m.ad.length > 1);
+
+    if (temiz.length === 0) {
+      mesajYaz('Fiyat araştırmak için en az bir malzeme adı yazın (en az 2 karakter).', 'uyari');
+      return;
+    }
+
+    setFiyatYuk(true);
+    setMesaj(null);
+    setFiyatUyari(null);
+
+    // Sunucu 38 sn'de kendini durdurur; ekran 40 sn'de keser
+    const denetleyici = new AbortController();
+    const zamanAsimi = setTimeout(() => denetleyici.abort(), 40_000);
+
+    try {
+      const { data: oturum } = await supabase.auth.getSession();
+      const token = oturum?.session?.access_token;
+
+      // Geçmiş işlerin medyanı (mevcut fiyat_onerisi) — malzemeden BAĞIMSIZ,
+      // hata verse de akış devam eder (yalnızca referans kutusu boş kalır).
+      const referansSozu = (async () => {
+        try {
+          const { data } = await supabase.rpc('fiyat_onerisi', {
+            p_is_tipi: fIsTipi.trim() || null,
+            p_musteri: fMusteri.trim() || null,
+            p_mesafe_km: Math.max(0, sayi(fMesafe)),
+            p_acil: fAcil,
+          });
+          return data;
+        } catch { return null; }
+      })();
+
+      const yanit = await fetch('/api/malzeme-fiyat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          malzemeler: temiz.map((m) => ({ ad: m.ad, adet: m.adet })),
+          is_tipi: fIsTipi.trim() || null,
+          musteri: fMusteri.trim() || null,
+        }),
+        signal: denetleyici.signal,
+      });
+
+      let sonuc: any = null;
+      try { sonuc = await yanit.json(); } catch { sonuc = null; }
+
+      const ref = await referansSozu;
+      if (ref && typeof ref === 'object') {
+        setReferans(ref);
+        const refMarj = Number((ref as any).tahmini_kar_orani);
+        if (!marjElle && Number.isFinite(refMarj) && refMarj >= 5 && refMarj <= 120) {
+          setMarj(Math.max(10, Math.min(120, Math.round(refMarj))));
+        }
+      }
+
+      if (!yanit.ok || !sonuc?.ok) {
+        const mesaj = sonuc?.mesaj || `Fiyat araştırması yapılamadı (sunucu ${yanit.status}).`;
+        setFiyatUyari(mesaj + ' Fiyatları elle girebilirsiniz.');
+        setMalzemeler((prev) => prev.map((m) => (
+          temiz.some((t) => t.id === m.id)
+            ? { ...m, birim: null, kaynak: null, guven: 0, bulundu: false, elle: false, not: null }
+            : m
+        )));
+        return;
+      }
+
+      const gelen: any[] = Array.isArray(sonuc.satirlar) ? sonuc.satirlar : [];
+      setMalzemeler((prev) => prev.map((m) => {
+        const idx = temiz.findIndex((t) => t.id === m.id);
+        if (idx < 0) return m;
+        // Sıra korunur; kayma olursa ada göre eşleştir
+        const siradaki = gelen[idx];
+        const g = siradaki && adAnahtar(siradaki.ad) === adAnahtar(m.ad)
+          ? siradaki
+          : (gelen.find((x) => adAnahtar(x?.ad) === adAnahtar(m.ad)) || siradaki);
+        if (!g) return { ...m, birim: null, kaynak: null, guven: 0, bulundu: false, elle: false, not: null };
+
+        const birim = Number(g.birim_fiyat);
+        const bulundu = Boolean(g.bulundu) && Number.isFinite(birim) && birim > 0;
+        return {
+          ...m,
+          birim: bulundu ? kurus(birim) : null,
+          kaynak: bulundu ? (g.kaynak === 'google' ? 'google' : 'tahmini') : null,
+          guven: sayi(g.guven),
+          bulundu,
+          elle: false,
+          not: g.kaynak_notu ? String(g.kaynak_notu) : null,
+        };
+      }));
+
+      if (sonuc.uyari) setFiyatUyari(String(sonuc.uyari));
+      else if (!sonuc.google_grounding) {
+        setFiyatUyari('Google fiyat araması sonuç vermedi — fiyatlar modelin TAHMİNİdir (KDV hariç). Elle düzeltebilirsiniz.');
+      }
+    } catch (e: any) {
+      if (e?.name === 'AbortError') {
+        setFiyatUyari('Fiyat araştırması 40 saniyede tamamlanmadı. Tekrar deneyin veya fiyatları elle girin.');
+      } else {
+        setFiyatUyari('Bağlantı hatası: ' + (e?.message || 'bilinmeyen') + ' — fiyatları elle girebilirsiniz.');
+      }
+    } finally {
+      clearTimeout(zamanAsimi);
+      setFiyatYuk(false);
+    }
+  };
+
+  // ─── PDF KALEMLERİ (aynı teklif şablonu kullanılır) ───
+  //  Kalemler MALİYET (KDV hariç) olarak yazılır; şablonun altında ARA TOPLAM,
+  //  KÂR MARJI ve GENEL TOPLAM satırları görünür (lib/formHtml.ts → teklifHtml).
+  const pdfKalemleri = (): any[] => {
+    const liste: any[] = [];
+
+    malzemeler.forEach((m) => {
+      const ad = m.ad.trim();
+      const birim = Math.max(0, sayi(m.birim));
+      if (!ad || birim <= 0) return;
+      const adet = Math.max(1, Math.round(sayi(m.adet, 1)));
+      const kaynakNotu = m.elle
+        ? 'Elle girilen fiyat (KDV hariç)'
+        : m.kaynak === 'google'
+          ? 'Google fiyat araştırması (KDV hariç)'
+          : 'Tahmini fiyat (KDV hariç)';
+      liste.push({
+        ad,
+        detay: m.not ? `${kaynakNotu} · ${m.not}` : kaynakNotu,
+        adet,
+        birim_fiyat: kurus(birim),
+        toplam: kurus(birim * adet),
+      });
+    });
+
+    if (hesaplar.iscilik > 0) {
+      liste.push({
+        ad: 'İşçilik',
+        detay: `${hesaplar.teknisyenSayi} teknisyen × ${para2(hesaplar.sureSaat)} saat × ${para2(saatUcreti)} ₺/saat (KDV hariç)`,
+        adet: 1,
+        birim_fiyat: hesaplar.iscilik,
+        toplam: hesaplar.iscilik,
+      });
+    }
+
+    if (hesaplar.yol > 0) {
+      liste.push({
+        ad: 'Yol / Ulaşım',
+        detay: `${para2(hesaplar.km)} km × ${para2(kmBirim)} ₺/km (KDV hariç)`,
+        adet: 1,
+        birim_fiyat: hesaplar.yol,
+        toplam: hesaplar.yol,
+      });
+    }
+
+    digerler.forEach((d) => {
+      const ad = d.ad.trim();
+      const tutar = Math.max(0, sayi(d.tutar));
+      if (!ad || tutar <= 0) return;
+      liste.push({
+        ad,
+        detay: 'Diğer gider (KDV hariç)',
+        adet: 1,
+        birim_fiyat: kurus(tutar),
+        toplam: kurus(tutar),
+      });
+    });
+
+    if (hesaplar.aciliyetTutar > 0) {
+      liste.push({
+        ad: 'Aciliyet zammı (%25)',
+        detay: 'Acil iş çarpanı (KDV hariç)',
+        adet: 1,
+        birim_fiyat: hesaplar.aciliyetTutar,
+        toplam: hesaplar.aciliyetTutar,
+      });
+    }
+
+    return liste;
+  };
+
+  /** DB'ye yazılacak teklif alanları — mevcut "teklifler" ekranıyla AYNI isimler */
+  const teklifTemel = () => {
+    const bugun = new Date().toISOString().slice(0, 10);
+    const gecerlilik = new Date(Date.now() + 15 * 86_400_000).toISOString().slice(0, 10);
+    const notlar = [
+      'Tüm tutarlar KDV hariçtir.',
+      `Teklif ${gecerlilik.split('-').reverse().join('.')} tarihine kadar geçerlidir.`,
+      `Kapsam: ${fIsTipi.trim() || 'Vinç servis / bakım'}${hesaplar.km > 0 ? ` · ${para2(hesaplar.km)} km mesafe` : ''}${fAcil ? ' · ACİL İŞ' : ''}.`,
+      `Maliyet dökümü (KDV hariç): malzeme ${para2(hesaplar.malzemeToplam)} ₺ + işçilik ${para2(hesaplar.iscilik)} ₺ + yol ${para2(hesaplar.yol)} ₺ + diğer ${para2(hesaplar.digerToplam)} ₺${hesaplar.aciliyetTutar > 0 ? ` + aciliyet ${para2(hesaplar.aciliyetTutar)} ₺` : ''} = ${para2(hesaplar.maliyet)} ₺.`,
+      `Uygulanan kâr marjı: %${para2(marj)}.`,
+    ].join('\n');
+
+    return {
+      customer_name: fMusteri.trim(),
+      offer_date: bugun,
+      valid_until: gecerlilik,
+      template_type: 'standart',
+      description: notlar,
+      items: pdfKalemleri(),
+      total_price: Math.round(hesaplar.satis),
+      final_price: Math.round(hesaplar.satis),
+      status: 'beklemede',
+      kar_marji: kurus(marj),
+      maliyet_detay: {
+        kdv_haric: true,
+        malzeme: hesaplar.malzemeToplam,
+        iscilik: hesaplar.iscilik,
+        yol: hesaplar.yol,
+        diger: hesaplar.digerToplam,
+        aciliyet: hesaplar.aciliyetTutar,
+        maliyet: hesaplar.maliyet,
+        kar: hesaplar.kar,
+        satis: hesaplar.satis,
+        kar_marji: kurus(marj),
+        teknisyen: hesaplar.teknisyenSayi,
+        sure_saat: hesaplar.sureSaat,
+        saat_ucreti: kurus(saatUcreti),
+        km: hesaplar.km,
+        km_birim: kurus(kmBirim),
+        kaynaklar: {
+          google: malzemeler.filter((m) => m.kaynak === 'google' && !m.elle && m.bulundu).length,
+          tahmini: malzemeler.filter((m) => m.kaynak === 'tahmini' && !m.elle && m.bulundu).length,
+          elle: malzemeler.filter((m) => m.elle && m.bulundu).length,
+        },
+      },
+    };
+  };
+
+  /** PDF üret + indir (mevcut BUVİSAN teklif şablonu) */
+  const pdfUret = async (kod?: string) => {
+    const teklif = {
+      ...teklifTemel(),
+      teklif_no: kod || '',
+      ara_toplam: Math.round(hesaplar.maliyet),
+      kar_tutari: Math.round(hesaplar.kar),
+    };
+    const html = teklifHtml(teklif, teklif.items);
+    return yazdirVeyaPaylas(html, {
+      baslik: 'Fiyat Teklif Formu',
+      dosyaAdi: 'teklif-' + String(kod || fMusteri || 'musteri').replace(/[^a-zA-Z0-9]+/g, '-'),
+    });
+  };
+
+  // ─── TEKLİF OLUŞTUR → offers kaydı + PDF ───
+  const teklifOlustur = async () => {
+    if (!fMusteri.trim()) { mesajYaz('Teklif için müşteri adı gerekli.', 'uyari'); return; }
+
+    const fiyatsiz = malzemeler.filter((m) => m.ad.trim() && sayi(m.birim) <= 0);
+    if (fiyatsiz.length > 0) {
+      mesajYaz(
+        'Fiyatı girilmemiş malzeme var: ' + fiyatsiz.map((m) => m.ad.trim()).join(', ') +
+        '. Fiyat girin veya satırı silin (0 ₺ yazılmaz).',
+        'uyari'
+      );
+      return;
+    }
+    if (hesaplar.maliyet <= 0) {
+      mesajYaz('Maliyet 0 ₺ görünüyor — malzeme, işçilik veya yol girin.', 'uyari');
+      return;
+    }
+
+    setTeklifYuk(true);
+    setMesaj(null);
+    try {
+      const paket: any = teklifTemel();
+      const ekle = async (govde: any) => supabase.from('offers').insert([govde]).select('id').single();
+
+      let cevap: any = await ekle(paket);
+      // 208 çalıştırılmamışsa (kolon yok) temel alanlarla tekrar dene → teklif kaybolmaz
+      if (cevap?.error && /column|sütun|schema|cache|kar_marji|maliyet_detay/i.test(String(cevap.error.message || ''))) {
+        const temel: any = { ...paket };
+        delete temel.kar_marji;
+        delete temel.maliyet_detay;
+        cevap = await ekle(temel);
+      }
+      if (cevap?.error) throw new Error(cevap.error.message || 'Teklif kaydedilemedi.');
+
+      const id = String(cevap?.data?.id || '');
+      const kod = id ? id.replace(/-/g, '').slice(0, 6).toUpperCase() : '';
+      setOlusanTeklif({ id, kod: kod || '—' });
+
+      const pdfSonuc = await pdfUret(kod);
+      mesajYaz(
+        `✅ Teklif #${kod || '—'} oluşturuldu (KDV hariç ${para(hesaplar.satis)} ₺).` +
+        (pdfSonuc === 'hata' ? ' PDF oluşturulamadı — "PDF İNDİR" ile tekrar deneyin.' : ' PDF indirildi.'),
+        'basari'
+      );
+      if (typeof window !== 'undefined') {
+        try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { /* yoksay */ }
+      }
+    } catch (e: any) {
+      mesajYaz('Teklif oluşturulamadı: ' + (e?.message || 'bilinmeyen hata'));
+    } finally {
+      setTeklifYuk(false);
+    }
+  };
+
+  // ─── KALEM DÖKÜMÜ (sağ panel tablosu) ───
+  const dokum = useMemo(() => {
+    const satirlar: {
+      ad: string; detay: string; adet: number | null; birim: number | null;
+      toplam: number; kaynak: 'google' | 'tahmini' | 'elle' | 'iscilik' | 'yol' | 'diger' | 'aciliyet';
+      guven: number; etiket?: string;
+    }[] = [];
+
+    malzemeler.forEach((m) => {
+      const ad = m.ad.trim();
+      if (!ad) return;
+      const birim = Math.max(0, sayi(m.birim));
+      const adet = Math.max(1, Math.round(sayi(m.adet, 1)));
+      satirlar.push({
+        ad,
+        detay: m.elle ? 'elle girildi' : m.kaynak === 'google' ? 'google araması' : m.bulundu ? 'model tahmini' : 'fiyat bulunamadı',
+        adet,
+        birim: m.bulundu ? birim : null,
+        toplam: kurus(birim * adet),
+        kaynak: m.elle ? 'elle' : m.kaynak === 'google' ? 'google' : 'tahmini',
+        guven: sayi(m.guven),
+      });
+    });
+
+    if (hesaplar.iscilik > 0) {
+      satirlar.push({
+        ad: 'İşçilik',
+        detay: `${hesaplar.teknisyenSayi} tek. × ${para2(hesaplar.sureSaat)} saat × ${para2(saatUcreti)} ₺`,
+        adet: null, birim: null, toplam: hesaplar.iscilik, kaynak: 'iscilik', guven: 100, etiket: 'PERSONEL',
+      });
+    }
+    if (hesaplar.yol > 0) {
+      satirlar.push({
+        ad: 'Yol / Ulaşım',
+        detay: `${para2(hesaplar.km)} km × ${para2(kmBirim)} ₺/km`,
+        adet: null, birim: null, toplam: hesaplar.yol, kaynak: 'yol', guven: 100, etiket: 'MESAFE',
+      });
+    }
+    digerler.forEach((d) => {
+      const tutar = Math.max(0, sayi(d.tutar));
+      if (!d.ad.trim() || tutar <= 0) return;
+      satirlar.push({
+        ad: d.ad.trim(), detay: 'diğer gider',
+        adet: null, birim: null, toplam: kurus(tutar), kaynak: 'diger', guven: 100, etiket: 'ELLE',
+      });
+    });
+    if (hesaplar.aciliyetTutar > 0) {
+      satirlar.push({
+        ad: 'Aciliyet zammı', detay: 'maliyet × 1,25',
+        adet: null, birim: null, toplam: hesaplar.aciliyetTutar, kaynak: 'aciliyet', guven: 100, etiket: '×1,25',
+      });
+    }
+
+    return satirlar;
+  }, [malzemeler, digerler, hesaplar, saatUcreti, kmBirim]);
+
 
   // ─── FOTOĞRAF SEÇ ───
   const fotoSec = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -261,57 +868,9 @@ export default function AkilliAnalizPage() {
     }
   };
 
-  // ─── FİYAT ÖNERİSİ ───
-  const fiyatHesapla = async () => {
-    setFiyatYuk(true);
-    setMesaj(null);
-    try {
-      // Negatif / bozuk mesafe fiyatı düşürmesin
-      const mesafe = Math.max(0, sayi(fMesafe, 0));
-      const { data, error } = await supabase.rpc('fiyat_onerisi', {
-        p_is_tipi: fIsTipi.trim() || null,
-        p_musteri: fMusteri.trim() || null,
-        p_mesafe_km: mesafe,
-        p_acil: fAcil,
-      });
-      if (error) {
-        setFiyat(null);
-        mesajYaz('Fiyat önerisi alınamadı: ' + error.message);
-        return;
-      }
-      if (!data || typeof data !== 'object') {
-        setFiyat(null);
-        mesajYaz('Fiyat önerisi boş döndü. Geçmiş iş kaydı olmayabilir.', 'uyari');
-        return;
-      }
-      setFiyat(data);
-    } catch (e: any) {
-      setFiyat(null);
-      mesajYaz('Bağlantı hatası: ' + (e?.message || 'bilinmeyen'));
-    } finally {
-      setFiyatYuk(false);
-    }
-  };
-
+  // ─── FOTO ANALİZİ (ekran) ───
   const analizGuven = yuzde(analiz?.guven);
   const aciliyet = analiz?.aciliyet || 'ORTA';
-  const f = fiyat || null;
-
-  // Fiyat kırılımı — tüm tutarlar KDV hariç
-  const kirilim: { e: string; v: any; renk: string; arti?: boolean }[] = f
-    ? [
-        {
-          e: sayi(f.benzer_is) > 0
-            ? `Benzer ${sayi(f.benzer_is)} işin medyanı`
-            : 'Varsayılan fiyat (benzer iş yok)',
-          v: f.medyan,
-          renk: 'slate',
-        },
-        { e: 'Mesafe eklemesi', v: f.mesafe_ek, renk: 'blue', arti: true },
-        { e: 'Aciliyet eklemesi', v: f.acil_ek, renk: 'orange', arti: true },
-        { e: 'Sadakat indirimi', v: f.sadakat_indirim, renk: 'emerald' },
-      ]
-    : [];
 
   return (
     <div className="min-h-screen bg-slate-50/60 p-4 md:p-8 font-sans text-slate-800 pb-28 lg:pb-8">
@@ -323,7 +882,7 @@ export default function AkilliAnalizPage() {
             <Sparkles className="text-fuchsia-600" size={30} /> AKILLI ANALİZ
           </h1>
           <p className="text-slate-500 text-xs md:text-sm mt-0.5">
-            Fotoğraftan arıza tespiti · dinamik fiyat · anomali alarmı
+            Fotoğraftan arıza tespiti · fiyat motoru (malzeme + işçilik + kâr) · anomali alarmı
           </p>
         </div>
         <Link href="/admin" className="bg-slate-900 text-white px-4 py-3 rounded-2xl font-black text-xs flex items-center gap-2">
@@ -342,7 +901,7 @@ export default function AkilliAnalizPage() {
       <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
         {[
           { k: 'foto', a: '📸 Fotoğraftan Arıza', i: <Camera size={14} /> },
-          { k: 'fiyat', a: '💰 Fiyat Önerisi', i: <Calculator size={14} /> },
+          { k: 'fiyat', a: '💰 Fiyat Motoru', i: <Calculator size={14} /> },
           { k: 'anomali', a: `🚨 Anomali${sayi(anomali?.toplam) > 0 ? ` (${sayi(anomali?.toplam)})` : ''}`, i: <AlertTriangle size={14} /> },
         ].map((s) => (
           <button key={s.k} onClick={() => { setSekme(s.k as any); setMesaj(null); }}
@@ -592,128 +1151,439 @@ export default function AkilliAnalizPage() {
         </div>
       )}
 
-      {/* ═══════════ FİYAT ÖNERİSİ ═══════════ */}
+      {/* ═══════════ FİYAT MOTORU (eski "Fiyat Önerisi") ═══════════ */}
       {sekme === 'fiyat' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+          {/* ═════════ SOL: GİRDİLER ═════════ */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-4 py-3">
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-4 py-3 flex items-center justify-between gap-2">
               <p className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
-                <Calculator size={15} /> FİYAT HESAPLA
+                <Calculator size={15} /> FİYAT MOTORU · GİRDİLER
               </p>
+              <span className="text-[9px] font-black text-emerald-50 bg-white/20 px-2 py-1 rounded-lg shrink-0">
+                KDV HARİÇ
+              </span>
             </div>
+
             <div className="p-4 space-y-4">
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">İş Tipi</label>
-                <input type="text" value={fIsTipi} onChange={(e) => setFIsTipi(e.target.value)}
-                  placeholder="Örn: Rulman, Halat, Bakım, Fren"
-                  className="w-full mt-1 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-emerald-400" />
+              {/* İŞ TİPİ + MÜŞTERİ */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">İş Tipi</label>
+                  <input type="text" value={fIsTipi} onChange={(e) => setFIsTipi(e.target.value)}
+                    placeholder="Örn: Rulman, Fren, Bakım"
+                    className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-emerald-400" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Müşteri</label>
+                  <input type="text" list="akilli-musteriler" value={fMusteri}
+                    onChange={(e) => setFMusteri(e.target.value)}
+                    placeholder="Örn: RB KARESİ"
+                    className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-emerald-400" />
+                  <datalist id="akilli-musteriler">
+                    {musteriListe.map((m) => <option key={m} value={m} />)}
+                  </datalist>
+                </div>
               </div>
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Müşteri</label>
-                <input type="text" value={fMusteri} onChange={(e) => setFMusteri(e.target.value)}
-                  placeholder="Örn: RB KARESİ (sadakat indirimi için)"
-                  className="w-full mt-1 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-emerald-400" />
+
+              {/* MALZEME LİSTESİ */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <Package size={12} /> Malzeme Listesi
+                    <span className="text-slate-400">({hesaplar.malzemeKalem}/{malzemeler.length})</span>
+                  </p>
+                  <button onClick={malzemeEkle} disabled={malzemeler.length >= 24}
+                    className="bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl text-[10px] font-black text-slate-600 flex items-center gap-1 hover:bg-slate-100 disabled:opacity-40">
+                    <Plus size={11} /> SATIR
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {malzemeler.map((m, i) => (
+                    <div key={m.id} className="bg-white rounded-xl border border-slate-200 p-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-black text-slate-300 w-3 shrink-0">{i + 1}</span>
+                        <input type="text" value={m.ad} onChange={(e) => malzemeAlan(m.id, 'ad', e.target.value)}
+                          placeholder="Malzeme adı (ör. Rulman 6205)"
+                          className="flex-1 min-w-0 p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-[12px] outline-none focus:border-emerald-400" />
+                        <input type="number" min={1} max={999} value={m.adet}
+                          onChange={(e) => malzemeAlan(m.id, 'adet', Math.max(1, Math.round(sayi(e.target.value, 1))))}
+                          title="Adet"
+                          className="w-14 shrink-0 p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-[12px] text-center outline-none focus:border-emerald-400" />
+                        <button onClick={() => malzemeSil(m.id)} title="Satırı sil"
+                          className="shrink-0 p-2 rounded-lg border border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 mt-1.5 pl-4">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">Birim</span>
+                        <input type="number" min={0} step="0.01" value={m.birim ?? ''}
+                          onChange={(e) => malzemeFiyat(m.id, e.target.value)}
+                          placeholder="—"
+                          className="w-24 p-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-[11px] text-right outline-none focus:border-emerald-400" />
+                        <span className="text-[9px] font-bold text-slate-400">₺ · KDV hariç</span>
+                        <span className="ml-auto">
+                          <KaynakRozet kaynak={m.kaynak} guven={m.guven} elle={m.elle} bulundu={m.bulundu} />
+                        </span>
+                      </div>
+                      {m.not && (
+                        <p className="text-[8px] text-slate-400 font-medium mt-1 pl-4 truncate" title={m.not}>{m.not}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <button onClick={fiyatArastir} disabled={fiyatYuk}
+                  className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white py-3 rounded-xl font-black text-[11px] flex items-center justify-center gap-2 shadow-sm">
+                  {fiyatYuk ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                  {fiyatYuk ? 'FİYATLAR ARAŞTIRILIYOR (≤40 sn)...' : 'MALZEME FİYATLARINI ARAŞTIR'}
+                </button>
+                <p className="text-[9px] text-slate-400 font-medium text-center mt-1.5 leading-relaxed">
+                  Google Search grounding → bulunamazsa model tahmini<br />
+                  Fiyatlar <strong>KDV hariç</strong> · bulunamayan satır 0 ₺ değil, elle girilir
+                </p>
+
+                {fiyatUyari && (
+                  <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+                    <p className="text-[10px] font-bold text-amber-800 leading-relaxed">{fiyatUyari}</p>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Mesafe (km)</label>
-                <input type="number" min={0} step={1} value={fMesafe} onChange={(e) => setFMesafe(e.target.value)}
-                  placeholder="Örn: 35"
-                  className="w-full mt-1 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-emerald-400" />
+
+              {/* İŞÇİLİK */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5 mb-2">
+                  <Users size={12} /> İşçilik
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[8px] font-black uppercase tracking-wider text-slate-400">Teknisyen</label>
+                    <input type="number" min={1} max={20} value={teknisyen}
+                      onChange={(e) => setTeknisyen(Math.max(1, Math.round(sayi(e.target.value, 1))))}
+                      className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg font-bold text-[12px] text-center outline-none focus:border-emerald-400" />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-black uppercase tracking-wider text-slate-400">Süre</label>
+                    <div className="flex gap-1 mt-1">
+                      <input type="number" min={0} step="0.5" value={sure}
+                        onChange={(e) => setSure(Math.max(0, sayi(e.target.value)))}
+                        className="w-full min-w-0 p-2 bg-white border border-slate-200 rounded-lg font-bold text-[12px] text-center outline-none focus:border-emerald-400" />
+                      <button onClick={() => setSureTuru(sureTuru === 'saat' ? 'gun' : 'saat')}
+                        title="Saat / gün değiştir"
+                        className="shrink-0 px-2 py-2 bg-white border border-slate-200 rounded-lg font-black text-[9px] text-slate-600 hover:bg-slate-100 uppercase">
+                        {sureTuru === 'saat' ? 'saat' : 'gün'}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-black uppercase tracking-wider text-slate-400">Saat ücreti</label>
+                    <input type="number" min={0} step="0.01" value={saatUcreti}
+                      onChange={(e) => { setSaatUcreti(Math.max(0, sayi(e.target.value))); setSaatUcretiKaynak('elle'); }}
+                      className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg font-bold text-[12px] text-center outline-none focus:border-emerald-400" />
+                  </div>
+                </div>
+                <p className="text-[9px] text-slate-400 font-medium mt-1.5 leading-relaxed">
+                  Saat ücreti{' '}
+                  <strong className="text-slate-600">
+                    {saatUcretiKaynak === 'ayar' ? 'personel maaşından' : saatUcretiKaynak === 'elle' ? 'elle girildi' : 'varsayılan değer'}
+                  </strong>{' '}
+                  · {hesaplar.teknisyenSayi} tek. × {para2(hesaplar.sureSaat)} saat ={' '}
+                  <strong className="text-slate-600">{para2(hesaplar.iscilik)} ₺</strong> (KDV hariç)
+                </p>
               </div>
+
+              {/* YOL + DİĞER GİDERLER */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <Truck size={12} /> Yol &amp; Diğer Giderler
+                  </p>
+                  <button onClick={digerEkle}
+                    className="bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl text-[10px] font-black text-slate-600 flex items-center gap-1 hover:bg-slate-100">
+                    <Plus size={11} /> SATIR
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[8px] font-black uppercase tracking-wider text-slate-400">Mesafe (km)</label>
+                    <input type="number" min={0} step={1} value={fMesafe}
+                      onChange={(e) => setFMesafe(e.target.value)}
+                      placeholder="Örn: 35"
+                      className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg font-bold text-[12px] text-center outline-none focus:border-emerald-400" />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-black uppercase tracking-wider text-slate-400">km ücreti (₺)</label>
+                    <input type="number" min={0} step="0.5" value={kmBirim}
+                      onChange={(e) => setKmBirim(Math.max(0, sayi(e.target.value)))}
+                      className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg font-bold text-[12px] text-center outline-none focus:border-emerald-400" />
+                  </div>
+                </div>
+
+                {digerler.length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    {digerler.map((d) => (
+                      <div key={d.id} className="flex items-center gap-1.5">
+                        <input type="text" value={d.ad} onChange={(e) => digerAlan(d.id, 'ad', e.target.value)}
+                          placeholder="Örn: Vinç kirası, konaklama, otel"
+                          className="flex-1 min-w-0 p-2 bg-white border border-slate-200 rounded-lg font-bold text-[12px] outline-none focus:border-emerald-400" />
+                        <input type="number" min={0} step="0.01" value={d.tutar ?? ''}
+                          onChange={(e) => digerAlan(d.id, 'tutar', e.target.value === '' ? null : Math.max(0, sayi(e.target.value)))}
+                          placeholder="₺"
+                          className="w-20 shrink-0 p-2 bg-white border border-slate-200 rounded-lg font-bold text-[11px] text-right outline-none focus:border-emerald-400" />
+                        <button onClick={() => digerSil(d.id)} title="Satırı sil"
+                          className="shrink-0 p-2 rounded-lg border border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-[9px] text-slate-400 font-medium mt-1.5 leading-relaxed">
+                  Yol: {para2(hesaplar.km)} km × {para2(kmBirim)} ₺ ={' '}
+                  <strong className="text-slate-600">{para2(hesaplar.yol)} ₺</strong>
+                  {' '}· diğer giderler {para2(hesaplar.digerToplam)} ₺ (KDV hariç)
+                </p>
+              </div>
+
+              {/* ACİLİYET */}
               <button onClick={() => setFAcil(!fAcil)}
                 className={`w-full py-3.5 rounded-2xl font-black text-xs border-2 transition ${
                   fAcil ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-slate-600 border-slate-200'}`}>
-                {fAcil ? '⚡ ACİL İŞ (+%25)' : '⚡ Acil iş mi? (tıkla)'}
-              </button>
-              <button onClick={fiyatHesapla} disabled={fiyatYuk}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg">
-                {fiyatYuk ? <Loader2 size={18} className="animate-spin" /> : <Calculator size={18} />}
-                FİYAT ÖNER
+                {fAcil ? '⚡ ACİL İŞ — maliyet × 1,25' : '⚡ Acil iş mi? (tıkla — maliyet × 1,25)'}
               </button>
               <p className="text-[9px] text-slate-400 font-medium text-center">
-                Tüm tutarlar <strong>KDV hariç</strong> hesaplanır
+                Tüm tutarlar <strong>KDV hariç</strong> hesaplanır · marj değişince fiyat anında güncellenir
               </p>
             </div>
           </div>
 
-          <div>
-            {fiyatYuk ? (
-              <div className="bg-white rounded-3xl border border-slate-200 p-10 text-center">
-                <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mx-auto" />
-                <p className="text-xs font-black text-slate-600 mt-3">Geçmiş işler taranıyor...</p>
-                <p className="text-[10px] text-slate-400 font-medium mt-1">Medyan · mesafe · aciliyet · sadakat</p>
+          {/* ═════════ SAĞ: HESAP ═════════ */}
+          <div className="space-y-4">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-4 py-3 flex items-center justify-between gap-2">
+                <p className="text-xs font-black text-white uppercase tracking-wider">SATIŞ FİYATI</p>
+                <span className="text-[9px] font-black text-slate-100 bg-white/15 px-2 py-1 rounded-lg shrink-0">
+                  KDV HARİÇ
+                </span>
               </div>
-            ) : f ? (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-4 py-3 flex items-center justify-between gap-2">
-                  <p className="text-xs font-black text-white uppercase tracking-wider">ÖNERİLEN FİYAT</p>
-                  <span className="text-[9px] font-black text-emerald-50 bg-white/20 px-2 py-1 rounded-lg shrink-0">
-                    KDV HARİÇ
-                  </span>
+
+              <div className="p-5">
+                <div className="text-center mb-4">
+                  <p className="text-4xl font-black text-emerald-700 leading-none">{para(hesaplar.satis)} ₺</p>
+                  <p className="text-[9px] font-bold text-slate-400 mt-1">
+                    KDV hariç · maliyet {para2(hesaplar.maliyet)} ₺ + kâr {para2(hesaplar.kar)} ₺
+                  </p>
                 </div>
-                <div className="p-5">
-                  <div className="text-center mb-5">
-                    <p className="text-4xl font-black text-emerald-700 leading-none">{para(f.oneri)} ₺</p>
-                    <p className="text-[9px] font-bold text-slate-400 mt-1">KDV hariç</p>
-                    <p className="text-[11px] font-bold text-slate-400 mt-2">
-                      Makul aralık (KDV hariç): {para(f.alt_sinir)} – {para(f.ust_sinir)} ₺
+
+                {hesaplar.maliyet <= 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 mb-3">
+                    <p className="text-[10px] font-bold text-amber-800">
+                      Malzeme, işçilik veya mesafe girin — tutarlar anında hesaplanır.
                     </p>
                   </div>
+                )}
 
-                  <div className="space-y-2 mb-4">
-                    {kirilim.filter((x) => sayi(x.v) !== 0).map((x, i) => (
-                      <div key={i} className="flex items-center justify-between text-[11px] font-bold py-1.5 border-b border-slate-50 last:border-0">
-                        <span className="text-slate-500">{x.e}</span>
-                        <span className={`${
-                          x.renk === 'emerald' ? 'text-emerald-600'
-                          : x.renk === 'orange' ? 'text-orange-600'
-                          : x.renk === 'blue' ? 'text-blue-600' : 'text-slate-700'}`}>
-                          {x.arti && sayi(x.v) > 0 ? '+' : ''}{para(x.v)} ₺
-                        </span>
-                      </div>
-                    ))}
+                {/* KÂR MARJI — slider + sayı kutusu (client-side, istek yok) */}
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                      <Percent size={11} /> Kâr Marjı
+                    </span>
+                    <span className="text-[9px] font-black text-slate-400">önerilen %{onerilenMarj}</span>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
-                      <p className="text-[9px] font-black text-slate-400 uppercase">Tahmini Malzeme</p>
-                      <p className="text-sm font-black text-slate-700">{para(f.tahmini_malzeme)} ₺</p>
-                      <p className="text-[8px] font-bold text-slate-400 mt-0.5">KDV hariç</p>
+                  <div className="flex items-center gap-2.5">
+                    <input type="range" min={MARJ_MIN} max={MARJ_MAKS} step={1} value={sayi(marj)}
+                      onChange={(e) => { setMarj(sayi(e.target.value)); setMarjElle(true); }}
+                      className="flex-1 accent-emerald-600 min-w-0" />
+                    <div className="flex items-center gap-1 shrink-0">
+                      <input type="number" min={MARJ_MIN} max={MARJ_MAKS} value={marj}
+                        onChange={(e) => { setMarj(Math.max(MARJ_MIN, Math.min(MARJ_MAKS, sayi(e.target.value)))); setMarjElle(true); }}
+                        className="w-16 p-2 bg-white border border-slate-200 rounded-lg font-black text-sm text-center outline-none focus:border-emerald-400" />
+                      <span className="text-xs font-black text-slate-500">%</span>
                     </div>
-                    <div className={`rounded-2xl p-3 border ${
-                      sayi(f.tahmini_kar_orani) >= 30 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
-                      <p className={`text-[9px] font-black uppercase ${
-                        sayi(f.tahmini_kar_orani) >= 30 ? 'text-emerald-600' : 'text-amber-600'}`}>Tahmini Kâr Marjı</p>
-                      <p className={`text-sm font-black ${
-                        sayi(f.tahmini_kar_orani) >= 30 ? 'text-emerald-700' : 'text-amber-700'}`}>
-                        %{Math.round(sayi(f.tahmini_kar_orani))}
+                  </div>
+                  <div className="flex items-center justify-between mt-1.5 gap-2">
+                    <p className="text-[9px] font-bold text-slate-400">Kâr: {para2(hesaplar.kar)} ₺ (KDV hariç)</p>
+                    {onerilenMarj !== sayi(marj) && (
+                      <button onClick={() => { setMarj(onerilenMarj); setMarjElle(false); }}
+                        className="text-[9px] font-black text-emerald-700 underline shrink-0">önerileni uygula</button>
+                    )}
+                  </div>
+                  {sayi(marj) < DUSUK_MARJ && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-2 mt-2">
+                      <p className="text-[10px] font-bold text-amber-800">
+                        ⚠️ Kâr marjı düşük — %{DUSUK_MARJ} altında maliyet artışı kârı siler.
                       </p>
                     </div>
-                  </div>
-
-                  {f.uyari && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mt-3">
-                      <p className="text-[11px] font-bold text-amber-700">{f.uyari}</p>
-                    </div>
-                  )}
-
-                  {f.mesaj && (
-                    <p className="text-[10px] text-slate-400 font-medium mt-3 leading-relaxed">{f.mesaj}</p>
-                  )}
-                  {sayi(f.musteri_is) > 0 && (
-                    <p className="text-[10px] font-bold text-emerald-600 mt-2">
-                      👤 Bu müşteriyle {sayi(f.musteri_is)} iş yapıldı · toplam {para(f.musteri_ciro)} ₺ (KDV hariç)
-                    </p>
                   )}
                 </div>
-              </motion.div>
-            ) : (
-              <div className="bg-white rounded-3xl border border-slate-200 p-10 text-center">
-                <Calculator className="w-11 h-11 text-slate-200 mx-auto mb-3" />
-                <p className="text-sm font-black text-slate-500">Fiyat önerisi al</p>
-                <p className="text-[11px] text-slate-400 font-medium mt-1.5 leading-relaxed">
-                  Geçmiş işlerden öğrenir · mesafe, aciliyet ve<br />müşteri sadakatini hesaba katar.
+
+                {/* MALİYET DÖKÜMÜ */}
+                <div className="mt-4 space-y-1.5">
+                  {[
+                    { e: 'Malzeme', v: hesaplar.malzemeToplam, ek: `${hesaplar.malzemeKalem} kalem` },
+                    { e: 'İşçilik', v: hesaplar.iscilik, ek: `${hesaplar.teknisyenSayi} tek. × ${para2(hesaplar.sureSaat)} s` },
+                    { e: 'Yol', v: hesaplar.yol, ek: `${para2(hesaplar.km)} km` },
+                    { e: 'Diğer', v: hesaplar.digerToplam, ek: `${hesaplar.digerKalem} satır` },
+                    { e: 'Aciliyet (+%25)', v: hesaplar.aciliyetTutar, ek: fAcil ? 'açık' : 'kapalı' },
+                  ].map((x, i) => (
+                    <div key={i} className="flex items-center justify-between text-[11px] font-bold py-1 border-b border-slate-100 last:border-0 gap-2">
+                      <span className="text-slate-500">
+                        {x.e} <span className="text-[9px] text-slate-400 font-medium">{x.ek}</span>
+                      </span>
+                      <span className="text-slate-700 shrink-0">{para2(x.v)} ₺</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between pt-1.5 text-[12px] font-black text-slate-800 gap-2">
+                    <span>MALİYET (KDV hariç)</span>
+                    <span className="shrink-0">{para2(hesaplar.maliyet)} ₺</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] font-bold text-emerald-700 gap-2">
+                    <span>Kâr (%{para2(marj)})</span>
+                    <span className="shrink-0">+{para2(hesaplar.kar)} ₺</span>
+                  </div>
+                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-[13px] font-black text-emerald-800 gap-2">
+                    <span>SATIŞ (KDV hariç)</span>
+                    <span className="shrink-0">{para2(hesaplar.satis)} ₺</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* KALEM DÖKÜMÜ — her kalem + kaynağı */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                  <Calculator size={12} /> Kalem Dökümü
+                </p>
+                <span className="text-[8px] font-black text-slate-400">KDV HARİÇ</span>
+              </div>
+
+              {dokum.length === 0 ? (
+                <div className="px-4 py-8 text-center">
+                  <Package className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                  <p className="text-[11px] font-black text-slate-500">Kalem yok</p>
+                  <p className="text-[10px] text-slate-400 font-medium mt-1">
+                    Malzeme ekleyin, işçilik veya mesafe girin.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 text-slate-400 font-black uppercase text-[8px] tracking-wider">
+                      <tr>
+                        <th className="px-3 py-2">Kalem</th>
+                        <th className="px-2 py-2 text-center">Adet</th>
+                        <th className="px-2 py-2 text-right">Birim</th>
+                        <th className="px-2 py-2 text-right">Toplam</th>
+                        <th className="px-3 py-2 text-right">Kaynak</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {dokum.map((k, i) => (
+                        <tr key={i}>
+                          <td className="px-3 py-2">
+                            <p className="text-[11px] font-bold text-slate-700 leading-tight">{k.ad}</p>
+                            <p className="text-[9px] text-slate-400 font-medium truncate max-w-[150px]">{k.detay}</p>
+                          </td>
+                          <td className="px-2 py-2 text-center text-[10px] font-bold text-slate-500">{k.adet ?? '—'}</td>
+                          <td className="px-2 py-2 text-right text-[10px] font-bold text-slate-600">
+                            {k.birim === null ? '—' : para2(k.birim) + ' ₺'}
+                          </td>
+                          <td className="px-2 py-2 text-right text-[11px] font-black text-slate-800">{para2(k.toplam)} ₺</td>
+                          <td className="px-3 py-2 text-right">
+                            <KaynakRozet
+                              kaynak={k.kaynak === 'google' || k.kaynak === 'tahmini' ? k.kaynak : null}
+                              guven={k.guven}
+                              elle={k.kaynak === 'elle'}
+                              bulundu={k.etiket ? true : k.birim !== null}
+                              etiket={k.etiket}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="px-4 py-2 text-[9px] font-bold text-slate-400 border-t border-slate-100 text-right">
+                Tüm tutarlar KDV hariçtir
+              </p>
+            </div>
+
+            {/* TEKLİF OLUŞTUR → offers kaydı + PDF */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4">
+              <button onClick={teklifOlustur} disabled={teklifYuk || hesaplar.maliyet <= 0}
+                className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition active:scale-[0.99]">
+                {teklifYuk ? <Loader2 size={17} className="animate-spin" /> : <FileText size={17} />}
+                {teklifYuk ? 'TEKLİF HAZIRLANIYOR...' : 'TEKLİF OLUŞTUR (PDF)'}
+              </button>
+              <p className="text-[9px] text-slate-400 font-medium text-center mt-2 leading-relaxed">
+                BUVİSAN teklif şablonu → PDF · <strong>offers</strong> tablosuna <strong>beklemede</strong> kaydedilir<br />
+                Tüm tutarlar KDV hariçtir
+              </p>
+
+              {olusanTeklif && (
+                <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-2xl p-3">
+                  <p className="text-[11px] font-black text-emerald-800 flex items-center gap-1.5">
+                    <CheckCircle2 size={13} /> Teklif #{olusanTeklif.kod} oluşturuldu
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <Link href="/admin/teklifler"
+                      className="bg-emerald-600 text-white px-3 py-2 rounded-xl font-black text-[10px] flex items-center gap-1.5">
+                      <FileText size={11} /> TEKLİFLERDE GÖR <ExternalLink size={10} />
+                    </Link>
+                    <button onClick={() => pdfUret(olusanTeklif.kod)}
+                      className="bg-white border border-emerald-300 text-emerald-700 px-3 py-2 rounded-xl font-black text-[10px] flex items-center gap-1.5">
+                      <Upload size={11} /> PDF İNDİR
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* GEÇMİŞ İŞ REFERANSI (eski fiyat_onerisi) — teklif fiyatını DEĞİŞTİRMEZ */}
+            {referans && (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-2">
+                  <TrendingUp size={12} /> Geçmiş İş Referansı
+                </p>
+                <div className="space-y-1">
+                  {sayi(referans.benzer_is) > 0 && (
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 gap-2">
+                      <span>Benzer {sayi(referans.benzer_is)} işin medyanı</span>
+                      <span className="shrink-0">{para(referans.medyan)} ₺</span>
+                    </div>
+                  )}
+                  {sayi(referans.musteri_is) > 0 && (
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 gap-2">
+                      <span>Bu müşteriyle {sayi(referans.musteri_is)} iş</span>
+                      <span className="shrink-0">{para(referans.musteri_ciro)} ₺</span>
+                    </div>
+                  )}
+                  {sayi(referans.tahmini_malzeme) > 0 && (
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 gap-2">
+                      <span>Geçmiş malzeme ortalaması</span>
+                      <span className="shrink-0">{para(referans.tahmini_malzeme)} ₺</span>
+                    </div>
+                  )}
+                </div>
+                {referans.uyari && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-2 mt-2">
+                    <p className="text-[10px] font-bold text-amber-800">{referans.uyari}</p>
+                  </div>
+                )}
+                {referans.mesaj && (
+                  <p className="text-[9px] text-slate-400 font-medium mt-2 leading-relaxed">{referans.mesaj}</p>
+                )}
+                <p className="text-[8px] font-bold text-slate-400 mt-1.5">
+                  Referans tutarlar KDV hariçtir · teklif fiyatını değiştirmez
                 </p>
               </div>
             )}
