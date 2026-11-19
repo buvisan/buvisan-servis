@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { yazdirVeyaPaylas } from '@/lib/yazdirPaylas';
+import { vincKartHtml } from '@/lib/vincKartHtml';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { QRCodeCanvas } from 'qrcode.react'; // Yüksek kalite indirme için Canvas'a geçildi
@@ -133,9 +135,31 @@ export default function VincDuzenle() {
     }
   };
 
-  // --- YAZDIRMA ---
-  const yazdir = () => {
-    window.print();
+  // --- YAZDIRMA: A4 kimlik kartı → gerçek PDF (window.print boş sayfa basıyordu) ---
+  const yazdir = async () => {
+    try {
+      const canvas = document.getElementById('qr-canvas') as HTMLCanvasElement | null;
+      const qrPng = canvas ? canvas.toDataURL('image/png') : '';
+      const url = `https://servis.buvisan.com/vinc/${id}`;
+      await yazdirVeyaPaylas(
+        vincKartHtml({
+          qrPng,
+          musteri: formData.customer_name,
+          model: formData.model_name,
+          kapasite: formData.capacity,
+          kaldirma: formData.lifting_height,
+          seri: formData.serial_number,
+          adres: formData.location_address,
+          url,
+        }),
+        {
+          baslik: 'Vinç Kimlik Kartı',
+          dosyaAdi: 'vinc-kimlik-' + (formData.serial_number || id || 'buv'),
+        }
+      );
+    } catch (e: any) {
+      alert('PDF oluşturulamadı: ' + (e?.message || 'bilinmeyen hata'));
+    }
   };
 
   // --- YENİ: YÜKSEK KALİTE QR İNDİRME OTOMASYONU ---
