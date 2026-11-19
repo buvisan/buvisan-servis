@@ -1406,6 +1406,14 @@ export default function AkilliAnalizPage() {
                                 {para2(m.min)} – {para2(m.maks)} ₺ · KDV hariç
                               </span>
                             )}
+                            {m.kaynak === 'web' && m.guven > 0 && (
+                              <span className={`text-[9px] font-black px-2 py-1 rounded-lg border whitespace-nowrap ${
+                                m.guven >= 70 ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                                : m.guven >= 55 ? 'text-amber-700 bg-amber-50 border-amber-200'
+                                : 'text-rose-700 bg-rose-50 border-rose-200'}`}>
+                                güven %{yuzde(m.guven)}
+                              </span>
+                            )}
                             {m.kitap_kaydi && (
                               <span className="text-[9px] font-bold text-violet-700 bg-violet-50 border border-violet-200 px-2 py-1 rounded-lg whitespace-nowrap">
                                 kitapta {m.kitap_kaydi.kullanim}× kullanıldı

@@ -58,6 +58,8 @@ export type WebKaynak = {
   kaynak_adi: string;
   /** "perakende fiyatı KDV hariçe çevrildi" gibi kısa not */
   not: string | null;
+  /** true → ölçü/model tam eşleşmedi (gevşek eşleşme, düşük güven) */
+  gevsek?: boolean;
 };
 
 export type WebArastirma = {
@@ -922,6 +924,20 @@ const ilgiliMi = (metin: string, istenen: string[]): boolean => {
   return bulunan >= Math.ceil(istenen.length * 0.7);
 };
 
+/**
+ * GEVŞEK eşleşme: ölçü/model belirten sayı aranmaz, yalnızca kelimelerin
+ * çoğunluğu tutmalı. Tam eşleşme bulunamazsa "yakın sonuç" olarak kullanılır
+ * ve DAIMA düşük güvenle + uyarıyla gösterilir.
+ */
+const ilgiliGevsekMi = (metin: string, istenen: string[]): boolean => {
+  const alfa = istenen.filter((t) => !/\d/.test(t));
+  if (!alfa.length) return false;
+  const havuz = metinHavuzu(metin);
+  if (!havuz) return false;
+  const bulunan = alfa.filter((t) => havuz.includes(t)).length;
+  return bulunan >= Math.max(1, Math.ceil(alfa.length * 0.6));
+};
+
 /** Tüketici/hobi ürünü mü? (sanayi malzemesinde bisiklet parçası fiyatı kullanılmaz) */
 const tuketiciUrunu = (baslik: string, istenen: string[]): boolean => {
   const havuz = trAscii(String(baslik || ''));
@@ -1114,8 +1130,12 @@ export async function webFiyatArastir(ad: string, secenek: AramaSecenekleri = {}
   //  ⚠️ Başlık + fiyat bitiştirilerek ayrıştırılmaz: ürün kodu ile fiyat
   //     birleşip "55492940 549,54 TL" → 940549,54 gibi uydurma tutar üretiyordu.
   for (const s of aramaSonuclari) {
-    if (!ilgiliMi(`${s.baslik} ${s.ozet}`, istenen)) continue;
+    const havuz = `${s.baslik} ${s.ozet}`;
     if (tuketiciUrunu(s.baslik, istenen)) continue;
+
+    const sikiMi = ilgiliMi(havuz, istenen);
+    const gevsekMi = !sikiMi && ilgiliGevsekMi(havuz, istenen);
+    if (!sikiMi && !gevsekMi) continue;
 
     for (const tutar of fiyatlarAyristir(s.ozet)) {
       const k = kaynakUret({
@@ -1125,7 +1145,7 @@ export async function webFiyatArastir(ad: string, secenek: AramaSecenekleri = {}
         hamFiyat: tutar,
         kaynakAdi: s.motor,
       });
-      if (k) kaynaklar.push(k);
+      if (k) kaynaklar.push({ ...k, gevsek: gevsekMi });
     }
   }
 
@@ -1141,12 +1161,17 @@ export async function webFiyatArastir(ad: string, secenek: AramaSecenekleri = {}
       return !sayisalVar && alanAdiIlgili(s.url, istenen);
     };
 
-    const adaylar = aramaSonuclari
-      .filter((s) => {
-        if (tuketiciUrunu(s.baslik, istenen)) return false;
-        if (!sayfaAcilir(s)) return false;
-        return sayfaIlgili(s);
-      })
+    const uygun = aramaSonuclari.filter(
+      (s) => !tuketiciUrunu(s.baslik, istenen) && sayfaAcilir(s)
+    );
+    const sikiAdaylar = uygun.filter(sayfaIlgili);
+    // Tam eşleşme yoksa GEVŞEK adaylar denenir (düşük güven + uyarı ile)
+    const gevsekAdaylar = uygun.filter(
+      (s) => !sayfaIlgili(s) && ilgiliGevsekMi(`${s.baslik} ${s.ozet}`, istenen)
+    );
+
+    const gevsekMod = sikiAdaylar.length === 0 && gevsekAdaylar.length > 0;
+    const adaylar = (gevsekMod ? gevsekAdaylar : sikiAdaylar)
       .sort((a, b) => sayfaOnceligi(a) - sayfaOnceligi(b));
 
     // Aynı siteden en fazla 1 sayfa
@@ -1172,7 +1197,7 @@ export async function webFiyatArastir(ad: string, secenek: AramaSecenekleri = {}
 
         // Sayfadaki açık "KDV hariç" ifadesi varsayımı ezer
         const sayfaMetni = htmlCoz(cevap.metin).slice(0, 20_000);
-        return kaynakUret({
+        const kaynak = kaynakUret({
           site: siteAdi(a.url) || a.site,
           baslik: a.baslik,
           url: a.url,
@@ -1180,6 +1205,8 @@ export async function webFiyatArastir(ad: string, secenek: AramaSecenekleri = {}
           kaynakAdi: fiyat.kaynak,
           sayfaMetni,
         });
+        // Gevşek modda bulunduysa bunu ETİKETLE (düşük güven, kitaba yazılmaz)
+        return kaynak ? { ...kaynak, gevsek: gevsekMod } : null;
       }));
 
       for (const k of sayfaSonuclari) {
@@ -1192,13 +1219,18 @@ export async function webFiyatArastir(ad: string, secenek: AramaSecenekleri = {}
   }
 
   // ─── 4) MEDYAN + AYKIRI TEMİZLEME ───
-  const tekil = siteDengele(kaynakTekillestir(kaynaklar).filter((k) => gecerliFiyat(k.fiyat)));
-  if (!tekil.length) {
+  const tumKaynaklar = siteDengele(kaynakTekillestir(kaynaklar).filter((k) => gecerliFiyat(k.fiyat)));
+  if (!tumKaynaklar.length) {
     const uyari = hatalar.length
       ? `Ücretsiz kaynaklardan fiyat çıkmadı (${hatalar.slice(0, 2).join('; ')}).`
       : 'Ücretsiz kaynaklarda bu malzeme için fiyat bulunamadı.';
     return bos(uyari, denenen, cevapVeren);
   }
+
+  // Tam eşleşen kaynak varsa yalnızca onlar kullanılır; yoksa "yakın sonuç"
+  const sikiKaynaklar = tumKaynaklar.filter((k) => !k.gevsek);
+  const gevsekMod = sikiKaynaklar.length === 0;
+  const tekil = gevsekMod ? tumKaynaklar : sikiKaynaklar;
 
   // Ürün sayfasından okunan fiyat (JSON-LD) en kesinidir: 2+ taneyse onları kullan
   const sayfaKaynakli = tekil.filter((k) => SAYFA_KAYNAK_ADLARI.includes(k.kaynak_adi));
@@ -1231,10 +1263,15 @@ export async function webFiyatArastir(ad: string, secenek: AramaSecenekleri = {}
   if (sayfaKaynakli.length >= 1) guven = Math.max(guven, 72);
   if (sayfaKaynakli.length >= 1 && tekil.length >= 2) guven = 78;
   if (yayilim > 5) guven = Math.min(guven, 45);
+  // Ölçü/model tutmayan yakın sonuç → daima düşük güven
+  if (gevsekMod) guven = Math.min(guven, 40);
 
   const uyarilar: string[] = [];
-  if (tekil.length > temiz.length) {
-    uyarilar.push(`${tekil.length - temiz.length} aykırı fiyat (medyandan %60+ sapma) elendi.`);
+  if (gevsekMod) {
+    uyarilar.push('Tam eşleşme (ölçü/model) bulunamadı — yakın sonuçlar gösteriliyor, düşük güven: fiyatı doğrulayın.');
+  }
+  if (tumKaynaklar.length > temiz.length) {
+    uyarilar.push(`${tumKaynaklar.length - temiz.length} aykırı fiyat (medyandan %60+ sapma) elendi.`);
   }
   if (yayilim > 5) {
     uyarilar.push(`Kaynaklar arasında ${Math.round(yayilim)} kat fark var (paket/adet farkı olabilir) — fiyatı doğrulayın.`);
