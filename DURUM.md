@@ -292,7 +292,14 @@ Araçlar sayfasındaki yazdırma tablosunda bu `id` yoktu; üstelik buton sadece
 - Yazdırma tablosuna `id="form-yazdir"` eklendi → **Ctrl+P** de artık doğru çıkarır.
 - **Puantaj** sayfasına da aynı id eklendi (aynı sessiz hata oradaydı).
 
-⚠️ Hâlâ riskli (bu id yok): `app/admin/yeni-vinc`, `app/admin/vinc-duzenle/[id]` — print çıktısı boş olabilir.
+### v8.4 — Vinç QR “A4 Yazdır” → gerçek PDF (commit `7d8e588`)
+`app/admin/yeni-vinc` ve `app/admin/vinc-duzenle/[id]` sayfalarındaki **“A4 Yazdır”** da
+`window.print()` kullanıyordu → aynı sebepten **boş sayfa**.
+- Yeni şablon: **`lib/vincKartHtml.ts`** → A4 **vinç dijital kimlik kartı**
+  (BUVİSAN başlık, büyük QR + URL, müşteri/model/kapasite/kaldırma/seri/adres tablosu, kullanım notu)
+- QR görseli doğrudan sayfadaki `<canvas>` elementinden `toDataURL()` ile alınır (1024px, yüksek kalite)
+- Dosya adı: `vinc-kimlik-<seri-no>.pdf`
+- Artık `window.print()` kullanan sayfa **kalmadı** (bakım-formları hariç; o `#form-yazdir` ile çalışıyor).
 
 ---
 
