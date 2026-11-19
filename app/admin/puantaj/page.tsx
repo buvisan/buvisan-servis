@@ -410,7 +410,7 @@ export default function PuantajSayfasi() {
     </div>
 
     {/* ================= PDF / YAZDIRMA GÖRÜNÜMÜ ================= */}
-    <div className="hidden print:block p-8 text-black bg-white">
+    <div id="form-yazdir" className="hidden print:block p-8 text-black bg-white">
       <div className="text-center mb-6 border-b-2 border-black pb-4">
         <h1 className="text-2xl font-black tracking-tight">BUVİSAN VİNÇ SERVİS</h1>
         <p className="text-sm font-bold mt-1">PUANTAJ LİSTESİ</p>

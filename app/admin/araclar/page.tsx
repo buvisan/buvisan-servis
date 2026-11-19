@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { yazdirVeyaPaylas } from '@/lib/yazdirPaylas';
 import { 
   Car, ShieldAlert, Wrench, Calendar, Plus, X, Edit2, Trash2, Loader2, 
   Map, Key, Radio, Disc, AlertTriangle, CheckCircle2, FileText, FileWarning, 
@@ -19,6 +20,7 @@ export default function FiloYonetimEkrani() {
   const [tumCezalar, setTumCezalar] = useState<any[]>([]);
   const [tumYakitlar, setTumYakitlar] = useState<any[]>([]); // 🔥 TÜM YAKITLAR
   const [yukleniyor, setYukleniyor] = useState(true);
+  const [pdfUretiliyor, setPdfUretiliyor] = useState(false);
   
   // MODALLAR
   const [formAcik, setFormAcik] = useState(false);
@@ -188,6 +190,98 @@ export default function FiloYonetimEkrani() {
       return 'text-emerald-700 bg-emerald-50 border-emerald-200'; 
   };
 
+  // ─── PDF ÇIKAR ─────────────────────────────────────────────────────────────
+  // Eskiden sadece window.print() vardı; global print CSS'i (body * visibility:hidden)
+  // sayfada #form-yazdir olmadığı için BEYAZ SAYFA basıyordu.
+  // Artık gerçek A4 PDF üretiliyor (diğer formlarla aynı altyapı).
+  const pdfCikar = async () => {
+    if (pdfUretiliyor) return;
+    setPdfUretiliyor(true);
+    try {
+      const esc = (s: any) =>
+        String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const d = (t: any) => (t ? new Date(t).toLocaleDateString('tr-TR') : '—');
+      const gunYazi = (t: any) => {
+        const g = kalanGunHesapla(t || null);
+        if (g === null) return '';
+        if (g < 0) return `<span class="kotu">${Math.abs(g)} gün geçti</span>`;
+        if (g <= 30) return `<span class="orta">${g} gün kaldı</span>`;
+        return `<span class="iyi">${g} gün</span>`;
+      };
+
+      const satirlar = araclar.map((a: any) => `<tr>
+        <td class="plaka">${esc(a.plate)}</td>
+        <td>${esc(a.vehicle_name || '—')}</td>
+        <td>${esc(a.assigned_driver || '—')}</td>
+        <td>${d(a.inspection_date)}${gunYazi(a.inspection_date)}</td>
+        <td>${d(a.insurance_date)}${gunYazi(a.insurance_date)}</td>
+        <td>${d(a.casco_date)}${gunYazi(a.casco_date)}</td>
+        <td>${d(a.route_permit_date)}${gunYazi(a.route_permit_date)}</td>
+      </tr>`).join('');
+
+      const cezaToplam = Number(tumCezalar.reduce((t: number, c: any) => t + Number(c.amount || 0), 0));
+      const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8">
+<title>Araç Filosu Sicil Raporu</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;font-size:12px}
+  .sayfa{width:794px;padding:26px 30px;margin:0 auto}
+  .ust{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #0f172a;padding-bottom:12px}
+  .ust h1{font-size:17px;font-weight:900;text-transform:uppercase;letter-spacing:-0.2px}
+  .ust p{font-size:9.5px;color:#64748b;font-weight:600;margin-top:3px}
+  .tarih{text-align:right;font-size:9px;color:#94a3b8;font-weight:800;text-transform:uppercase;letter-spacing:.6px}
+  .tarih b{display:block;font-size:12px;color:#0f172a;margin-top:2px}
+  .ozet{display:flex;gap:8px;margin:14px 0 12px}
+  .kutu{flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;background:#f8fafc}
+  .kutu span{display:block;font-size:7.5px;letter-spacing:.5px;color:#94a3b8;font-weight:900;text-transform:uppercase}
+  .kutu b{font-size:14px;font-weight:900;color:#0f172a}
+  table{width:100%;border-collapse:collapse}
+  th{background:#0f172a;color:#fff;font-size:8.5px;letter-spacing:.4px;text-transform:uppercase;padding:7px 6px;text-align:left}
+  td{border-bottom:1px solid #e2e8f0;padding:6px;font-size:10px;vertical-align:top}
+  tr:nth-child(even) td{background:#f8fafc}
+  .plaka{font-weight:900;font-family:Consolas,monospace;letter-spacing:1px;white-space:nowrap}
+  .iyi{color:#059669;font-weight:800;display:block;font-size:8px}
+  .orta{color:#d97706;font-weight:800;display:block;font-size:8px}
+  .kotu{color:#dc2626;font-weight:800;display:block;font-size:8px}
+  .alt{margin-top:14px;border-top:1px solid #e2e8f0;padding-top:8px;text-align:center;font-size:8px;color:#94a3b8;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+  @media print{@page{size:A4 portrait;margin:10mm}.sayfa{width:100%;padding:0}}
+</style></head><body><div class="sayfa">
+  <div class="ust">
+    <div>
+      <h1>Araç Filosu Sicil Raporu</h1>
+      <p>Muayene · Sigorta · Kasko · Rota izni kritik tarihleri</p>
+    </div>
+    <div class="tarih">Rapor tarihi<b>${new Date().toLocaleDateString('tr-TR')}</b></div>
+  </div>
+
+  <div class="ozet">
+    <div class="kutu"><span>Araç</span><b>${araclar.length}</b></div>
+    <div class="kutu"><span>Sorunlu tarih</span><b>${istatistikler.acilMuayene + istatistikler.acilSigorta}</b></div>
+    <div class="kutu"><span>Toplam ceza</span><b>${cezaToplam.toLocaleString('tr-TR')} ₺</b></div>
+    <div class="kutu"><span>Bu ay mazot</span><b>${Number(istatistikler.buAyYakit || 0).toLocaleString('tr-TR')} ₺</b></div>
+  </div>
+
+  <table>
+    <thead><tr>
+      <th>Plaka</th><th>Araç</th><th>Şoför</th><th>Muayene</th><th>Sigorta</th><th>Kasko</th><th>Rota izni</th>
+    </tr></thead>
+    <tbody>${satirlar || '<tr><td colspan="7">Kayıtlı araç yok</td></tr>'}</tbody>
+  </table>
+
+  <div class="alt">BUVİSAN Araç Filosu · tutarlar KDV hariçtir · 0224 374 00 01</div>
+</div></body></html>`;
+
+      await yazdirVeyaPaylas(html, {
+        baslik: 'Araç Filosu Sicil Raporu',
+        dosyaAdi: 'arac-filosu-' + new Date().toISOString().slice(0, 10),
+      });
+    } catch (e: any) {
+      alert('PDF oluşturulamadı: ' + (e?.message || 'bilinmeyen hata'));
+    } finally {
+      setPdfUretiliyor(false);
+    }
+  };
+
   const formSifirla = () => {
       setYeniArac({ plate: '', vehicle_name: '', model_year: '', has_arvento: false, insurance_date: '', casco_date: '', inspection_date: '', tire_status: 'Yazlık Takılı', ad_branding: 'Reklam Yok', spare_key: 'Mevcut', current_km: '', next_oil_km: '', route_permit_date: '', assigned_driver: '' });
       setDuzenlemeId(null);
@@ -236,8 +330,8 @@ export default function FiloYonetimEkrani() {
               </div>
           </div>
           <div className="flex gap-2 w-full md:w-auto flex-wrap">
-              <button onClick={() => window.print()} className="flex-1 md:flex-none bg-slate-800 hover:bg-slate-900 text-white border border-slate-700 px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95 shadow-lg">
-                  <Printer size={20}/> PDF Çıkar
+              <button onClick={pdfCikar} disabled={pdfUretiliyor} className="flex-1 md:flex-none bg-slate-800 hover:bg-slate-900 text-white border border-slate-700 px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95 shadow-lg disabled:opacity-60">
+                  {pdfUretiliyor ? <Loader2 size={20} className="animate-spin"/> : <Printer size={20}/>} {pdfUretiliyor ? 'PDF hazırlanıyor...' : 'PDF Çıkar'}
               </button>
               <button onClick={() => setYakitRaporuAcik(true)} className="flex-1 md:flex-none bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95">
                   <Fuel size={20}/> Yakıt Analizi
@@ -353,7 +447,7 @@ export default function FiloYonetimEkrani() {
       {/* =========================================================================
           🔥 YAZDIRMA İÇİN GİZLİ PDF TABLOSU (Sadece "PDF Çıkar" basıldığında görünür) 
           ========================================================================= */}
-      <div className="hidden print:block w-full text-black bg-white p-8">
+      <div id="form-yazdir" className="hidden print:block w-full text-black bg-white p-8">
           <div className="flex items-center justify-between mb-8 border-b-2 border-slate-800 pb-4">
               <div>
                   <h1 className="text-3xl font-black text-slate-900 tracking-tight">Araç Filosu Tarih Raporu</h1>
