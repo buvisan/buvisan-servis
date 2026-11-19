@@ -14,6 +14,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { yazdirVeyaPaylas } from "@/lib/yazdirPaylas";
 import PushAbonelik from "@/components/PushAbonelik";
+import RandevuTakvimi, { tarihYaz as randevuTarihYaz } from "@/components/RandevuTakvimi";
 import { teklifHtml, satisHtml } from "@/lib/formHtml";
 import { sozlesmeHtml } from "@/lib/sozlesmeHtml";
 import { AnimatePresence, motion } from "framer-motion";
@@ -164,6 +165,12 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   const [tTip, setTTip] = useState("ariza");
   const [tMakine, setTMakine] = useState("");
   const [tGonder, setTGonder] = useState(false);
+  // 🗓️ Self-servis randevu
+  const [tRandevu, setTRandevu] = useState("");
+  const [randevuAcik, setRandevuAcik] = useState(false);
+  const [takvimKey, setTakvimKey] = useState(0);
+  const [takvimHazir, setTakvimHazir] = useState(true);
+  const [sonRandevu, setSonRandevu] = useState<{ tarih: string; konu: string } | null>(null);
   const [bakimTakvim, setBakimTakvim] = useState<any[]>([]);
   const [sozlesme, setSozlesme] = useState<any>(null);
   const [bakimTalepler, setBakimTalepler] = useState<any[]>([]);
@@ -386,6 +393,43 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
     setTGonder(true); setMesaj("");
     try {
       const tamAciklama = (tMakine ? "[MAKİNE: " + tMakine + "]\n" : "") + tAciklama.trim();
+
+      // ─── 🗓️ RANDEVU SEÇİLDİYSE: randevu_al → planlayıcıya direkt düşer ───
+      if (tRandevu) {
+        const makine = ([...vincler, ...kendi] as any[]).find((v: any) => v.model === tMakine);
+        const { data, error } = await supabase.rpc("randevu_al", {
+          p_musteri_adi: veri?.firma || "Müşteri",
+          p_telefon: veri?.telefon || "",
+          p_is_tipi: tTip,
+          p_tarih: tRandevu,
+          p_yetkili: veri?.ad_soyad || null,
+          p_adres: makine?.adres && makine.adres !== "—" ? makine.adres : null,
+          p_vinc_bilgisi: tMakine || null,
+          p_aciklama: tKonu.trim() + (tAciklama.trim() ? "\n\n" + tAciklama.trim() : ""),
+        });
+
+        if (error) {
+          const h = String((error as any).message || "");
+          if (h.includes("RANDEVU_DOLU")) setMesaj("❌ O gün doldu — lütfen başka bir gün seçin.");
+          else if (h.includes("RANDEVU_KAPALI_GUN")) setMesaj("❌ Seçilen gün kapalı. Başka bir gün seçin.");
+          else if (h.includes("RANDEVU_ILERI_TARIH")) setMesaj("❌ Çok ileri bir tarih seçtiniz.");
+          else if (h.includes("RANDEVU_GECMIS_TARIH")) setMesaj("❌ Geçmiş bir tarih seçilemez.");
+          else if (h.includes("RANDEVU_EKSIK_BILGI")) setMesaj("❌ Hesabınızda telefon kayıtlı değil — 0224 374 00 01.");
+          else setMesaj("❌ " + h);
+          return;
+        }
+
+        const d = (data as any) || {};
+        const randevuTarihi = String(d.tarih || tRandevu);
+        setMesaj("✅ Randevunuz alındı: " + randevuTarihYaz(randevuTarihi) + " · talebiniz planlayıcıya düştü.");
+        setSonRandevu({ tarih: randevuTarihi, konu: tKonu.trim() });
+        setTKonu(""); setTAciklama(""); setTMakine("");
+        setTRandevu(""); setRandevuAcik(false); setTakvimKey((n) => n + 1);
+        await veriGetir(token);
+        return;
+      }
+
+      // ─── Tarih seçilmedi → eski akış (ekip arar, gün birlikte belirlenir) ───
       const { data } = await supabase.rpc("musteri_talep_ac", {
         p_token: token, p_konu: tKonu.trim(),
         p_aciklama: tamAciklama || tKonu.trim(), p_tip: tTip,
@@ -1387,6 +1431,31 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                 </div>
 
                 <div className="p-4 space-y-3.5">
+                  {/* ✅ SON ALINAN RANDEVU — kalıcı onay kartı */}
+                  {sonRandevu && (
+                    <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-black text-emerald-800">Randevunuz alındı</p>
+                          <p className="text-[10px] font-bold text-emerald-700 mt-0.5">
+                            {randevuTarihYaz(sonRandevu.tarih)}
+                          </p>
+                          {sonRandevu.konu && (
+                            <p className="text-[9px] font-medium text-emerald-600 mt-0.5 truncate">{sonRandevu.konu}</p>
+                          )}
+                          <p className="text-[9px] font-medium text-emerald-600 mt-1 leading-relaxed">
+                            Ekibimiz randevu saatini planlayıcıdan belirleyip size bilgi verecek.
+                          </p>
+                        </div>
+                        <button type="button" onClick={() => setSonRandevu(null)}
+                          className="shrink-0 text-emerald-600/60 p-1">
+                          <X size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label className="text-[8px] font-black tracking-[0.16em] text-slate-400">TALEP TÜRÜ</label>
                     <div className="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-2 mt-1.5">
@@ -1435,6 +1504,50 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                     <textarea rows={4} value={tAciklama} onChange={(e) => setTAciklama(e.target.value)}
                       placeholder="Ne olduğunu detaylı yazın..."
                       className="w-full mt-1.5 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs resize-none outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100" />
+                  </div>
+
+                  {/* 🗓️ SELF-SERVİS RANDEVU */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[8px] font-black tracking-[0.16em] text-slate-400">
+                        RANDEVU TARİHİ (OPSİYONEL)
+                      </label>
+                      {tRandevu && (
+                        <button type="button" onClick={() => setTRandevu("")}
+                          className="text-[9px] font-black text-rose-600">
+                          TEMİZLE
+                        </button>
+                      )}
+                    </div>
+
+                    {!randevuAcik && !tRandevu ? (
+                      <button type="button" onClick={() => setRandevuAcik(true)}
+                        className="w-full py-3 rounded-xl bg-white border border-dashed border-slate-300 text-[10px] font-black text-slate-500 flex items-center justify-center gap-1.5 active:scale-[0.99] transition">
+                        <Calendar size={13} /> TARİH SEÇ — takvime düşsün
+                      </button>
+                    ) : (
+                      <>
+                        <RandevuTakvimi value={tRandevu || null} onChange={setTRandevu}
+                          vurgu="rose" yenileKey={takvimKey} onDurum={setTakvimHazir} />
+                        {!tRandevu && (
+                          <button type="button" onClick={() => setRandevuAcik(false)}
+                            className="mt-1.5 text-[9px] font-black text-slate-400">
+                            tarih seçmeden devam et
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    {tRandevu && (
+                      <p className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 mt-1.5">
+                        ✅ {randevuTarihYaz(tRandevu)} · talebiniz bu tarihe planlanacak
+                      </p>
+                    )}
+                    {!takvimHazir && tRandevu && (
+                      <p className="text-[9px] font-bold text-amber-700 mt-1">
+                        ⚠️ Takvim şu an yüklenemedi — tarih seçmeden gönderebilirsiniz.
+                      </p>
+                    )}
                   </div>
 
                   <button onClick={talepGonder} disabled={tGonder}

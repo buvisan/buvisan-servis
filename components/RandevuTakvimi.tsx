@@ -114,6 +114,8 @@ export default function RandevuTakvimi({
   };
 
   const seciliBilgi = value ? gunler[value] : undefined;
+  // Kapasite metni ayarlardan gelir (yönetici 3 → 20 yapabilir)
+  const kapasiteGoster = Object.values(gunler)[0]?.kapasite || 3;
 
   return (
     <div className="bg-white border border-slate-200 rounded-3xl p-4 shadow-sm">
@@ -125,7 +127,7 @@ export default function RandevuTakvimi({
           </div>
           <div>
             <h4 className="text-sm font-extrabold text-slate-800 leading-none">Randevu Tarihi Seçin</h4>
-            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Günde en fazla 3 müşteri kabul edilir</p>
+            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Günde en fazla {kapasiteGoster} müşteri kabul edilir</p>
           </div>
         </div>
         {yukleniyor && <Loader2 size={16} className="animate-spin text-slate-300" />}

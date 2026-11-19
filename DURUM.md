@@ -301,6 +301,28 @@ Araçlar sayfasındaki yazdırma tablosunda bu `id` yoktu; üstelik buton sadece
 - Dosya adı: `vinc-kimlik-<seri-no>.pdf`
 - Artık `window.print()` kullanan sayfa **kalmadı** (bakım-formları hariç; o `#form-yazdir` ile çalışıyor).
 
+## 🟢 v9 — SELF-SERVİS RANDEVU (müşteri portalı)
+
+Müşteri, portalın **TALEP** sekmesinde artık **kendi randevu tarihini seçebiliyor** → iş direkt planlayıcıya düşüyor.
+**SQL gerekmedi** — mevcut `randevu_doluluk()` + `randevu_al()` RPC'leri kullanıldı.
+
+**Akış**
+1. TALEP → “**TARİH SEÇ — takvime düşsün**” (opsiyonel, varsayılan kapalı)
+2. `components/RandevuTakvimi.tsx` açılır → `randevu_doluluk()` ile dolu/boş/kapalı günler
+   (kişisel veri dönmez, sadece “2 yer kaldı” gibi sayı)
+3. Gönder → tarih seçiliyse **`randevu_al()`**: randevu + `service_tickets` kaydı **tek işlemde**,
+   `kaynak='musteri'`, kapasite kilidi unique index ile korunuyor (yarış koşulu güvenli)
+4. Admin **planlayıcıda** randevu anında görünür (müşteri adı + telefon + iş tipi)
+5. Müşteriye **kalıcı onay kartı**: “Randevunuz alındı · 12 Kasım 2026 · ekibimiz saati belirleyecek”
+
+**Detaylar**
+- Tarih seçilmezse eski akış (`musteri_talep_ac`) aynen çalışır — “ekip arayıp gün belirler”
+- Hata mesajları Türkçeleştirildi: `RANDEVU_DOLU` → “O gün doldu”, `RANDEVU_KAPALI_GUN`,
+  `RANDEVU_ILERI_TARIH`, `RANDEVU_GECMIS_TARIH`, `RANDEVU_EKSIK_BILGI`
+- `RandevuTakvimi` başlığındaki “günde en fazla 3 müşteri” metni artık **ayarlardan** okunuyor
+  (`randevu_ayarlari.gunluk_kapasite`; yönetici 20 yaptıysa 20 yazar)
+- Takvim RPC'si çökerse form kırılmaz: “takvim yüklenemedi, tarih seçmeden gönderebilirsiniz”
+
 ---
 
 ## 📊 VERİTABANI DURUMU
