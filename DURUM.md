@@ -278,6 +278,22 @@ Yani doğru davranış (biten işi gizle) + yanlış sayı (toplam yerine açık
   (`devam_ediyor` açık sayılır → listede kalır).
 - `randevular.durum` NOT NULL (planlandi/yapildi/iptal/ertelendi) → `erteleme` satırları da gecikmiş sayılır.
 
+### v8.3 — “PDF Çıkar” düzeltmesi (commit `c8e6753`)
+**Sorun:** Admin → **Araçlar** → “PDF Çıkar” **beyaz sayfa** basıyordu.
+**Kök neden:** `globals.css` içindeki print kuralı her şeyi gizliyor:
+```css
+@media print { body * { visibility: hidden !important; }
+               #form-yazdir, #form-yazdir * { visibility: visible !important; } }
+```
+Araçlar sayfasındaki yazdırma tablosunda bu `id` yoktu; üstelik buton sadece `window.print()` çağırıyordu.
+**Düzeltme:**
+- Buton artık `yazdirVeyaPaylas()` ile **gerçek A4 PDF** üretiyor
+  (başlık + özet kutuları + tarih renk kodlu tablo) → dosya: `arac-filosu-YYYY-MM-DD.pdf`
+- Yazdırma tablosuna `id="form-yazdir"` eklendi → **Ctrl+P** de artık doğru çıkarır.
+- **Puantaj** sayfasına da aynı id eklendi (aynı sessiz hata oradaydı).
+
+⚠️ Hâlâ riskli (bu id yok): `app/admin/yeni-vinc`, `app/admin/vinc-duzenle/[id]` — print çıktısı boş olabilir.
+
 ---
 
 ## 📊 VERİTABANI DURUMU
