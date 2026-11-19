@@ -547,6 +547,43 @@ export function bakimFormuHtml(b: any): string {
 // ═══════════════════════════════════════════════════════════
 // FİYAT TEKLİFİ
 // ═══════════════════════════════════════════════════════════
+// ─── MÜŞTERİYE DÖNÜK METİN SADELEŞTİRME ───
+// Teklif kayıtlarında (özellikle akıllı analiz / fiyat motoru) fiyat kaynağı,
+// maliyet dökümü ve kâr marjı gibi İÇ notlar tutulur. Bunlar müşteriye giden
+// PDF'e basılmaz; bu yardımcılar kayıttaki metni bozmadan yalnızca GÖRÜNÜMÜ
+// sadeleştirir (eski kayıtlar da aynı şekilde temiz görünür).
+const IC_NOT_SATIRI = /(maliyet\s+d[öo]k[üu]m[üu]|uygulanan\s+k[aâ]r\s+marj)/i;
+
+/** "Notlar ve Şartlar" metninden maliyet dökümü / kâr marjı satırlarını ayıklar. */
+function musteriNotlari(metin: any): string {
+  const ham = metin === null || metin === undefined ? "" : String(metin);
+  if (!ham) return "";
+  const kalan = ham.split(/\r?\n/).filter((satir) => !IC_NOT_SATIRI.test(satir));
+  // Sadece iç notlardan oluşuyorsa boş say (varsayılan metin devreye girer);
+  // aksi halde metin BİREBİR korunur → eski kayıtların görünümü bozulmaz.
+  return kalan.some((satir) => satir.trim()) ? kalan.join("\n") : "";
+}
+
+/** Kalem altı açıklamasını müşteriye dönük sade metne çevirir (tutarlar KDV hariç). */
+function musteriDetay(detay: any): string {
+  const ham = detay === null || detay === undefined ? "" : String(detay);
+  const d = ham.trim();
+  if (!d) return ham;
+
+  // Malzeme satırı: fiyat kaynağı iç notu ("Fiyat kitabı — doğrulanmış fiyat…",
+  // "Fiyat kitabına kaydedildi…", elle/web/tahmini kaynağı) gösterilmez.
+  if (/^(elle girilen fiyat|fiyat kitab[ıi]|ücretsiz web fiyat|tahmin[iî] fiyat)/i.test(d)) {
+    return "KDV hariç";
+  }
+
+  // İşçilik satırı: "2 teknisyen × 6 saat × 350,53 ₺/saat (KDV hariç)"
+  // → "2 teknisyen × 6 saat (KDV hariç)"
+  const iscilik = d.match(/^(\d+)\s*teknisyen\s*[×x]\s*([\d.,]+)\s*saat/i);
+  if (iscilik) return `${iscilik[1]} teknisyen × ${iscilik[2]} saat (KDV hariç)`;
+
+  return ham; // kural tutmadı → eski kayıtlardaki metin aynen basılır
+}
+
 export function teklifHtml(t: any, kalemler: any[]): string {
   const liste = (kalemler || []).length > 0 ? kalemler : jsonDizi(t?.items);
   const toplam = liste.reduce((s: number, k: any) => {
@@ -563,9 +600,23 @@ export function teklifHtml(t: any, kalemler: any[]): string {
   // Tutarlar KDV hariçtir.
   const araToplam = Number(t?.ara_toplam) || 0;
   const karMarji = Number(t?.kar_marji) || 0;
+  // Kâr marjı satırı müşteriye GÖSTERİLMEZ; karTutari yalnızca eski
+  // kayıtlardaki ARA TOPLAM satırı görünürlüğünü birebir korumak için tutulur.
   const karTutari = karMarji > 0
     ? (Number(t?.kar_tutari) || Math.round(araToplam * karMarji) / 100)
     : 0;
+  const araToplamSatiri = araToplam > 0 || karTutari > 0;
+
+  // ARA TOPLAM = kalemlerin toplamı (KDV hariç) · GENEL TOPLAM = satış fiyatı.
+  // Marj satırı kaldırıldığı için ara toplam ASLA "genel toplam - kâr tutarı"
+  // diye türetilmez; tablodaki kalemlerin kendi toplamı yazılır ki satırlar
+  // tutsun. Marj alanı olmayan eski kayıtlarda satır zaten çıkmaz (görünüm aynı).
+  const araToplamGoster = toplam > 0 ? toplam : araToplam;
+
+  // Notlar: maliyet dökümü ve "uygulanan kâr marjı" satırları müşteriye
+  // gösterilmez. KDV ibaresi, geçerlilik tarihi ve kapsam satırları kalır.
+  const notlar = musteriNotlari(t?.description)
+    || "Bu teklif 15 gün süreyle geçerlidir. Fiyatlara KDV dahil değildir.";
 
   const baslik =
     t?.template_type === "bakim" ? "PERİYODİK BAKIM SÖZLEŞMESİ"
@@ -601,21 +652,18 @@ export function teklifHtml(t: any, kalemler: any[]): string {
             const adet = Number(k?.adet) || 1;
             const bf = Number(k?.birim_fiyat) || 0;
             const tt = Number(k?.toplam) || adet * bf;
+            const detay = musteriDetay(k?.detay);
             return `<tr>
-              <td><b>${esc(k?.ad || k?.description || "—")}</b>${k?.detay ? `<div style="font-size:9.5px;color:#64748b;margin-top:3px;font-weight:500">${esc(k.detay)}</div>` : ""}</td>
+              <td><b>${esc(k?.ad || k?.description || "—")}</b>${detay ? `<div style="font-size:9.5px;color:#64748b;margin-top:3px;font-weight:500">${esc(detay)}</div>` : ""}</td>
               <td class="orta">${adet}</td>
               <td class="sag">${para(bf)}</td>
               <td class="sag"><b>${para(tt)}</b></td>
             </tr>`;
           }).join("")
         : `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:16px">Kalem bulunmuyor</td></tr>`}
-      ${araToplam > 0 || karTutari > 0 ? `<tr>
+      ${araToplamSatiri ? `<tr>
         <td colspan="3" class="sag" style="font-weight:800;background:#f8fafc">ARA TOPLAM</td>
-        <td class="sag" style="font-weight:800;background:#f8fafc">${para(araToplam > 0 ? araToplam : toplam)}</td>
-      </tr>` : ""}
-      ${karTutari > 0 ? `<tr>
-        <td colspan="3" class="sag" style="font-weight:700">KÂR MARJI (%${esc(Math.round(karMarji * 100) / 100)})</td>
-        <td class="sag" style="font-weight:800;color:#059669">+ ${para(karTutari)}</td>
+        <td class="sag" style="font-weight:800;background:#f8fafc">${para(araToplamGoster)}</td>
       </tr>` : ""}
       <tr class="toplam">
         <td colspan="3" class="sag">GENEL TOPLAM</td>
@@ -630,7 +678,7 @@ export function teklifHtml(t: any, kalemler: any[]): string {
 
   <div class="bolum">
     <div class="bolum-baslik">Notlar ve Şartlar</div>
-    <div class="bolum-icerik">${esc(t?.description || "Bu teklif 15 gün süreyle geçerlidir. Fiyatlara KDV dahil değildir.")}</div>
+    <div class="bolum-icerik">${esc(notlar)}</div>
   </div>
 
   <div class="imza-alan">
