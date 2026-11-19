@@ -17,12 +17,13 @@ import PushAbonelik from "@/components/PushAbonelik";
 import RandevuTakvimi, { tarihYaz as randevuTarihYaz } from "@/components/RandevuTakvimi";
 import { teklifHtml, satisHtml } from "@/lib/formHtml";
 import { sozlesmeHtml } from "@/lib/sozlesmeHtml";
+import { servisFormuHtml } from "@/lib/servisFormuHtml";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Loader2, LogOut, Wrench, RefreshCw, Send, MessageSquare, Plus, X,
   Check, CheckCircle2, XCircle, Star, Package, Calendar, MapPin,
   ChevronRight, Clock, FileText, Banknote, AlertCircle, Sparkles,
-  Phone, Pencil, Trash2, ShieldCheck, Activity,
+  Phone, Pencil, Trash2, ShieldCheck, Activity, Download,
 } from "lucide-react";
 
 type Sekme = "ozet" | "makine" | "servis" | "teklif" | "sohbet" | "talep" | "bakim";
@@ -201,6 +202,7 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
   const [servisListe, setServisListe] = useState<any[]>([]);
   const [servisDetay, setServisDetay] = useState<any | null>(null);
   const [detayYuk, setDetayYuk] = useState(false);
+  const [formYuk, setFormYuk] = useState<string | null>(null);   // 📄 formu hazırlanan kayıt
   const sohbetSon = useRef<HTMLDivElement | null>(null);
 
   const veriGetir = useCallback(async (tk: string) => {
@@ -551,6 +553,54 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
       } else if ((data as any)?.mesaj) setMesaj("❌ " + (data as any).mesaj);
     } catch { /* yoksay */ }
     finally { setDetayYuk(false); }
+  };
+
+  // 📄 SERVİS FORMU — A4 PDF (musteri_servis_detay → lib/servisFormuHtml)
+  //    Token kontrolü RPC'nin içinde: müşteri sadece KENDİ kaydını alabilir.
+  const servisFormuPdf = async (row: any, hazirVeri?: any) => {
+    if (!row?.id || !row?.kaynak) {
+      setMesaj("⚠️ Bu kayıt için form görüntülenemiyor.");
+      return;
+    }
+    if (formYuk) return;                       // aynı anda tek form
+    const anahtar = String(row.id);
+    setFormYuk(anahtar);
+    setMesaj("⏳ Servis formu hazırlanıyor...");
+    try {
+      // Detay modalından gelindiyse elimizdeki (zaten RPC'den gelmiş) veriyi kullan
+      let detay: any = hazirVeri && hazirVeri.ok ? hazirVeri : null;
+      if (!detay) {
+        const { data, error } = await supabase.rpc("musteri_servis_detay", {
+          p_token: token, p_kaynak: row.kaynak, p_id: row.id,
+        });
+        if (error || !(data as any)?.ok) {
+          setMesaj("❌ " + ((data as any)?.mesaj || error?.message || "Form yüklenemedi."));
+          return;
+        }
+        detay = data as any;
+      }
+
+      const html = servisFormuHtml({ ...row, ...detay }, {
+        firma: veri?.firma, yetkili: veri?.ad_soyad, telefon: veri?.telefon,
+      });
+
+      // Dosya adı: sadece ASCII (PDF indirici Türkçe karakterleri temizliyor)
+      const kod = String(detay?.form_no || row?.form_no || "")
+        .replace(/[^0-9A-Za-z]+/g, "-").replace(/^-+|-+$/g, "");
+      const gun = String(row?.tarih_iso || "").replace(/[^0-9]/g, "");
+      const dosyaAdi = "servis-formu" + (gun ? "-" + gun : "") + (kod ? "-" + kod : "-" + anahtar.slice(0, 6));
+
+      await yazdirVeyaPaylas(html, {
+        baslik: "Servis Formu" + (kod ? " · " + kod : ""),
+        dosyaAdi,
+        cokSayfali: true,
+      });
+      setMesaj("");
+    } catch (e: any) {
+      setMesaj("❌ " + (e?.message || "PDF hatası"));
+    } finally {
+      setFormYuk(null);
+    }
   };
 
   const cikis = () => {
@@ -1064,29 +1114,42 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                             <div key={s.id || i} className="relative pl-6">
                               <span className={"absolute left-0 top-4 w-[15px] h-[15px] rounded-full border-[3px] bg-white " +
                                 (bakimMi ? "border-teal-500" : "border-indigo-500")} />
-                              <button onClick={() => detayAc(s)}
-                                className="w-full text-left rounded-2xl border border-slate-200/80 bg-white p-3 transition active:scale-[0.99] hover:border-indigo-300 hover:shadow-[0_6px_20px_-14px_rgba(15,23,42,0.4)]">
-                                <div className="flex items-start gap-2.5">
-                                  <span className={"w-8 h-8 rounded-xl grid place-items-center shrink-0 " +
-                                    (bakimMi ? "bg-teal-50 text-teal-600" : "bg-indigo-50 text-indigo-600")}>
-                                    {bakimMi ? <Calendar size={14} /> : <Wrench size={14} />}
-                                  </span>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-[9px] font-black tracking-wide text-slate-400">
-                                      {s.tarih} · {String(s.tur || "Servis").toUpperCase()}
-                                    </p>
-                                    <p className="text-[11px] font-bold text-slate-700 mt-1 leading-relaxed line-clamp-2">
-                                      {s.aciklama}
-                                    </p>
-                                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                                      {s.form_no && <Cip><FileText size={8} /> {s.form_no}</Cip>}
-                                      {s.personel && s.personel !== "—" && <Cip>{s.personel}</Cip>}
-                                      {malzemeVar && <Cip renk="amber"><Package size={8} /> Malzeme</Cip>}
+                              <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden transition hover:border-indigo-300 hover:shadow-[0_6px_20px_-14px_rgba(15,23,42,0.4)]">
+                                <button onClick={() => detayAc(s)}
+                                  className="w-full text-left p-3 active:scale-[0.99] transition">
+                                  <div className="flex items-start gap-2.5">
+                                    <span className={"w-8 h-8 rounded-xl grid place-items-center shrink-0 " +
+                                      (bakimMi ? "bg-teal-50 text-teal-600" : "bg-indigo-50 text-indigo-600")}>
+                                      {bakimMi ? <Calendar size={14} /> : <Wrench size={14} />}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[9px] font-black tracking-wide text-slate-400">
+                                        {s.tarih} · {String(s.tur || "Servis").toUpperCase()}
+                                      </p>
+                                      <p className="text-[11px] font-bold text-slate-700 mt-1 leading-relaxed line-clamp-2">
+                                        {s.aciklama}
+                                      </p>
+                                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                        {s.form_no && <Cip><FileText size={8} /> {s.form_no}</Cip>}
+                                        {s.personel && s.personel !== "—" && <Cip>{s.personel}</Cip>}
+                                        {malzemeVar && <Cip renk="amber"><Package size={8} /> Malzeme</Cip>}
+                                      </div>
                                     </div>
+                                    <ChevronRight size={15} className="text-slate-300 shrink-0 mt-1" />
                                   </div>
-                                  <ChevronRight size={15} className="text-slate-300 shrink-0 mt-1" />
+                                </button>
+                                {/* 📄 Servis formu (A4 PDF) — sadece kendi kaydı, token RPC içinde */}
+                                <div className="px-3 pb-3">
+                                  <button onClick={() => servisFormuPdf(s)}
+                                    disabled={!!formYuk}
+                                    aria-label={"Servis formunu görüntüle" + (s.tarih ? " · " + s.tarih : "")}
+                                    className="w-full min-h-[42px] rounded-xl border border-indigo-200 bg-indigo-50/70 text-indigo-700 text-[10px] font-black tracking-[0.06em] flex items-center justify-center gap-1.5 active:scale-[0.98] transition hover:bg-indigo-100 disabled:opacity-60">
+                                    {formYuk === String(s.id)
+                                      ? <><Loader2 size={13} className="animate-spin" /> FORM HAZIRLANIYOR</>
+                                      : <><FileText size={13} /> FORMU GÖRÜNTÜLE</>}
+                                  </button>
                                 </div>
-                              </button>
+                              </div>
                             </div>
                           );
                         })}
@@ -1914,9 +1977,14 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                   </div>
                 )}
 
-                {/* 💰 FİYAT — sadece detayda görünür */}
+                {/* 💰 FİYAT — sadece detayda görünür · tüm tutarlar KDV hariç */}
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3">
-                  <p className="text-[8px] font-black tracking-[0.16em] text-slate-400">SERVİS BEDELİ</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[8px] font-black tracking-[0.16em] text-slate-400">SERVİS BEDELİ</p>
+                    <span className="text-[8px] font-black tracking-[0.08em] text-amber-800 bg-amber-300/60 px-1.5 py-0.5 rounded">
+                      KDV HARİÇ
+                    </span>
+                  </div>
                   {Number(servisDetay.tutar) > 0 ? (
                     <p className="text-[21px] leading-none font-black text-slate-900 mt-1">
                       {para(servisDetay.tutar)} <span className="text-[11px] font-bold text-slate-400">₺</span>
@@ -1927,6 +1995,18 @@ export default function MusteriPortaliV4({ baslangicToken }: { baslangicToken?: 
                     </p>
                   )}
                 </div>
+
+                {/* 📄 SERVİS FORMU — A4 PDF (lib/servisFormuHtml) */}
+                <button onClick={() => servisFormuPdf(servisDetay, servisDetay)}
+                  disabled={!!formYuk}
+                  className="w-full min-h-[44px] rounded-xl bg-[#0b1220] text-white text-[11px] font-black tracking-[0.06em] flex items-center justify-center gap-2 active:scale-[0.98] transition disabled:opacity-60">
+                  {formYuk
+                    ? <><Loader2 size={14} className="animate-spin" /> FORM HAZIRLANIYOR</>
+                    : <><Download size={14} /> SERVİS FORMU (A4 PDF)</>}
+                </button>
+                <p className="text-center text-[9px] font-bold text-slate-400">
+                  Form, bu servis kaydından otomatik oluşturulur · tutarlar KDV hariç
+                </p>
 
                 <p className="text-center text-[9px] font-bold text-slate-400">
                   BUVİSAN Vinç &amp; Asansör Servis · 0224 374 00 01
