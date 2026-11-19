@@ -4,9 +4,13 @@
 //  🤖 AKILLI ANALİZ MERKEZİ — Foto AI + FİYAT MOTORU + Anomali Alarmı
 // ----------------------------------------------------------------------------
 //  Veri: fiyat_onerisi() · anomali_tara() · foto_analiz_gecmisi() · foto_analiz_kaydet()
-//        fiyat_motoru_ayar() (208) · eleman_saat_maliyeti() (96) · offers
+//        fiyat_motoru_ayar() (208) · malzeme_fiyat_kitabi() (209) · offers
 //  AI  : /api/foto-analiz (Gemini + yedek sağlayıcı zinciri)
-//        /api/malzeme-fiyat (Gemini google_search grounding + tahmin yedeği)
+//  Fiyat: /api/malzeme-fiyat
+//         1) FİYAT KİTABI (209) → anında, ücretsiz, doğru (kaynak: KİTAP)
+//         2) ÜCRETSİZ WEB (SearXNG · DuckDuckGo · Bing · n11 · Akakçe)
+//            → medyan + KDV dönüşümü (kaynak: WEB)
+//         3) AI tahmini YALNIZCA son çare (kaynak: TAHMİNİ)
 //  İlke: her bölüm bağımsız, biri hata verse diğerleri çalışır
 //  Para: bu ekrandaki TÜM tutarlar KDV HARİÇTİR
 // ============================================================================
@@ -21,7 +25,8 @@ import {
   Sparkles, Loader2, RefreshCw, ArrowLeft, AlertTriangle, Camera,
   Calculator, TrendingUp, CheckCircle2, X, Upload, Shield, Clock,
   Package, Lightbulb, History, Zap,
-  Plus, Trash2, Search, Percent, FileText, ExternalLink, Globe, Users, Truck
+  Plus, Trash2, Search, Percent, FileText, ExternalLink, Globe, Users, Truck,
+  BookMarked, ChevronDown, ChevronUp, Save, Link2
 } from 'lucide-react';
 
 const para = (n: any) => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
@@ -61,18 +66,45 @@ const KM_BIRIM_VARSAYILAN = (() => {
 })();
 const GUNLUK_SAAT = 8;               // "gün" seçilirse saat = gün × 8
 
+/** Malzeme fiyatının kaynağı — KİTAP > WEB > TAHMİNİ */
+type FiyatKaynagi = 'kitap' | 'web' | 'tahmini';
+
+/** Ekranda "kaynaklar" açılır listesinde gösterilen tek kaynak */
+type FiyatKaynakSatiri = {
+  site: string;
+  baslik: string;
+  url: string | null;
+  /** KDV hariç fiyat */
+  fiyat: number;
+  kaynak_adi?: string;
+};
+
 type MalzemeTipi = {
   id: string;
   ad: string;
   adet: number;
   /** KDV hariç birim fiyat — bulunamadıysa null (0 DEĞİL) */
   birim: number | null;
-  kaynak: 'google' | 'tahmini' | null;
+  kaynak: FiyatKaynagi | null;
   guven: number;
   bulundu: boolean;
   /** kullanıcı elle yazdı mı? */
   elle: boolean;
   not: string | null;
+  /** web aramasında bulunan kaynaklar (site + başlık + link) */
+  kaynaklar: FiyatKaynakSatiri[];
+  /** KDV dönüşümü notu ("perakende fiyatı KDV hariçe çevrildi") */
+  kdv_notu: string | null;
+  /** en az 2 kaynak varsa aralık (KDV hariç) */
+  min: number | null;
+  maks: number | null;
+  kaynak_sayisi: number;
+  /** fiyat kitabından mı geldi (kaynak: kitap) */
+  kitap_kaydi: { kaynak: string; guncelleme: string | null; kullanim: number } | null;
+  /** "✔ Bu fiyatı kaydet" başarılı oldu mu */
+  kaydedildi: boolean;
+  /** kaynaklar listesi açık mı */
+  acik: boolean;
 };
 
 type DigerTuru = { id: string; ad: string; tutar: number | null };
@@ -85,6 +117,8 @@ const yeniId = () =>
 const bosMalzeme = (): MalzemeTipi => ({
   id: yeniId(), ad: '', adet: 1, birim: null, kaynak: null,
   guven: 0, bulundu: false, elle: false, not: null,
+  kaynaklar: [], kdv_notu: null, min: null, maks: null, kaynak_sayisi: 0,
+  kitap_kaydi: null, kaydedildi: false, acik: false,
 });
 const bosDiger = (): DigerTuru => ({ id: yeniId(), ad: '', tutar: null });
 
@@ -96,9 +130,14 @@ const adAnahtar = (s: any) =>
     .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ç/g, 'c')
     .replace(/[^a-z0-9]/g, '');
 
-/** Kaynak rozeti — Google / Tahmini / Elle / fiyat yok · sabit etiket (personel/mesafe) */
+/**
+ * Kaynak rozeti — KİTAP / WEB / TAHMİNİ / ELLE / FİYAT YOK
+ * KİTAP = daha önce bulunup saklanmış gerçek fiyat (en güvenilir)
+ * WEB   = ücretsiz kaynaklardan yeni bulundu (kaynak listesi açılır)
+ * TAHMİNİ = AI tahmini (gerçek kaynak YOK — güvenmeyin)
+ */
 function KaynakRozet({ kaynak, guven, elle, bulundu, etiket }: {
-  kaynak: 'google' | 'tahmini' | null; guven: number; elle: boolean; bulundu: boolean; etiket?: string;
+  kaynak: FiyatKaynagi | null; guven: number; elle: boolean; bulundu: boolean; etiket?: string;
 }) {
   if (etiket) {
     return (
@@ -121,10 +160,17 @@ function KaynakRozet({ kaynak, guven, elle, bulundu, etiket }: {
       </span>
     );
   }
-  if (kaynak === 'google') {
+  if (kaynak === 'kitap') {
+    return (
+      <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-violet-50 text-violet-700 border-violet-200 whitespace-nowrap inline-flex items-center gap-0.5">
+        <BookMarked size={8} /> KİTAP
+      </span>
+    );
+  }
+  if (kaynak === 'web') {
     return (
       <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200 whitespace-nowrap inline-flex items-center gap-0.5">
-        <Globe size={8} /> GOOGLE
+        <Globe size={8} /> WEB
       </span>
     );
   }
@@ -222,6 +268,8 @@ export default function AkilliAnalizPage() {
 
   const [fiyatYuk, setFiyatYuk] = useState(false);
   const [fiyatUyari, setFiyatUyari] = useState<string | null>(null);
+  /** Araştırma özeti: "Kitaptan 2 · webden 1 · AI tahmini 0 · 3.4 sn" */
+  const [fiyatOzet, setFiyatOzet] = useState<string | null>(null);
   const [referans, setReferans] = useState<any>(null);
   const [musteriListe, setMusteriListe] = useState<string[]>([]);
   const [teklifYuk, setTeklifYuk] = useState(false);
@@ -399,10 +447,64 @@ export default function AkilliAnalizPage() {
   const malzemeFiyat = (id: string, ham: string) =>
     setMalzemeler((p) => p.map((m) => {
       if (m.id !== id) return m;
-      if (ham.trim() === '') return { ...m, birim: null, bulundu: false, elle: false, kaynak: null, guven: 0 };
+      if (ham.trim() === '') {
+        return { ...m, birim: null, bulundu: false, elle: false, kaynak: null, guven: 0, kaydedildi: false };
+      }
       const deger = Math.max(0, sayi(ham));
-      return { ...m, birim: kurus(deger), bulundu: deger > 0, elle: true };
+      return { ...m, birim: kurus(deger), bulundu: deger > 0, elle: true, kaydedildi: false };
     }));
+
+  /** Satırdaki kaynak listesini aç/kapat */
+  const kaynakAc = (id: string) =>
+    setMalzemeler((p) => p.map((m) => (m.id === id ? { ...m, acik: !m.acik } : m)));
+
+  // ─── "✔ BU FİYATI KAYDET" → fiyat kitabına yaz (öğrenen sistem) ───
+  const [kaydetYuk, setKaydetYuk] = useState<string | null>(null);
+  const fiyatKaydet = async (m: MalzemeTipi) => {
+    const ad = m.ad.trim();
+    const birim = kurus(sayi(m.birim));
+    if (ad.length < 2) { mesajYaz('Kaydetmek için malzeme adı gerekli.', 'uyari'); return; }
+    if (!(birim > 0)) { mesajYaz('Kaydetmek için birim fiyat girin (KDV hariç).', 'uyari'); return; }
+
+    setKaydetYuk(m.id);
+    try {
+      const { data: oturum } = await supabase.auth.getSession();
+      const token = oturum?.session?.access_token;
+      const yanit = await fetch('/api/malzeme-fiyat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          action: 'kaydet',
+          ad,
+          birim_fiyat: birim,
+          kaynak: m.elle ? 'elle' : (m.kaynak === 'kitap' ? 'kitap' : 'web'),
+          kaynak_url: m.kaynaklar[0]?.url || null,
+        }),
+      });
+
+      let sonuc: any = null;
+      try { sonuc = await yanit.json(); } catch { sonuc = null; }
+
+      if (!yanit.ok || !sonuc?.ok) {
+        mesajYaz(sonuc?.mesaj || 'Fiyat kaydedilemedi (fiyat kitabı tablosu 209 çalıştırılmış olmalı).');
+        return;
+      }
+
+      setMalzemeler((p) => p.map((x) => (
+        x.id === m.id
+          ? { ...x, kaynak: 'kitap', elle: false, guven: 92, kaydedildi: true, not: 'Fiyat kitabına kaydedildi — sonraki aramalarda bu fiyat kullanılacak (KDV hariç)' }
+          : x
+      )));
+      mesajYaz(`✅ "${ad}" fiyatı kitaba kaydedildi (KDV hariç ${para2(birim)} ₺).`, 'basari');
+    } catch (e: any) {
+      mesajYaz('Fiyat kaydedilemedi: ' + (e?.message || 'bağlantı hatası'));
+    } finally {
+      setKaydetYuk(null);
+    }
+  };
 
   const digerEkle = () => setDigerler((p) => [...p, bosDiger()]);
   const digerSil = (id: string) => setDigerler((p) => p.filter((d) => d.id !== id));
@@ -477,7 +579,11 @@ export default function AkilliAnalizPage() {
         setFiyatUyari(mesaj + ' Fiyatları elle girebilirsiniz.');
         setMalzemeler((prev) => prev.map((m) => (
           temiz.some((t) => t.id === m.id)
-            ? { ...m, birim: null, kaynak: null, guven: 0, bulundu: false, elle: false, not: null }
+            ? {
+                ...m, birim: null, kaynak: null, guven: 0, bulundu: false, elle: false,
+                not: null, kaynaklar: [], kdv_notu: null, min: null, maks: null,
+                kaynak_sayisi: 0, kitap_kaydi: null, kaydedildi: false,
+              }
             : m
         )));
         return;
@@ -492,24 +598,69 @@ export default function AkilliAnalizPage() {
         const g = siradaki && adAnahtar(siradaki.ad) === adAnahtar(m.ad)
           ? siradaki
           : (gelen.find((x) => adAnahtar(x?.ad) === adAnahtar(m.ad)) || siradaki);
-        if (!g) return { ...m, birim: null, kaynak: null, guven: 0, bulundu: false, elle: false, not: null };
+        if (!g) {
+          return {
+            ...m, birim: null, kaynak: null, guven: 0, bulundu: false, elle: false,
+            not: null, kaynaklar: [], kdv_notu: null, min: null, maks: null,
+            kaynak_sayisi: 0, kitap_kaydi: null, kaydedildi: false,
+          };
+        }
 
         const birim = Number(g.birim_fiyat);
         const bulundu = Boolean(g.bulundu) && Number.isFinite(birim) && birim > 0;
+        const kaynak: FiyatKaynagi | null = bulundu
+          ? (g.kaynak === 'kitap' ? 'kitap' : g.kaynak === 'web' ? 'web' : 'tahmini')
+          : null;
+
         return {
           ...m,
           birim: bulundu ? kurus(birim) : null,
-          kaynak: bulundu ? (g.kaynak === 'google' ? 'google' : 'tahmini') : null,
+          kaynak,
           guven: sayi(g.guven),
           bulundu,
           elle: false,
           not: g.kaynak_notu ? String(g.kaynak_notu) : null,
+          kaynaklar: Array.isArray(g.kaynaklar)
+            ? g.kaynaklar.slice(0, 3).map((k: any) => ({
+                site: String(k?.site || 'kaynak'),
+                baslik: String(k?.baslik || ''),
+                url: k?.url ? String(k.url) : null,
+                fiyat: kurus(sayi(k?.fiyat)),
+                kaynak_adi: k?.kaynak_adi ? String(k.kaynak_adi) : undefined,
+              }))
+            : [],
+          kdv_notu: g.kdv_notu ? String(g.kdv_notu) : null,
+          min: g.min === null || g.min === undefined ? null : kurus(sayi(g.min)),
+          maks: g.maks === null || g.maks === undefined ? null : kurus(sayi(g.maks)),
+          kaynak_sayisi: sayi(g.kaynak_sayisi),
+          kitap_kaydi: g.kitap_kaydi && typeof g.kitap_kaydi === 'object'
+            ? {
+                kaynak: String(g.kitap_kaydi.kaynak || ''),
+                guncelleme: g.kitap_kaydi.guncelleme ? String(g.kitap_kaydi.guncelleme) : null,
+                kullanim: sayi(g.kitap_kaydi.kullanim),
+              }
+            : null,
+          kaydedildi: false,
+          acik: false,
         };
       }));
 
+      // Özet satırı: kitap / web / tahmini kaç satır, web'de hangi kaynaklar cevap verdi
+      const kb = sayi(sonuc?.kitap?.bulunan);
+      const wb = sayi(sonuc?.web?.bulunan);
+      const ai = sayi(sonuc?.ai?.satir);
+      const cevaplayan = Array.isArray(sonuc?.web?.cevap_veren) ? sonuc.web.cevap_veren.join(', ') : '';
+      const yazilan = sayi(sonuc?.kitap?.yazilan);
+      setFiyatOzet([
+        `Kitaptan ${kb} · webden ${wb} · AI tahmini ${ai}`,
+        yazilan > 0 ? `${yazilan} fiyat kitaba öğrenildi` : '',
+        cevaplayan ? `cevap veren: ${cevaplayan}` : '',
+        `${(sayi(sonuc?.sure_ms) / 1000).toFixed(1)} sn · tüm tutarlar KDV hariç`,
+      ].filter(Boolean).join(' · '));
+
       if (sonuc.uyari) setFiyatUyari(String(sonuc.uyari));
-      else if (!sonuc.google_grounding) {
-        setFiyatUyari('Google fiyat araması sonuç vermedi — fiyatlar modelin TAHMİNİdir (KDV hariç). Elle düzeltebilirsiniz.');
+      else if (ai > 0) {
+        setFiyatUyari('Bazı satırlar gerçek kaynak bulunamadığı için TAHMİNİ fiyatla doldu (KDV hariç) — kullanmadan önce doğrulayın.');
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') {
@@ -536,9 +687,11 @@ export default function AkilliAnalizPage() {
       const adet = Math.max(1, Math.round(sayi(m.adet, 1)));
       const kaynakNotu = m.elle
         ? 'Elle girilen fiyat (KDV hariç)'
-        : m.kaynak === 'google'
-          ? 'Google fiyat araştırması (KDV hariç)'
-          : 'Tahmini fiyat (KDV hariç)';
+        : m.kaynak === 'kitap'
+          ? 'Fiyat kitabı — doğrulanmış fiyat (KDV hariç)'
+          : m.kaynak === 'web'
+            ? 'Ücretsiz web fiyat araştırması (KDV hariç)'
+            : 'TAHMİNİ fiyat — kaynak yok (KDV hariç)';
       liste.push({
         ad,
         detay: m.not ? `${kaynakNotu} · ${m.not}` : kaynakNotu,
@@ -634,7 +787,8 @@ export default function AkilliAnalizPage() {
         km: hesaplar.km,
         km_birim: kurus(kmBirim),
         kaynaklar: {
-          google: malzemeler.filter((m) => m.kaynak === 'google' && !m.elle && m.bulundu).length,
+          kitap: malzemeler.filter((m) => m.kaynak === 'kitap' && !m.elle && m.bulundu).length,
+          web: malzemeler.filter((m) => m.kaynak === 'web' && !m.elle && m.bulundu).length,
           tahmini: malzemeler.filter((m) => m.kaynak === 'tahmini' && !m.elle && m.bulundu).length,
           elle: malzemeler.filter((m) => m.elle && m.bulundu).length,
         },
@@ -715,7 +869,7 @@ export default function AkilliAnalizPage() {
   const dokum = useMemo(() => {
     const satirlar: {
       ad: string; detay: string; adet: number | null; birim: number | null;
-      toplam: number; kaynak: 'google' | 'tahmini' | 'elle' | 'iscilik' | 'yol' | 'diger' | 'aciliyet';
+      toplam: number; kaynak: 'kitap' | 'web' | 'tahmini' | 'elle' | 'iscilik' | 'yol' | 'diger' | 'aciliyet';
       guven: number; etiket?: string;
     }[] = [];
 
@@ -726,11 +880,17 @@ export default function AkilliAnalizPage() {
       const adet = Math.max(1, Math.round(sayi(m.adet, 1)));
       satirlar.push({
         ad,
-        detay: m.elle ? 'elle girildi' : m.kaynak === 'google' ? 'google araması' : m.bulundu ? 'model tahmini' : 'fiyat bulunamadı',
+        detay: m.elle
+          ? 'elle girildi'
+          : m.kaynak === 'kitap'
+            ? 'fiyat kitabı'
+            : m.kaynak === 'web'
+              ? `web araştırması${m.kaynak_sayisi > 1 ? ` (${m.kaynak_sayisi} kaynak)` : ''}`
+              : m.bulundu ? 'AI tahmini' : 'fiyat bulunamadı',
         adet,
         birim: m.bulundu ? birim : null,
         toplam: kurus(birim * adet),
-        kaynak: m.elle ? 'elle' : m.kaynak === 'google' ? 'google' : 'tahmini',
+        kaynak: m.elle ? 'elle' : (m.kaynak || 'tahmini'),
         guven: sayi(m.guven),
       });
     });
@@ -1229,8 +1389,80 @@ export default function AkilliAnalizPage() {
                           <KaynakRozet kaynak={m.kaynak} guven={m.guven} elle={m.elle} bulundu={m.bulundu} />
                         </span>
                       </div>
+
+                      {/* KAYNAK DETAYI: web fiyatıysa açılır liste + KDV notu */}
+                      {(m.kaynaklar.length > 0 || m.kdv_notu || m.kaynak_sayisi > 1) && (
+                        <div className="mt-1 pl-4">
+                          <div className="flex items-center flex-wrap gap-1.5">
+                            {m.kaynaklar.length > 0 && (
+                              <button onClick={() => kaynakAc(m.id)}
+                                className="text-[9px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-lg inline-flex items-center gap-1 hover:bg-blue-100">
+                                <Link2 size={9} /> KAYNAKLAR ({m.kaynaklar.length})
+                                {m.acik ? <ChevronUp size={9} /> : <ChevronDown size={9} />}
+                              </button>
+                            )}
+                            {m.kaynak_sayisi > 1 && m.min !== null && m.maks !== null && (
+                              <span className="text-[9px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg whitespace-nowrap">
+                                {para2(m.min)} – {para2(m.maks)} ₺ · KDV hariç
+                              </span>
+                            )}
+                            {m.kitap_kaydi && (
+                              <span className="text-[9px] font-bold text-violet-700 bg-violet-50 border border-violet-200 px-2 py-1 rounded-lg whitespace-nowrap">
+                                kitapta {m.kitap_kaydi.kullanim}× kullanıldı
+                              </span>
+                            )}
+                          </div>
+
+                          {m.acik && m.kaynaklar.length > 0 && (
+                            <div className="mt-1 space-y-1">
+                              {m.kaynaklar.map((k, ki) => (
+                                <div key={ki} className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[9px] font-black text-slate-600 truncate">{k.site}</span>
+                                    <span className="text-[9px] font-black text-slate-800 shrink-0">
+                                      {para2(k.fiyat)} ₺ <span className="text-slate-400 font-bold">KDV hariç</span>
+                                    </span>
+                                  </div>
+                                  <p className="text-[8px] text-slate-500 font-medium truncate" title={k.baslik}>{k.baslik || '—'}</p>
+                                  {k.url && (
+                                    <a href={k.url} target="_blank" rel="noopener noreferrer"
+                                      className="text-[8px] font-black text-blue-600 hover:underline inline-flex items-center gap-0.5 mt-0.5">
+                                      kaynağı aç <ExternalLink size={8} />
+                                    </a>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {m.kdv_notu && (
+                            <p className="text-[8px] text-amber-700 font-bold mt-1 leading-relaxed">
+                              ⓘ {m.kdv_notu}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       {m.not && (
-                        <p className="text-[8px] text-slate-400 font-medium mt-1 pl-4 truncate" title={m.not}>{m.not}</p>
+                        <p className="text-[8px] text-slate-400 font-medium mt-1 pl-4 leading-relaxed" title={m.not}>{m.not}</p>
+                      )}
+
+                      {/* ELLE DOĞRULA VE KAYDET → fiyat kitabı (öğrenen sistem) */}
+                      {m.bulundu && sayi(m.birim) > 0 && (
+                        <div className="flex items-center justify-end gap-1.5 mt-1 pl-4">
+                          {m.kaydedildi ? (
+                            <span className="text-[9px] font-black text-emerald-700 inline-flex items-center gap-1">
+                              <CheckCircle2 size={10} /> Kitaba kaydedildi
+                            </span>
+                          ) : (
+                            <button onClick={() => fiyatKaydet(m)} disabled={kaydetYuk === m.id}
+                              title="Bu fiyatı fiyat kitabına yaz — sonraki aramalarda anında gelsin"
+                              className="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg inline-flex items-center gap-1 hover:bg-emerald-100 disabled:opacity-50">
+                              {kaydetYuk === m.id ? <Loader2 size={9} className="animate-spin" /> : <Save size={9} />}
+                              Bu fiyatı kaydet
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   ))}
@@ -1242,9 +1474,16 @@ export default function AkilliAnalizPage() {
                   {fiyatYuk ? 'FİYATLAR ARAŞTIRILIYOR (≤40 sn)...' : 'MALZEME FİYATLARINI ARAŞTIR'}
                 </button>
                 <p className="text-[9px] text-slate-400 font-medium text-center mt-1.5 leading-relaxed">
-                  Google Search grounding → bulunamazsa model tahmini<br />
-                  Fiyatlar <strong>KDV hariç</strong> · bulunamayan satır 0 ₺ değil, elle girilir
+                  1) <strong>Fiyat kitabı</strong> (anında, ücretsiz) → 2) <strong>ücretsiz web araması</strong>
+                  {' '}(SearXNG · DuckDuckGo · Bing · n11 · Akakçe) → 3) <strong>AI tahmini</strong> (son çare)<br />
+                  Fiyatlar <strong>KDV hariç</strong> · perakende fiyatı 1,20'ye bölünür · bulunamayan satır 0 ₺ değil, elle girilir
                 </p>
+
+                {fiyatOzet && (
+                  <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5">
+                    <p className="text-[10px] font-bold text-emerald-800 leading-relaxed">{fiyatOzet}</p>
+                  </div>
+                )}
 
                 {fiyatUyari && (
                   <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
@@ -1499,7 +1738,7 @@ export default function AkilliAnalizPage() {
                           <td className="px-2 py-2 text-right text-[11px] font-black text-slate-800">{para2(k.toplam)} ₺</td>
                           <td className="px-3 py-2 text-right">
                             <KaynakRozet
-                              kaynak={k.kaynak === 'google' || k.kaynak === 'tahmini' ? k.kaynak : null}
+                              kaynak={k.kaynak === 'kitap' || k.kaynak === 'web' || k.kaynak === 'tahmini' ? k.kaynak : null}
                               guven={k.guven}
                               elle={k.kaynak === 'elle'}
                               bulundu={k.etiket ? true : k.birim !== null}

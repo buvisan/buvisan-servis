@@ -467,11 +467,14 @@ const kalanSure = (bitis: number): number => bitis - Date.now();
 /**
  * Bir malzeme grubunu fiyatlar.
  * 1) google_search grounding, 2) grounding olmadan tahmin, 3) yedek sağlayıcı.
+ * `sadeceTahmin: true` → grounding HİÇ denenmez (ücretsiz planda 429 veriyor;
+ * ücretsiz web araması zaten lib/malzemeFiyatWeb.ts içinde yapılıyor).
  */
 async function grupFiyatla(
   girdi: MalzemeGirdi[],
   baglam: { is_tipi?: string | null; musteri?: string | null },
-  bitis: number
+  bitis: number,
+  sadeceTahmin = false
 ): Promise<GrupSonuc> {
   const hatalar: string[] = [];
   const anahtar = geminiAnahtari();
@@ -480,7 +483,7 @@ async function grupFiyatla(
   let groundingUyari: string | null = null;
 
   // ─── 1) GERÇEK FİYAT: google_search grounding ───
-  if (anahtar) {
+  if (anahtar && !sadeceTahmin) {
     const model = modeller[0];
     const sure = Math.min(GROUNDING_SINIRI_MS, Math.max(0, kalanSure(bitis)) - 6_000);
     if (sure >= 4_000) {
@@ -521,7 +524,7 @@ async function grupFiyatla(
     } else {
       hatalar.push('Grounding için süre kalmadı.');
     }
-  } else {
+  } else if (!anahtar) {
     hatalar.push('Gemini anahtarı yok.');
   }
 
@@ -620,12 +623,17 @@ function girdiTemizle(malzemeler: MalzemeGirdi[]): MalzemeGirdi[] {
  * Malzemeler için gerçek/tahmini birim fiyatları araştırır.
  * Satırlar GRUP_BOYUT'lu gruplara bölünür, gruplar PARALEL aranır.
  * Hiçbir sağlayıcı çalışmazsa FiyatHatasi fırlatır (ekran elle girişe düşer).
+ *
+ * `sadeceTahmin: true` → yalnızca model TAHMİNİ üretilir (grounding atlanır).
+ * Fiyat motoru önce ücretsiz web aramasını + fiyat kitabını dener; AI yalnızca
+ * son çare olduğu için bu mod kullanılır (grounding ücretsiz planda 429 veriyor).
  */
 export async function malzemeFiyatlariArastir(girdi: {
   malzemeler: MalzemeGirdi[];
   is_tipi?: string | null;
   musteri?: string | null;
   butceMs?: number;
+  sadeceTahmin?: boolean;
 }): Promise<FiyatArastirmaSonucu> {
   const baslangic = Date.now();
   const bitis = baslangic + Math.max(8_000, Math.min(girdi.butceMs ?? TOPLAM_BUTCE_MS, TOPLAM_BUTCE_MS));
@@ -646,7 +654,9 @@ export async function malzemeFiyatlariArastir(girdi: {
   const gruplar: MalzemeGirdi[][] = [];
   for (let i = 0; i < temiz.length; i += GRUP_BOYUT) gruplar.push(temiz.slice(i, i + GRUP_BOYUT));
 
-  const sonuclar = await Promise.allSettled(gruplar.map((grup) => grupFiyatla(grup, baglam, bitis)));
+  const sonuclar = await Promise.allSettled(
+    gruplar.map((grup) => grupFiyatla(grup, baglam, bitis, girdi.sadeceTahmin === true))
+  );
 
   const satirlar: FiyatSatiri[] = [];
   const hatalar: string[] = [];
