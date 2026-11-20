@@ -208,5 +208,6 @@
   "207-akilli-analiz-musteri-fix.sql",
   "208-fiyat-motoru.sql",
   "209-malzeme-fiyat-kitabi.sql",
-  "210-depo-malzeme-fiyat-x2.sql"
+  "210-depo-malzeme-fiyat-x2.sql",
+  "211-personel-karlilik.sql"
 ]
