@@ -207,5 +207,6 @@
   "206-teklif-takip.sql",
   "207-akilli-analiz-musteri-fix.sql",
   "208-fiyat-motoru.sql",
-  "209-malzeme-fiyat-kitabi.sql"
+  "209-malzeme-fiyat-kitabi.sql",
+  "210-depo-malzeme-fiyat-x2.sql"
 ]
