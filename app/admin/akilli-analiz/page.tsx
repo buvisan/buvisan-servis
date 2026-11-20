@@ -675,8 +675,11 @@ export default function AkilliAnalizPage() {
   };
 
   // ─── PDF KALEMLERİ (aynı teklif şablonu kullanılır) ───
-  //  Kalemler MALİYET (KDV hariç) olarak yazılır; şablonun altında ARA TOPLAM,
-  //  KÂR MARJI ve GENEL TOPLAM satırları görünür (lib/formHtml.ts → teklifHtml).
+  //  Kalemler MALİYET (KDV hariç) olarak yazılır; kâr marjı şablonda kalemlere
+  //  dağıtılır (lib/formHtml.ts → teklifHtml).
+  //  ⚠️ YOL BEDELİ AYRI KALEM DEĞİLDİR: mesafe ve km birim ücreti müşteriye
+  //  dönük bilgi değildir → km × km ücreti doğrudan İŞÇİLİK tutarına eklenir;
+  //  kalem listesine "Yol / Ulaşım" satırı YAZILMAZ (tek satır işçilik kalır).
   const pdfKalemleri = (): any[] => {
     const liste: any[] = [];
 
@@ -701,23 +704,22 @@ export default function AkilliAnalizPage() {
       });
     });
 
-    if (hesaplar.iscilik > 0) {
+    // İŞÇİLİK + YOL → TEK SATIR (KDV hariç)
+    //  Yol bedeli (km × km ücreti) işçiliğin tutarına dahil edilir; kalem
+    //  listesinde ayrı "Yol / Ulaşım" satırı oluşmaz. Alt açıklamada saat ücreti
+    //  ve km birim ücreti GÖSTERİLMEZ → yalnızca ekip × süre yazar.
+    //  İşçilik yoksa (sadece mesafe girilmişse) yine "İşçilik" adıyla tek satır
+    //  yazılır → teklif tutarsız/boş kalmaz.
+    const iscilikYol = kurus(hesaplar.iscilik + hesaplar.yol);
+    if (iscilikYol > 0) {
       liste.push({
         ad: 'İşçilik',
-        detay: `${hesaplar.teknisyenSayi} teknisyen × ${para2(hesaplar.sureSaat)} saat × ${para2(saatUcreti)} ₺/saat (KDV hariç)`,
+        detay: hesaplar.iscilik > 0
+          ? `${hesaplar.teknisyenSayi} teknisyen × ${para2(hesaplar.sureSaat)} saat (KDV hariç)`
+          : 'KDV hariç',
         adet: 1,
-        birim_fiyat: hesaplar.iscilik,
-        toplam: hesaplar.iscilik,
-      });
-    }
-
-    if (hesaplar.yol > 0) {
-      liste.push({
-        ad: 'Yol / Ulaşım',
-        detay: `${para2(hesaplar.km)} km × ${para2(kmBirim)} ₺/km (KDV hariç)`,
-        adet: 1,
-        birim_fiyat: hesaplar.yol,
-        toplam: hesaplar.yol,
+        birim_fiyat: iscilikYol,
+        toplam: iscilikYol,
       });
     }
 
@@ -754,8 +756,10 @@ export default function AkilliAnalizPage() {
     const notlar = [
       'Tüm tutarlar KDV hariçtir.',
       `Teklif ${gecerlilik.split('-').reverse().join('.')} tarihine kadar geçerlidir.`,
-      `Kapsam: ${fIsTipi.trim() || 'Vinç servis / bakım'}${hesaplar.km > 0 ? ` · ${para2(hesaplar.km)} km mesafe` : ''}${fAcil ? ' · ACİL İŞ' : ''}.`,
-      `Maliyet dökümü (KDV hariç): malzeme ${para2(hesaplar.malzemeToplam)} ₺ + işçilik ${para2(hesaplar.iscilik)} ₺ + yol ${para2(hesaplar.yol)} ₺ + diğer ${para2(hesaplar.digerToplam)} ₺${hesaplar.aciliyetTutar > 0 ? ` + aciliyet ${para2(hesaplar.aciliyetTutar)} ₺` : ''} = ${para2(hesaplar.maliyet)} ₺.`,
+      // Kapsam SADECE iş/isim listesi: mesafe (km) bilgisi buraya YAZILMAZ.
+      `Kapsam: ${fIsTipi.trim() || 'Vinç servis / bakım'}${fAcil ? ' · ACİL İŞ' : ''}.`,
+      // Yol bedeli işçiliğe dahil edildiği için dökümde ayrı "yol" terimi yoktur.
+      `Maliyet dökümü (KDV hariç): malzeme ${para2(hesaplar.malzemeToplam)} ₺ + işçilik ${para2(hesaplar.iscilik + hesaplar.yol)} ₺ + diğer ${para2(hesaplar.digerToplam)} ₺${hesaplar.aciliyetTutar > 0 ? ` + aciliyet ${para2(hesaplar.aciliyetTutar)} ₺` : ''} = ${para2(hesaplar.maliyet)} ₺.`,
       `Uygulanan kâr marjı: %${para2(marj)}.`,
     ].join('\n');
 

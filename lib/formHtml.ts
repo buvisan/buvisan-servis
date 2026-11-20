@@ -582,6 +582,78 @@ function kurusla(n: any): number {
   return Math.round(Number((v * 100).toFixed(6))) / 100;
 }
 
+// ─── YOL / ULAŞIM KALEMİ MÜŞTERİYE BASILMAZ ───
+// Fiyat motoru bir dönem kalem listesine ayrı bir "Yol / Ulaşım" satırı yazıyordu.
+// Mesafe ve km birim ücreti müşteriye dönük bilgi değildir: bu satırlar TABLOYA
+// BASILMAZ, tutarları İŞÇİLİK satırına eklenir (işçilik satırı yoksa "İşçilik"
+// adıyla tek satır oluşturulur). Birleştirme MALİYET (marj öncesi) seviyesinde
+// yapılır → marj ve kuruş dağıtımı bozulmaz.
+/** Kayıtlardan gelebilecek kalem nesnesinin bu şablonun kullandığı alanları. */
+type KalemKaydi = { ad?: unknown; description?: unknown; malzeme?: unknown; detay?: unknown };
+
+/** Kalem adını Türkçe'ye duyarlı biçimde sözcüklere ayırır (İ/I, ş/s, ğ/g…). */
+function kalemJetonlari(ad: string): string[] {
+  return String(ad ?? "")
+    .toLocaleLowerCase("tr-TR")
+    .replace(/ı/g, "i").replace(/ş/g, "s").replace(/ğ/g, "g")
+    .replace(/ç/g, "c").replace(/ö/g, "o").replace(/ü/g, "u")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+}
+
+/** Kalemin müşteriye basılan adı (kayıtlarda ad / description / malzeme). */
+function kalemAdi(k: KalemKaydi | null | undefined): string {
+  return String(k?.ad ?? k?.description ?? k?.malzeme ?? "").trim();
+}
+
+// Sözcük TAM eşleşmesi: "Yolcu asansörü" gibi malzemeler yanlışlıkla yol sayılmaz.
+const YOL_JETONLARI = new Set(["yol", "yolu", "ulasim", "nakliye", "nakliyesi", "km"]);
+
+function yolKalemiMi(k: KalemKaydi | null | undefined): boolean {
+  return kalemJetonlari(kalemAdi(k)).some((j) => YOL_JETONLARI.has(j));
+}
+
+/** "İşçilik", "İşçiliği", "İŞÇİLİK BEDELİ" → işçilik satırı. */
+function iscilikKalemiMi(k: KalemKaydi | null | undefined): boolean {
+  return kalemJetonlari(kalemAdi(k)).some((j) => j.startsWith("iscili"));
+}
+
+// ─── MESAFE (km) İFADELERİ MÜŞTERİ NOTLARINDAN AYIKLANIR ───
+// "240 km", "240,5 km mesafe", "(240 km)", ", 240 km mesafe" gibi ifadeler
+// kapsamda / açıklamada / notlarda görünmez; bağlaç ve parantez artıkları da
+// (",", "·", "-", boş parantez) temizlenir.
+const KM_IFADESI = /\d+(?:[.,]\d+)?\s*km(?:\s*mesafe)?/gi;
+
+function mesafeTemizle(metin: unknown): string {
+  const ham = metin === null || metin === undefined ? "" : String(metin);
+  if (!ham) return ham;
+  return ham
+    .split(/\r?\n/)
+    .map((satir) => {
+      const kirpilmis = satir.replace(KM_IFADESI, " ");
+      // Mesafe ifadesi YOKSA metne dokunulmaz (madde işaretleri, tarihler,
+      // "KDV hariç" gibi satırlar birebir korunur).
+      if (kirpilmis === satir) return satir.trim();
+      let s = kirpilmis;
+      s = s.replace(/[([{]\s*[)\]}]\s*/g, " ");           // boş kalan parantezler
+      for (let i = 0; i < 3; i++) {                        // "· - ;" → tek ayraç
+        s = s.replace(/([·•|,;:–—-])\s*(?=[·•|,;:–—-])/g, "");
+      }
+      s = s.replace(/[·•|–—-]\s*([.])/g, "$1");            // "· ." → "."
+      s = s.replace(/[,;:]+(?=\s*[.!?]|$)/g, "");          // "…, ." → "… ."
+      s = s.replace(/\s+([.,;:!?])/g, "$1");               // " ." → "."
+      s = s.replace(/^[\s·•|,;:–—-]+/, "");                // satır başı ayraç
+      s = s.replace(/[\s·•|,;:–—-]+$/, "");                // satır sonu ayraç
+      s = s.replace(/\s{2,}/g, " ");                       // çoklu boşluk
+      return s.trim();
+    })
+    .join("\n")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
 /** Kalem altı açıklamasını müşteriye dönük sade metne çevirir (tutarlar KDV hariç). */
 function musteriDetay(detay: any): string {
   const ham = detay === null || detay === undefined ? "" : String(detay);
@@ -599,10 +671,10 @@ function musteriDetay(detay: any): string {
   const iscilik = d.match(/^(\d+)\s*teknisyen\s*[×x]\s*([\d.,]+)\s*saat/i);
   if (iscilik) return `${iscilik[1]} teknisyen × ${iscilik[2]} saat (KDV hariç)`;
 
-  // Yol satırı: "120 km × 19,50 ₺/km (KDV hariç)" → "120 km (KDV hariç)"
-  // km birim ücreti MALİYET bilgisidir; müşteriye basılmaz.
+  // Yol satırı detayı: "120 km × 19,50 ₺/km (KDV hariç)" → "KDV hariç"
+  // Mesafe/km bilgisi müşteriye BASILMAZ (kalem adı tanınmasa bile sızmasın).
   const yol = d.match(/^([\d.,]+)\s*km\s*[×x]/i);
-  if (yol) return `${yol[1]} km (KDV hariç)`;
+  if (yol) return "KDV hariç";
 
   return ham; // kural tutmadı → eski kayıtlardaki metin aynen basılır
 }
@@ -628,13 +700,46 @@ export function teklifHtml(t: any, kalemler: any[]): string {
     const tt = Number(k?.toplam) || adet * bf;
     return { k, adet, bf, tt };
   });
-  const maliyetToplam = satirlar.reduce((top: number, s) => top + s.tt, 0);
+
+  // ─── YOL / ULAŞIM → İŞÇİLİK (birleştirme MALİYET seviyesinde) ───
+  // Yol satırları tabloya BASILMAZ; tutarları işçilik satırına eklenir. Birleştirme
+  // marj UYGULANMADAN önce yapılır → marj dağıtımı tek (birleşik) satır üzerinden
+  // doğru hesaplanır, kuruş dağıtımı da sonraki adımda bozulmadan çalışır.
+  const kalanlar: { k: KalemKaydi; adet: number; bf: number; tt: number }[] = [];
+  let yolMaliyet = 0;
+  let yolIkonum = -1; // ilk yol satırının "kalanlar" içindeki sırası (yoksa -1)
+  for (const s of satirlar) {
+    if (yolKalemiMi(s.k)) {
+      if (yolIkonum < 0) yolIkonum = kalanlar.length;
+      yolMaliyet = kurusla(yolMaliyet + s.tt);
+      continue;
+    }
+    kalanlar.push(s);
+  }
+
+  let birlesik = kalanlar;
+  if (yolMaliyet > 0) {
+    const isc = kalanlar.findIndex((s) => iscilikKalemiMi(s.k));
+    if (isc >= 0) {
+      // İşçilik TEK satır kalır; yol bedeli tutarına eklenir (miktar 1'e sabitlenir).
+      const tt = kurusla(kalanlar[isc].tt + yolMaliyet);
+      birlesik = kalanlar.slice();
+      birlesik[isc] = { k: kalanlar[isc].k, adet: 1, bf: tt, tt };
+    } else {
+      // İşçilik satırı yok → "İşçilik" adıyla tek satır oluştur (tutar = yol bedeli).
+      const yeni = { k: { ad: "İşçilik", detay: "" }, adet: 1, bf: yolMaliyet, tt: yolMaliyet };
+      const yer = yolIkonum >= 0 ? yolIkonum : kalanlar.length;
+      birlesik = [...kalanlar.slice(0, yer), yeni, ...kalanlar.slice(yer)];
+    }
+  }
+
+  const maliyetToplam = kurusla(birlesik.reduce((top: number, s) => top + s.tt, 0));
 
   // Basılacak (satış) kalemler: marj yoksa değerler birebir korunur.
   // Birim fiyat ve tutar ayrı ayrı 2 ondalığa (kuruşa) yuvarlanır. Tutar, BASILAN
   // satış birim fiyatı × miktar olarak hesaplanır → müşteri satırda çarpınca tutar.
   // Birim fiyatı olmayan (kapalı tutar) satırda tutar doğrudan marjlanır.
-  const basilan = satirlar.map((s) => {
+  const basilan = birlesik.map((s) => {
     const bfSatis = marjVar ? kurusla(s.bf * carpan) : s.bf;
     const ttSatis = !marjVar ? s.tt
       : s.bf > 0 ? kurusla(bfSatis * s.adet)
@@ -665,7 +770,9 @@ export function teklifHtml(t: any, kalemler: any[]): string {
 
   // Notlar: maliyet dökümü ve "uygulanan kâr marjı" satırları müşteriye
   // gösterilmez. KDV ibaresi, geçerlilik tarihi ve kapsam satırları kalır.
-  const notlar = musteriNotlari(t?.description)
+  // Ek olarak mesafe (km) ifadeleri kapsam/açıklama/notlardan ayıklanır — eski
+  // kayıtlarda "· 240 km mesafe" yazsa bile PDF'te mesafe görünmez.
+  const notlar = mesafeTemizle(musteriNotlari(t?.description))
     || "Bu teklif 15 gün süreyle geçerlidir. Fiyatlara KDV dahil değildir.";
 
   const baslik =
@@ -699,9 +806,12 @@ export function teklifHtml(t: any, kalemler: any[]): string {
     <tbody>
       ${basilan.length > 0
         ? basilan.map((s) => {
+            // Alt açıklama da müşteriye dönük süzgeçten geçer: işçilikte yalnızca
+            // "2 teknisyen × 32 saat (KDV hariç)" kalır; saat ücreti / km ücreti
+            // ve yol satırı detayı basılmaz.
             const detay = musteriDetay(s.k?.detay);
             return `<tr>
-              <td><b>${esc(s.k?.ad || s.k?.description || "—")}</b>${detay ? `<div style="font-size:9.5px;color:#64748b;margin-top:3px;font-weight:500">${esc(detay)}</div>` : ""}</td>
+              <td><b>${esc(kalemAdi(s.k) || "—")}</b>${detay ? `<div style="font-size:9.5px;color:#64748b;margin-top:3px;font-weight:500">${esc(detay)}</div>` : ""}</td>
               <td class="orta">${s.adet}</td>
               <td class="sag">${para(s.bf)}</td>
               <td class="sag"><b>${para(s.tt)}</b></td>
